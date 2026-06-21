@@ -29,7 +29,6 @@ export default function UploadPanel({ onUploaded }) {
         <span>{file ? file.name : "Choose document"}</span>
         <input
           type="file"
-          accept=".md,.txt"
           onChange={(event) => {
             const selectedFile = event.target.files[0];
             if (selectedFile) {

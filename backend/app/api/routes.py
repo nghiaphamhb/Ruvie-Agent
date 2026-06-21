@@ -8,6 +8,11 @@ from app.core.config import settings
 from app.services.retriever import search_documents
 from app.services.llm import generate_answer
 from app.services.ingest import ingest_documents
+from app.services.converter import (
+    MarkdownConversionError,
+    UnsupportedFileTypeError,
+    convert_to_markdown,
+)
 
 logger = logging.getLogger(__name__)
 router = APIRouter()
@@ -43,6 +48,7 @@ class IngestResponse(BaseModel):
 class UploadData(BaseModel):
     filename: str
     saved_path: str
+    markdown_path: str
 
 class UploadResponse(BaseModel):
     status: str
@@ -53,7 +59,7 @@ def build_context(results) -> str:
     context_parts = []
 
     for doc, score in results:
-        source = doc.metadata.get("source", "unknown")
+        source = doc.metadata.get("original_file") or doc.metadata.get("source", "unknown")
         content = doc.page_content
 
         context_parts.append(
@@ -91,7 +97,7 @@ def ask(request: AskRequest):
         for doc, score in results:
             sources.append(
                 Source(
-                    file=doc.metadata.get("source", "unknown"),
+                    file=doc.metadata.get("original_file") or doc.metadata.get("source", "unknown"),
                     preview=doc.page_content[:200],
                 )
             )
@@ -139,20 +145,33 @@ def ingest():
 @router.post("/upload", response_model=UploadResponse)
 async def upload_document(file: UploadFile = File(...)):
     try:
-        allowed_extensions = {".md", ".txt"}
+        allowed_extensions = {
+            ".md",
+            ".pdf",
+            ".docx",
+            ".pptx",
+            ".xlsx",
+            ".html",
+            ".csv",
+            ".json",
+            ".txt",
+        }
 
-        filename = file.filename or ""
+        filename = Path(file.filename or "").name
         file_ext = Path(filename).suffix.lower()
 
         if file_ext not in allowed_extensions:
             raise HTTPException(
                 status_code=400,
-                detail="Only .md and .txt files are allowed.",
+                detail="Unsupported file type.",
             )
-        
-        upload_dir = settings.MARKDOWN_DIR
-        upload_dir.mkdir(parents=True, exist_ok=True)
 
+        if file_ext == ".md":
+            upload_dir = settings.MARKDOWN_DIR
+        else:
+            upload_dir = settings.RAW_DOCUMENT_DIR
+
+        upload_dir.mkdir(parents=True, exist_ok=True)
         saved_path = upload_dir / filename
 
         content = await file.read()
@@ -161,9 +180,15 @@ async def upload_document(file: UploadFile = File(...)):
                 status_code=400,
                 detail="Uploaded file is empty.",
             )
+
         saved_path.write_bytes(content)
 
-        logger.info("Uploaded file saved: %s", saved_path)
+        try:
+            markdown_path = convert_to_markdown(saved_path)
+        except UnsupportedFileTypeError as exc:
+            raise HTTPException(status_code=400, detail=str(exc)) from exc
+        except MarkdownConversionError as exc:
+            raise HTTPException(status_code=422, detail=str(exc)) from exc
 
         ingest_documents()
 
@@ -175,6 +200,7 @@ async def upload_document(file: UploadFile = File(...)):
             data=UploadData(
                 filename=filename,
                 saved_path=str(saved_path),
+                markdown_path=str(markdown_path),
             ),
         )
     except HTTPException:

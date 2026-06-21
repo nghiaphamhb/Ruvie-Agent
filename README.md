@@ -1,102 +1,52 @@
 # Ruvie Assistant
 
-![Ruvie Assistant Wallpaper](frontend/src/assets/wallpaper.png)
-
-<p align="center">
-  <strong>Minimal local RAG application for Markdown knowledge bases, built with a FastAPI backend and a React/Vite frontend.</strong>
-</p>
-
-## Overview
-
-Ruvie Assistant is a lightweight local retrieval-augmented generation project for Markdown documents.
-It is designed for simple, local-first knowledge workflows:
-
-- index Markdown files into a local vector database
-- retrieve relevant chunks for each question
-- generate grounded answers through an OpenRouter-compatible LLM endpoint
-- manage ingestion and uploads from a React chat interface
-
-The repository is split into two main parts:
-
-- `backend/`: FastAPI API, ingestion pipeline, retrieval, and LLM integration
-- `frontend/`: React 19 + Vite client
+Ruvie Assistant is a local RAG app for asking questions over a document knowledge base. It uses a FastAPI backend, a React/Vite frontend, ChromaDB for vector search, FastEmbed for embeddings, and an OpenRouter-compatible chat model for answers.
 
 ## Features
 
-- Local Markdown ingestion
-- Chroma-backed vector search
-- FastEmbed embeddings
-- Grounded answer generation with source previews
-- React chat UI with assistant/user message rendering
-- Local multi-chat history persisted in `localStorage`
-- Edit-and-retry flow for user messages
-- Regenerate flow for the latest assistant answer
-- Markdown rendering in assistant messages
-- Collapsible source previews in chat
-- Sticky chat input and auto-scroll behavior
-- Upload support for `.md` and `.txt` files
-- Manual knowledge base rebuild from the frontend
+- Upload documents from the UI.
+- Convert supported files to Markdown with MarkItDown before indexing.
+- Ingest Markdown into a local Chroma vector database.
+- Ask questions and get grounded answers with source previews.
+- Keep local chat history in the browser.
+- Rebuild the knowledge base manually from the UI.
 
-## Tech Stack
-
-### Backend
-
-- Python
-- FastAPI
-- Uvicorn
-- ChromaDB
-- FastEmbed
-- LangChain integrations
-- OpenAI SDK with OpenRouter-compatible base URL
-
-### Frontend
-
-- React 19
-- Vite
-- JavaScript + JSX
-- CSS
-- `lucide-react`
-- `react-markdown`
-- `remark-gfm`
-- ESLint
-- Prettier
-- Husky + lint-staged
+Supported upload formats include `.md`, `.txt`, `.pdf`, `.docx`, `.pptx`, `.xlsx`, `.html`, `.csv`, and `.json`.
 
 ## Repository Layout
 
 ```text
 backend/
   app/
-    api/
-    core/
+    api/routes.py          # API endpoints: ask, ingest, upload
+    core/config.py         # environment settings
     services/
-    main.py
-  data/markdown/
-  chroma_db/
+      converter.py         # MarkItDown conversion
+      ingest.py            # Markdown loading, splitting, embedding
+      retriever.py         # Chroma retrieval
+      llm.py               # LLM answer generation
+    main.py                # FastAPI app and CORS
+  data/
+    markdown/              # source Markdown files
+    markdown/converted_md/ # converted Markdown files
+    uploads/               # uploaded original files
   requirements.txt
 
 frontend/
-  .husky/
   src/
-    api/
-    assets/
-    components/
-      chat/
-      documents/
-      layout/
+    api/                   # backend API client
+    components/            # chat, document, and layout UI
     App.jsx
     index.css
     main.jsx
   package.json
-  eslint.config.js
-  vite.config.js
 ```
 
 ## Quick Start
 
 Run backend and frontend in separate terminals.
 
-### 1. Start the Backend
+### Backend
 
 ```bash
 cd backend
@@ -104,12 +54,12 @@ python -m venv .venv
 .venv\Scripts\activate
 pip install -r requirements.txt
 copy .env-example .env
-uvicorn app.main:app --reload
+python -m uvicorn app.main:app --reload
 ```
 
-Backend default URL: `http://127.0.0.1:8000`
+Backend URL: `http://localhost:8000`
 
-### 2. Start the Frontend
+### Frontend
 
 ```bash
 cd frontend
@@ -118,68 +68,49 @@ copy .env.example .env
 npm run dev
 ```
 
-Frontend default URL: `http://127.0.0.1:5173`
+Frontend URL: `http://localhost:5173`
 
-## Environment Variables
+## Environment
 
-### Backend
-
-Configure `backend/.env` with:
-
-- `LLM_API_KEY`
-- `LLM_MODEL`
-- `MARKDOWN_DIR`
-- `CHROMA_DIR`
-- `CHROMA_COLLECTION`
-- `OPENROUTER_BASE_URL`
-- `APP_NAME`
-- `APP_URL`
-- `FRONT_END_URL`
-
-Example values are already provided in `backend/.env-example`.
-
-### Frontend
-
-Configure `frontend/.env` with:
-
-- `VITE_API_BASE_URL`
-
-Typical local value:
+Backend settings live in `backend/.env`.
 
 ```env
-VITE_API_BASE_URL=http://127.0.0.1:8000
+LLM_API_KEY=your_api_key_here
+LLM_MODEL=gpt-4o-mini
+MARKDOWN_DIR=data/markdown
+CHROMA_DIR=chroma_db
+CHROMA_COLLECTION=ruvie_markdown
+OPENROUTER_BASE_URL=https://openrouter.ai/api/v1
+APP_NAME=Ruvie
+APP_URL=http://localhost:8000
+FRONT_END_URLS=http://localhost:5173,http://127.0.0.1:5173
+RAW_DOCUMENT_DIR=data/uploads
+CONVERTED_MARKDOWN_DIR=data/markdown/converted_md
 ```
 
-## Basic Usage
+Frontend settings live in `frontend/.env`.
 
-1. Add Markdown files to `backend/data/markdown`.
-2. Start the backend.
-3. Start the frontend.
-4. Rebuild the knowledge base using `POST /ingest` or the rebuild action in the UI.
-5. Ask a question in the chat interface.
-6. Regenerate the latest assistant answer when you want a fresh retry.
-7. Edit a previous user message to truncate later messages and re-run the conversation from that point.
-8. Upload additional `.md` or `.txt` files when needed.
-9. Reload the page and continue from the locally saved chat history.
+```env
+VITE_API_BASE_URL=http://localhost:8000
+```
 
-## Frontend Chat UX
+## Pipeline
 
-- Assistant replies render Markdown, including paragraphs, bullet lists, numbered lists, inline code, fenced code blocks, and tables.
-- Source previews are shown in a collapsible section under assistant messages.
-- Only the latest assistant reply exposes `Regenerate`.
-- User messages expose `Edit`, with `Save` and `Cancel` inline actions.
-- Chat history is stored locally in the browser and restored automatically on reload.
-- The sidebar includes `Start a New Chat` and `Clear all chats`.
-- The chat input stays visible near the bottom of the viewport while scrolling.
+1. A user uploads a document.
+2. Non-Markdown files are saved in `data/uploads/`.
+3. MarkItDown converts supported files into `.md` files under `data/markdown/converted_md/`.
+4. The ingest pipeline loads Markdown from `data/markdown/**/*.md`.
+5. Documents are split into chunks, embedded with FastEmbed, and stored in Chroma.
+6. Questions retrieve relevant chunks and send them to the LLM for grounded answers.
 
-## API Endpoints
+## API
 
-- `GET /health`: returns application status
-- `POST /ask`: retrieves relevant chunks and returns `answer` plus `sources`
-- `POST /ingest`: rebuilds the Chroma database from Markdown files
-- `POST /upload`: stores an uploaded `.md` or `.txt` file in `MARKDOWN_DIR` and re-indexes the knowledge base
+- `GET /health` checks backend status.
+- `POST /upload` uploads, converts, and indexes a document.
+- `POST /ingest` rebuilds the knowledge base from Markdown files.
+- `POST /ask` retrieves relevant chunks and returns an answer with sources.
 
-Example `POST /ask` request:
+Example ask request:
 
 ```json
 {
@@ -187,32 +118,19 @@ Example `POST /ask` request:
 }
 ```
 
-Example response shape:
+## Useful Commands
 
-```json
-{
-  "status": "success",
-  "message": "Answer generated successfully.",
-  "data": {
-    "answer": "...",
-    "sources": [
-      {
-        "file": "data/markdown/intro.md",
-        "preview": "..."
-      }
-    ]
-  }
-}
-```
-
-## Frontend Quality Checks
-
-From `frontend/`:
+Frontend checks:
 
 ```bash
+cd frontend
 npm run lint
-npm run format
 npm run build
 ```
 
-Pre-commit checks are wired through Husky and lint-staged.
+Backend import check:
+
+```bash
+cd backend
+python -c "import app.main; print('backend ok')"
+```

@@ -1,13 +1,16 @@
 .env
 .env.local
 .env.*.local
+
+# backend 
 .venv/
 __pycache__/
 *.py[cod]
 .pytest_cache/
-
 chroma_db/
+backend/data/ 
 
+# frontend
 node_modules/
 **/node_modules
 .vite/

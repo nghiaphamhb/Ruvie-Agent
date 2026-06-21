@@ -1,4 +1,5 @@
 import shutil
+import json
 from pathlib import Path
 
 from langchain_community.document_loaders import DirectoryLoader, TextLoader
@@ -25,8 +26,8 @@ def load_markdown_documents():
         show_progress=True,
     )
 
-    document = loader.load()
-    return document
+    documents = loader.load()
+    return enrich_document_metadata(documents)
 
 def split_documents(documents):
     splitter = RecursiveCharacterTextSplitter(
@@ -72,6 +73,36 @@ def ingest_documents():
     print("Ingestion completed.")
     print(f"Chroma DB saved at: {CHROMA_DIR}")
 
+def enrich_document_metadata(documents):
+    for document in documents:
+        source = Path(document.metadata.get("source", ""))
+        cache_path = source.with_suffix(".json")
 
-# if __name__ == "__main__":
-#     ingest_documents()
+        if cache_path.exists():
+            try:
+                metadata = json.loads(cache_path.read_text(encoding="utf-8"))
+                metadata.setdefault("original_file", metadata.get("source_file", str(source)))
+                metadata.setdefault("original_extension", metadata.get("source_extension", source.suffix.lower()))
+                metadata.setdefault("markdown_file", str(source))
+                metadata.setdefault("converter", "markitdown")
+                document.metadata.update(metadata)
+            except (OSError, json.JSONDecodeError):
+                document.metadata.update(
+                    {
+                        "original_file": str(source),
+                        "markdown_file": str(source),
+                        "converter": "markitdown",
+                        "original_extension": source.suffix.lower(),
+                    }
+                )
+        else:
+            document.metadata.update(
+                {
+                    "original_file": str(source),
+                    "markdown_file": str(source),
+                    "converter": "none",
+                    "original_extension": source.suffix.lower(),
+                }
+            )
+
+    return documents
