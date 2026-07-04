@@ -1,0 +1,4 @@
+interface:
+  display_name: "Start Ruvie Assistant Dev"
+  short_description: "Boot this repo in local dev mode"
+  default_prompt: "Use $start-ruvie-assistant-dev to start or verify the local Ruvie Assistant dev environment."
