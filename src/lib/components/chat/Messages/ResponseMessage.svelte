@@ -36,11 +36,9 @@
 		removeDetails,
 		removeAllDetails
 	} from '$lib/utils';
-	import { WEBUI_API_BASE_URL, WEBUI_BASE_URL } from '$lib/constants';
 	import equal from 'fast-deep-equal';
 
 	import Name from './Name.svelte';
-	import ProfileImage from './ProfileImage.svelte';
 	import Skeleton from './Skeleton.svelte';
 	import Image from '$lib/components/common/Image.svelte';
 	import Tooltip from '$lib/components/common/Tooltip.svelte';
@@ -65,6 +63,7 @@
 	import FullHeightIframe from '$lib/components/common/FullHeightIframe.svelte';
 	import OutputEditView from './OutputEditView.svelte';
 	import { getOutputText, replaceOutputMessageText, type OutputItem } from './structuredOutput';
+	import BrandAvatar from '../BrandAvatar.svelte';
 
 	interface MessageType {
 		id: string;
@@ -655,10 +654,7 @@
 		style="scroll-margin-top: 3rem;"
 	>
 		<div class={`shrink-0 ltr:mr-3 rtl:ml-3 hidden @lg:flex mt-1 `}>
-			<ProfileImage
-				src={`${WEBUI_API_BASE_URL}/models/model/profile/image?id=${model?.id}&lang=${$i18n.language}`}
-				className={'size-8 assistant-message-profile-image'}
-			/>
+			<BrandAvatar />
 		</div>
 
 		<div class="flex-auto w-0 pl-1 relative">

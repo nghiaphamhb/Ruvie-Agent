@@ -230,7 +230,7 @@
 />
 
 <div class="w-full h-screen max-h-[100dvh] text-white relative" id="auth-page">
-	<div class="w-full h-full absolute top-0 left-0 bg-white dark:bg-black"></div>
+	<div class="theme-paper-bg w-full h-full absolute top-0 left-0"></div>
 
 	<div class="w-full absolute top-0 left-0 right-0 h-8 drag-region" />
 
@@ -615,7 +615,14 @@
 							id="logo"
 							crossorigin="anonymous"
 							src="{WEBUI_BASE_URL}/static/favicon.png"
-							class=" w-6 rounded-full"
+							class="w-6 rounded-full dark:hidden"
+							alt=""
+						/>
+						<img
+							id="logo-dark"
+							crossorigin="anonymous"
+							src="{WEBUI_BASE_URL}/static/favicon-dark.png"
+							class="hidden w-6 rounded-full dark:block"
 							alt=""
 						/>
 					</div>

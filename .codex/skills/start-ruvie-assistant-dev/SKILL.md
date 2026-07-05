@@ -8,7 +8,7 @@ description: Start the Ruvie Assistant repository in local development mode on W
 Start this workspace in two separate long-lived sessions: backend first, then frontend. Prefer the repo-specific commands below over generic project scripts because this repository has two local quirks in Codex:
 
 - `npm run dev` triggers `scripts/prepare-pyodide.js`, which tries to fetch remote assets and can fail in restricted environments.
-- Starting the backend directly with `uvicorn` works well here, but only if `WEBUI_SECRET_KEY` is already set.
+- PowerShell expands `*` in `--forwarded-allow-ips "*"`, so the simplest reliable backend command for local dev is to omit that flag entirely.
 
 ## Quick Checks
 
@@ -25,7 +25,7 @@ If `.env` does not already define `WEBUI_SECRET_KEY`, add a long dev-only secret
 Start the backend with:
 
 ```powershell
-.venv\Scripts\uvicorn.exe open_webui.main:app --app-dir backend --host 127.0.0.1 --port 8080 --forwarded-allow-ips "*" --reload
+.\.venv\Scripts\uvicorn.exe open_webui.main:app --app-dir backend --host 127.0.0.1 --port 8080 --reload
 ```
 
 Treat `http://127.0.0.1:8080/health` as the backend readiness check.
@@ -35,6 +35,7 @@ Notes:
 - A warning such as `No module named 'sentence_transformers'` is non-blocking if the health endpoint succeeds.
 - If startup fails with a message about `WEBUI_SECRET_KEY`, repair the env value and retry.
 - If Python dependencies are missing, install them into `.venv`, not into a global interpreter.
+- If you specifically need `--forwarded-allow-ips *` for proxy testing, use PowerShell's stop-parsing form: `.\.venv\Scripts\uvicorn.exe --% open_webui.main:app --app-dir backend --host 127.0.0.1 --port 8080 --forwarded-allow-ips * --reload`.
 
 ## Frontend
 
@@ -43,12 +44,12 @@ Do not use `npm run dev` in this environment unless network access is confirmed 
 Start the frontend with:
 
 ```powershell
-node_modules\.bin\vite.cmd dev --host
+.\node_modules\.bin\vite.cmd dev --host 0.0.0.0
 ```
 
 Treat `http://localhost:5173/` as the frontend readiness check.
 
-Repo-specific reason: [src/lib/constants.ts](/E:/Desktop/GitHub%20Repository/Ruvie-Assistant/src/lib/constants.ts) points the frontend to `http://<current-host>:8080` during dev, so the backend must already be listening on port `8080`.
+Repo-specific reason: `src/lib/constants.ts` points the frontend to `http://<current-host>:8080` during dev, so the backend must already be listening on port `8080`.
 
 ## Verification
 
@@ -65,7 +66,7 @@ Proceed only when the backend returns a healthy JSON response and the frontend r
 
 Use these fixes first:
 
-1. Frontend exits while fetching Pyodide: rerun with `node_modules\.bin\vite.cmd dev --host`.
+1. Frontend exits while fetching Pyodide: rerun with `.\node_modules\.bin\vite.cmd dev --host 0.0.0.0`.
 2. Backend exits because `WEBUI_SECRET_KEY` is empty: set the value in `.env` and, if used, `backend/.webui_secret_key`.
 3. Port `8080` or `5173` is busy: stop the stale process or restart the corresponding service cleanly.
 4. Missing Python modules: install them into `.venv` and retry the backend.

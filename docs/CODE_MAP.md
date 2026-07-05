@@ -8,8 +8,8 @@
 | `src/routes/(app)/+layout.svelte` | Authenticated shell: load user settings, models, tools, banners, terminals; pending-user overlay. |
 | `src/routes/(app)/+page.svelte` | Main app page; renders `Chat.svelte`. |
 | `src/routes/auth/+page.svelte` | Login/signup route. |
-| `backend/open_webui/main.py` | FastAPI app entry, router mounting, chat completion, health/static serving. |
-| `backend/open_webui/__init__.py` | Python package entry for `open-webui` script from `pyproject.toml`. |
+| `backend/ruvie/main.py` | FastAPI app entry, router mounting, chat completion, health/static serving. |
+| `backend/ruvie/__init__.py` | Python package entry for `open-webui` script from `pyproject.toml`. |
 | `backend/start.sh`, `backend/start_windows.bat`, `backend/dev.sh` | Backend startup scripts. |
 | `package.json` | Frontend scripts/dependencies. |
 | `pyproject.toml` | Backend Python package/dependencies/build config. |
@@ -26,17 +26,17 @@
 | `src/lib/components/calendar/`, `src/lib/components/automations/` | Calendar and scheduled automation UIs. |
 | `src/lib/stores/index.ts` | Shared Svelte stores for user/config/models/tools/socket/chats/ui state. |
 | `src/lib/constants.ts` | Frontend base URLs, API URL constants, file support constants. |
-| `backend/open_webui/routers/` | API layer. Each file maps to domain endpoints. |
-| `backend/open_webui/models/` | SQLAlchemy tables and repository-like table classes. |
-| `backend/open_webui/utils/middleware.py` | Main chat payload/response processing pipeline. |
-| `backend/open_webui/utils/tools.py` | Tool parsing/execution support. |
-| `backend/open_webui/retrieval/` | RAG, web loaders, embedding/vector search, document loaders. |
-| `backend/open_webui/storage/provider.py` | Local/S3/GCS/Azure storage abstraction. |
-| `backend/open_webui/internal/db.py` | Sync/async SQLAlchemy engine/session setup. |
-| `backend/open_webui/config.py` | Runtime config defaults and persisted config mapping. |
-| `backend/open_webui/env.py` | Environment parsing, data paths, DB URL, auth secret validation. |
-| `backend/open_webui/socket/` | Socket.io server and realtime events. |
-| `backend/open_webui/migrations/` | Alembic migrations. |
+| `backend/ruvie/routers/` | API layer. Each file maps to domain endpoints. |
+| `backend/ruvie/models/` | SQLAlchemy tables and repository-like table classes. |
+| `backend/ruvie/utils/middleware.py` | Main chat payload/response processing pipeline. |
+| `backend/ruvie/utils/tools.py` | Tool parsing/execution support. |
+| `backend/ruvie/retrieval/` | RAG, web loaders, embedding/vector search, document loaders. |
+| `backend/ruvie/storage/provider.py` | Local/S3/GCS/Azure storage abstraction. |
+| `backend/ruvie/internal/db.py` | Sync/async SQLAlchemy engine/session setup. |
+| `backend/ruvie/config.py` | Runtime config defaults and persisted config mapping. |
+| `backend/ruvie/env.py` | Environment parsing, data paths, DB URL, auth secret validation. |
+| `backend/ruvie/socket/` | Socket.io server and realtime events. |
+| `backend/ruvie/migrations/` | Alembic migrations. |
 | `scripts/prepare-pyodide.js` | Prepares static Pyodide assets and PyPI wheels for browser code execution. |
 | `.codex/skills/start-ruvie-assistant-dev/SKILL.md` | Local Codex skill documenting the repo-specific dev startup path. |
 
@@ -64,14 +64,14 @@
 1. `README.md` de nam product surface upstream.
 2. `src/routes/+layout.svelte`, `src/routes/(app)/+layout.svelte`, `src/routes/(app)/+page.svelte` de hieu app boot.
 3. `src/lib/components/chat/Chat.svelte` va `MessageInput.svelte` de hieu luong chat.
-4. `backend/open_webui/main.py` de hieu FastAPI app, router map, completion endpoint.
-5. `backend/open_webui/utils/middleware.py` de hieu RAG/tools/files/chat processing.
-6. `backend/open_webui/routers/auths.py`, `users.py`, `chats.py`, `files.py`, `knowledge.py`, `models.py` de hieu API chinh.
-7. `backend/open_webui/models/users.py`, `chats.py`, `files.py`, `knowledge.py`, `models.py`, `config.py` de hieu persistence.
-8. `backend/open_webui/config.py` va `env.py` de hieu runtime flags/env.
+4. `backend/ruvie/main.py` de hieu FastAPI app, router map, completion endpoint.
+5. `backend/ruvie/utils/middleware.py` de hieu RAG/tools/files/chat processing.
+6. `backend/ruvie/routers/auths.py`, `users.py`, `chats.py`, `files.py`, `knowledge.py`, `models.py` de hieu API chinh.
+7. `backend/ruvie/models/users.py`, `chats.py`, `files.py`, `knowledge.py`, `models.py`, `config.py` de hieu persistence.
+8. `backend/ruvie/config.py` va `env.py` de hieu runtime flags/env.
 
 ## Assumptions / Unknowns
 
-- `backend/open_webui/utils/middleware.py` co qua nhieu concern, nen "business logic chinh" cua chat khong nam trong mot class/module nho gon.
+- `backend/ruvie/utils/middleware.py` co qua nhieu concern, nen "business logic chinh" cua chat khong nam trong mot class/module nho gon.
 - Mot so file UI rat lon; nen doc theo use case thay vi doc tu dau den cuoi.
 - Co nhieu static assets/locales/emoji files khong can doc truoc de hieu architecture.

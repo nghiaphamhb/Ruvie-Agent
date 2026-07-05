@@ -28,7 +28,7 @@
 			name="viewport"
 			content="width=device-width, initial-scale=1, maximum-scale=1, viewport-fit=cover, interactive-widget=resizes-content"
 		/>
-		<meta name="theme-color" content="#171717" />
+		<meta name="theme-color" content="#f6f1e8" />
 		<meta name="robots" content="noindex,nofollow" />
 
 		<script src="/static/loader.js" defer crossorigin="use-credentials"></script>
@@ -45,6 +45,8 @@
 			(() => {
 				const metaThemeColorTag = document.querySelector('meta[name="theme-color"]');
 				const prefersDarkTheme = window.matchMedia('(prefers-color-scheme: dark)').matches;
+				const lightThemeColor = '#f6f1e8';
+				const darkThemeColor = '#0f172a';
 
 				if (!localStorage?.theme) {
 					localStorage.theme = 'system';
@@ -52,7 +54,10 @@
 
 				if (localStorage.theme === 'system') {
 					document.documentElement.classList.add(prefersDarkTheme ? 'dark' : 'light');
-					metaThemeColorTag.setAttribute('content', prefersDarkTheme ? '#171717' : '#ffffff');
+					metaThemeColorTag.setAttribute(
+						'content',
+						prefersDarkTheme ? darkThemeColor : lightThemeColor
+					);
 				} else if (localStorage.theme === 'oled-dark') {
 					document.documentElement.style.setProperty('--color-gray-800', '#101010');
 					document.documentElement.style.setProperty('--color-gray-850', '#050505');
@@ -62,13 +67,13 @@
 					metaThemeColorTag.setAttribute('content', '#000000');
 				} else if (localStorage.theme === 'light') {
 					document.documentElement.classList.add('light');
-					metaThemeColorTag.setAttribute('content', '#ffffff');
+					metaThemeColorTag.setAttribute('content', lightThemeColor);
 				} else if (localStorage.theme === 'her') {
 					document.documentElement.classList.add('her');
 					metaThemeColorTag.setAttribute('content', '#983724');
 				} else {
 					document.documentElement.classList.add('dark');
-					metaThemeColorTag.setAttribute('content', '#171717');
+					metaThemeColorTag.setAttribute('content', darkThemeColor);
 				}
 
 				const preloadHref = document.documentElement.classList.contains('dark')
@@ -86,11 +91,11 @@
 						if (e.matches) {
 							document.documentElement.classList.add('dark');
 							document.documentElement.classList.remove('light');
-							metaThemeColorTag.setAttribute('content', '#171717');
+							metaThemeColorTag.setAttribute('content', darkThemeColor);
 						} else {
 							document.documentElement.classList.add('light');
 							document.documentElement.classList.remove('dark');
-							metaThemeColorTag.setAttribute('content', '#ffffff');
+							metaThemeColorTag.setAttribute('content', lightThemeColor);
 						}
 					}
 				});
@@ -115,7 +120,7 @@
 			})();
 		</script>
 
-		<title>Open WebUI</title>
+		<title>Ruvie</title>
 
 		%sveltekit.head%
 	</head>
@@ -125,6 +130,7 @@
 
 		<div
 			id="splash-screen"
+			class="theme-paper-bg"
 			style="position: fixed; z-index: 100; top: 0; left: 0; width: 100%; height: 100%"
 		>
 			<style type="text/css" nonce="">
@@ -193,14 +199,6 @@
 		html {
 			overflow-y: hidden !important;
 			overscroll-behavior-y: none;
-		}
-
-		#splash-screen {
-			background: #fff;
-		}
-
-		html.dark #splash-screen {
-			background: #000;
 		}
 
 		html.her #splash-screen {

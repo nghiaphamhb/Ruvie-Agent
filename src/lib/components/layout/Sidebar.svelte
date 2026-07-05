@@ -1033,7 +1033,7 @@
 		bind:this={navElement}
 		id="sidebar"
 		class="h-screen max-h-[100dvh] min-h-screen select-none {$showSidebar
-			? `${$mobile ? 'bg-gray-50 dark:bg-gray-950' : 'bg-gray-50/70 dark:bg-gray-950/70'} z-50`
+			? 'theme-paper-bg z-50'
 			: ' bg-transparent z-0 '} {$isApp
 			? `ml-[4.5rem] md:ml-0 `
 			: ' transition-all duration-300 '} shrink-0 text-gray-900 dark:text-gray-200 text-sm fixed top-0 left-0 overflow-x-hidden
@@ -1058,7 +1058,13 @@
 					<img
 						crossorigin="anonymous"
 						src="{WEBUI_BASE_URL}/static/favicon.png"
-						class="sidebar-new-chat-icon size-6 rounded-full"
+						class="sidebar-new-chat-icon size-6 rounded-full dark:hidden"
+						alt=""
+					/>
+					<img
+						crossorigin="anonymous"
+						src="{WEBUI_BASE_URL}/static/favicon-dark.png"
+						class="sidebar-new-chat-icon hidden size-6 rounded-full dark:block"
 						alt=""
 					/>
 				</a>
@@ -1090,10 +1096,10 @@
 					</button>
 				</Tooltip>
 
-				<div
-					class="{scrollTop > 0
-						? 'visible'
-						: 'invisible'} sidebar-bg-gradient-to-b bg-linear-to-b from-gray-50 dark:from-gray-950 to-transparent from-50% pointer-events-none absolute inset-0 -z-10 -mb-6"
+			<div
+				class="{scrollTop > 0
+					? 'visible'
+					: 'invisible'} sidebar-bg-gradient-to-b bg-linear-to-b from-[#f6f1e8] dark:from-[#0f172a] to-transparent from-50% pointer-events-none absolute inset-0 -z-10 -mb-6"
 				></div>
 			</div>
 
@@ -1604,7 +1610,7 @@
 
 			<div class="px-1.5 pt-1.5 pb-2 sticky bottom-0 z-10 -mt-3 sidebar">
 				<div
-					class=" sidebar-bg-gradient-to-t bg-linear-to-t from-gray-50 dark:from-gray-950 to-transparent from-50% pointer-events-none absolute inset-0 -z-10 -mt-6"
+					class=" sidebar-bg-gradient-to-t bg-linear-to-t from-[#f6f1e8] dark:from-[#0f172a] to-transparent from-50% pointer-events-none absolute inset-0 -z-10 -mt-6"
 				></div>
 				<div class="flex flex-col font-primary">
 					{#if $user !== undefined && $user !== null}

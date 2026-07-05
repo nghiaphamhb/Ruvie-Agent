@@ -2,14 +2,15 @@
 
 ## Project Context
 
-This repository is `Ruvie-Assistant`, a customized/self-hosted Open WebUI-based AI assistant workspace.
+Ruvie Assistant is a self-hosted AI workspace based on Open WebUI. The backend package now lives under `backend/ruvie`; imports, startup commands, and docs should use `ruvie.*`, not `open_webui.*`.
 
 Primary stack:
 
 - Frontend: SvelteKit, Vite, TypeScript, Tailwind-style utility classes.
-- Backend: FastAPI application under `backend/open_webui`.
+- Backend: FastAPI application under `backend/ruvie`.
 - Database: default local SQLite database under `backend/data/webui.db`, with SQLAlchemy support for other database URLs.
 - Static assets: served from `static/static` through routes referenced as `/static/...`.
+- i18n: current exposed UI languages are `vi-VN`, `ru-RU`, and `en-US`. Keep `src/lib/i18n/locales/languages.json`, `src/lib/i18n/index.ts`, and `src/lib/components/chat/Settings/General.svelte` aligned if the list changes.
 - Local docs: project documentation lives in `docs/`.
 
 Important documentation to read first:
@@ -17,7 +18,7 @@ Important documentation to read first:
 - `docs/PROJECT_OVERVIEW.md`
 - `docs/ARCHITECTURE.md`
 - `docs/USE_CASES.md`
-- `docs/SETUP_AND_RUN.md`
+- `docs/QUICK_SETUP.md`
 - `docs/REINSTALL.md`
 - `docs/CODE_MAP.md`
 - `docs/CHANGE_GUIDE.md`
@@ -27,10 +28,12 @@ Important documentation to read first:
 
 Prefer direct backend/frontend commands instead of `npm run dev` when pyodide downloads or network setup are flaky.
 
+Do not recreate `backend/dev.sh` or `backend/start_windows.bat` unless the user explicitly asks.
+
 Backend:
 
 ```powershell
-.\.venv\Scripts\uvicorn.exe open_webui.main:app --app-dir backend --host 127.0.0.1 --port 8080 --forwarded-allow-ips "*" --reload
+.\.venv\Scripts\uvicorn.exe ruvie.main:app --app-dir backend --host 127.0.0.1 --port 8080 --reload
 ```
 
 Frontend:
@@ -47,17 +50,14 @@ Expected local URLs:
 Notes:
 
 - `src/lib/constants.ts` points the frontend dev backend URL at port `8080`.
-- A local Codex startup skill was created earlier at `.codex/skills/start-ruvie-assistant-dev/SKILL.md`.
+- `backend/start.sh` is the shell/container entrypoint; no Windows batch or `dev.sh` helper is kept in this repo.
 - If ports are occupied, inspect ports `8080` and `5173` before starting new instances.
+- If forwarded proxy testing is needed in PowerShell, use `--%` before `ruvie.main:app` to prevent `*` from expanding.
+- Keep the locale list and selector in sync when changing supported UI languages.
 
-## Logo / Branding State
+## Branding / UI State
 
-The app logo was replaced using source images from:
-
-- `E:/Desktop/GitHub Repository/ruvie-asesst-old/light-mode.png`
-- `E:/Desktop/GitHub Repository/ruvie-asesst-old/dark-mode.png`
-
-Generated/replaced logo assets:
+The app uses these generated/replaced logo assets:
 
 - `static/static/favicon.png`
 - `static/static/favicon-dark.png`
@@ -103,19 +103,19 @@ Do not reset or delete local database files unless explicitly requested.
 
 Main backend entry:
 
-- `backend/open_webui/main.py`
+- `backend/ruvie/main.py`
 
 Core backend routers:
 
-- `backend/open_webui/routers/auths.py`
-- `backend/open_webui/routers/users.py`
-- `backend/open_webui/routers/chats.py`
-- `backend/open_webui/routers/models.py`
-- `backend/open_webui/routers/files.py`
-- `backend/open_webui/routers/knowledge.py`
-- `backend/open_webui/routers/tools.py`
-- `backend/open_webui/routers/functions.py`
-- `backend/open_webui/routers/skills.py`
+- `backend/ruvie/routers/auths.py`
+- `backend/ruvie/routers/users.py`
+- `backend/ruvie/routers/chats.py`
+- `backend/ruvie/routers/models.py`
+- `backend/ruvie/routers/files.py`
+- `backend/ruvie/routers/knowledge.py`
+- `backend/ruvie/routers/tools.py`
+- `backend/ruvie/routers/functions.py`
+- `backend/ruvie/routers/skills.py`
 
 Main frontend entries:
 
@@ -126,12 +126,18 @@ Main frontend entries:
 - `src/lib/components/chat/Chat.svelte`
 - `src/lib/components/chat/MessageInput.svelte`
 
+I18n and locale control:
+
+- `src/lib/i18n/index.ts`
+- `src/lib/i18n/locales/languages.json`
+- `src/lib/components/chat/Settings/General.svelte`
+
 Admin/user access areas:
 
 - `src/routes/(app)/admin/*`
 - `src/lib/components/admin/*`
-- `backend/open_webui/routers/users.py`
-- `backend/open_webui/routers/auths.py`
+- `backend/ruvie/routers/users.py`
+- `backend/ruvie/routers/auths.py`
 
 ## Working Rules For Future Agents
 
@@ -139,12 +145,13 @@ Admin/user access areas:
 - Do not delete local data files.
 - Use `rg` for search when available.
 - Use `apply_patch` for manual file edits.
-- Keep documentation in `docs/` up to date when changing startup, branding, auth, database, or architecture.
+- Keep documentation in `docs/` up to date when changing startup, branding, auth, database, architecture, or i18n.
 - When changing UI branding, check splash, favicon, login, sidebar, and PWA manifest together.
+- When changing supported UI languages, update `src/lib/i18n/locales/languages.json`, `src/lib/i18n/index.ts`, and the selector UI together.
 - When moving the project directory, expect absolute paths in generated logs or old handoff notes to need updating.
+- Legacy Open WebUI literals still exist in some package metadata and historical docs; do not rename them blindly unless the user asks.
 
 ## Known Gaps / Unknowns
 
-- The logo source files currently live outside this repository in `E:/Desktop/GitHub Repository/ruvie-asesst-old/`; if the project is moved to another machine, copy those source logo files too if future regeneration is needed.
 - The most recent dev-server restart was interrupted by the user while restarting. Verify whether backend/frontend are running before assuming dev mode is active.
 - Some docs are based on source inspection, not full end-to-end verification of every feature.

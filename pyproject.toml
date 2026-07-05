@@ -1,8 +1,8 @@
 [project]
-name = "open-webui"
-description = "Open WebUI"
+name = "ruvie"
+description = "Ruvie"
 authors = [
-    { name = "Timothy Jaeryang Baek", email = "tim@openwebui.com" }
+    { name = "Pham Nghia", email = "phamdangtrungnghia@gmail.com" }
 ]
 license = { file = "LICENSE" }
 dependencies = [
@@ -171,7 +171,7 @@ all = [
 ]
 
 [project.scripts]
-open-webui = "open_webui:app"
+open-webui = "ruvie:app"
 
 [build-system]
 requires = ["hatchling"]
@@ -203,7 +203,7 @@ exclude = [
     "webui.db",
     "chroma.sqlite3",
 ]
-force-include = { "CHANGELOG.md" = "open_webui/CHANGELOG.md", build = "open_webui/frontend" }
+force-include = { "CHANGELOG.md" = "ruvie/CHANGELOG.md", build = "ruvie/frontend" }
 
 [tool.codespell]
 # Ref: https://github.com/codespell-project/codespell#using-a-config-file

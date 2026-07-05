@@ -79,15 +79,19 @@
 		<div class="flex items-center gap-2">
 			<div class="flex items-center min-w-fit">
 				<Tooltip content={$user?.role === 'admin' ? (item?.value ?? '') : ''} placement="top-start">
-					<img
-						src={`${WEBUI_API_BASE_URL}/models/model/profile/image?id=${item.model.id}&lang=${$i18n.language}`}
-						alt={$i18n.t('{{modelName}} profile image', { modelName: item.label })}
-						class="rounded-full size-5 flex items-center"
-						loading="lazy"
-						on:error={(e) => {
-							e.currentTarget.src = '/favicon.png';
-						}}
-					/>
+					<span
+						class="inline-flex size-5 items-center justify-center overflow-hidden rounded-full bg-[#f6f1e8] ring-1 ring-gray-200/80 dark:bg-[#0f172a] dark:ring-white/10"
+					>
+						<img
+							src={`${WEBUI_API_BASE_URL}/models/model/profile/image?id=${item.model.id}&lang=${$i18n.language}`}
+							alt={$i18n.t('{{modelName}} profile image', { modelName: item.label })}
+							class="size-full object-cover p-0.5"
+							loading="lazy"
+							on:error={(e) => {
+								e.currentTarget.src = '/favicon.png';
+							}}
+						/>
+					</span>
 				</Tooltip>
 			</div>
 

@@ -21,14 +21,13 @@
 		currentChatPage
 	} from '$lib/stores';
 	import { sanitizeResponseContent, extractCurlyBraceWords } from '$lib/utils';
-	import { WEBUI_API_BASE_URL, WEBUI_BASE_URL } from '$lib/constants';
-
 	import Suggestions from './Suggestions.svelte';
 	import Tooltip from '$lib/components/common/Tooltip.svelte';
 	import EyeSlash from '$lib/components/icons/EyeSlash.svelte';
 	import MessageInput from './MessageInput.svelte';
 	import FolderPlaceholder from './Placeholder/FolderPlaceholder.svelte';
 	import FolderTitle from './Placeholder/FolderTitle.svelte';
+	import BrandAvatar from './BrandAvatar.svelte';
 
 	const i18n = getContext('i18n');
 
@@ -137,15 +136,7 @@
 											selectedModelIdx = modelIdx;
 										}}
 									>
-										<img
-											src={`${WEBUI_API_BASE_URL}/models/model/profile/image?id=${model?.id}&lang=${$i18n.language}`}
-											class=" size-9 @sm:size-10 rounded-full border-[1px] border-gray-100 dark:border-none"
-											aria-hidden="true"
-											draggable="false"
-											on:error={(e) => {
-												e.currentTarget.src = '/favicon.png';
-											}}
-										/>
+										<BrandAvatar sizeClass="size-9 @sm:size-10" />
 									</button>
 								</Tooltip>
 							{/each}

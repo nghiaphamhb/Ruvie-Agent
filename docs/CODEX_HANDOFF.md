@@ -19,7 +19,7 @@ The following documentation files were created under `docs/`:
 - `docs/PROJECT_OVERVIEW.md`
 - `docs/ARCHITECTURE.md`
 - `docs/USE_CASES.md`
-- `docs/SETUP_AND_RUN.md`
+- `docs/QUICK_SETUP.md`
 - `docs/REINSTALL.md`
 - `docs/CODE_MAP.md`
 - `docs/CHANGE_GUIDE.md`
@@ -79,9 +79,11 @@ Generated app assets:
 Backup of previous assets:
 
 - `static/static-logo-backup-before-ruvie/`
+- `static/static-logo-backup-before-ruvie/refresh-20260704/`
 
 Implementation detail:
 
+- `logo.png` preserves the full square source image used by the app manifest metadata.
 - Full square logo images are used for splash screens.
 - Cropped `RV` mark is used for small icons so favicon/sidebar remain readable.
 - `favicon.svg` was regenerated as an SVG wrapper embedding a PNG rendition; it is valid for browser use but is not a true vector reconstruction.
@@ -92,6 +94,14 @@ Logo references in code:
 - `src/routes/auth/+page.svelte`
 - `src/lib/components/layout/Sidebar.svelte`
 - `static/static/site.webmanifest`
+
+Branding/background sync note:
+
+- Dark mode logo and splash assets now use the same navy background tone as the app shell (`#0f172a`).
+- The shared `theme-paper-bg` surface class in `src/app.css` keeps splash and auth background styling aligned with the refreshed brand background.
+- Sidebar and chat containers now reuse `theme-paper-bg` so the main surfaces stay visually consistent.
+- Chat model avatars now use circular theme-colored badges instead of square tiles, which keeps the logo treatment consistent across placeholder, model picker, and messages.
+- New-chat and assistant avatars now use a dedicated circular brand badge instead of the model-image fallback route, which avoids the square white fallback tile in dark mode.
 
 ### 5. Dev restart was attempted but interrupted
 
@@ -108,13 +118,19 @@ Get-NetTCPConnection -LocalPort 8080,5173 -ErrorAction SilentlyContinue
 Backend:
 
 ```powershell
-.\.venv\Scripts\uvicorn.exe open_webui.main:app --app-dir backend --host 127.0.0.1 --port 8080 --forwarded-allow-ips "*" --reload
+.\.venv\Scripts\uvicorn.exe ruvie.main:app --app-dir backend --host 127.0.0.1 --port 8080 --reload
 ```
 
 Frontend:
 
 ```powershell
 .\node_modules\.bin\vite.cmd dev --host 0.0.0.0
+```
+
+If PowerShell proxy testing needs `--forwarded-allow-ips *`, use:
+
+```powershell
+.\.venv\Scripts\uvicorn.exe --% ruvie.main:app --app-dir backend --host 127.0.0.1 --port 8080 --forwarded-allow-ips * --reload
 ```
 
 Avoid `npm run dev` if it triggers `scripts/prepare-pyodide.js` and network-sensitive dependency download steps. Direct Vite startup is usually faster for this local setup.
@@ -137,14 +153,14 @@ Frontend:
 
 Backend:
 
-- `backend/open_webui/main.py`
-- `backend/open_webui/env.py`
-- `backend/open_webui/config.py`
-- `backend/open_webui/internal/db.py`
-- `backend/open_webui/routers/*`
-- `backend/open_webui/models/*`
-- `backend/open_webui/utils/middleware.py`
-- `backend/open_webui/storage/provider.py`
+- `backend/ruvie/main.py`
+- `backend/ruvie/env.py`
+- `backend/ruvie/config.py`
+- `backend/ruvie/internal/db.py`
+- `backend/ruvie/routers/*`
+- `backend/ruvie/models/*`
+- `backend/ruvie/utils/middleware.py`
+- `backend/ruvie/storage/provider.py`
 
 Local data:
 

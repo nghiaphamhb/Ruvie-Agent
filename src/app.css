@@ -718,13 +718,35 @@ input[type='number'] {
 }
 
 body {
-	background: #fff;
-	color: #000;
+	background-color: #f6f1e8;
+	background-image:
+		radial-gradient(circle at top left, rgba(59, 130, 246, 0.12), transparent 28%),
+		radial-gradient(circle at 82% 18%, rgba(14, 165, 233, 0.1), transparent 22%),
+		linear-gradient(180deg, #faf7f0 0%, #efe5d7 100%);
+	color: #111827;
 }
 
 .dark body {
-	background: #171717;
-	color: #eee;
+	background-color: #0f172a;
+	background-image:
+		radial-gradient(circle at top left, rgba(59, 130, 246, 0.14), transparent 26%),
+		linear-gradient(180deg, #08111f 0%, #0f172a 100%);
+	color: #e5e7eb;
+}
+
+.theme-paper-bg {
+	background-color: #f6f1e8;
+	background-image:
+		radial-gradient(circle at top left, rgba(59, 130, 246, 0.12), transparent 28%),
+		radial-gradient(circle at 82% 18%, rgba(14, 165, 233, 0.1), transparent 22%),
+		linear-gradient(180deg, #faf7f0 0%, #efe5d7 100%);
+}
+
+.dark .theme-paper-bg {
+	background-color: #0f172a;
+	background-image:
+		radial-gradient(circle at top left, rgba(59, 130, 246, 0.14), transparent 26%),
+		linear-gradient(180deg, #08111f 0%, #0f172a 100%);
 }
 
 /* Position the handle relative to each LI */

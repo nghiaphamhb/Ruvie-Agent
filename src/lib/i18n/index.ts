@@ -3,6 +3,10 @@ import resourcesToBackend from 'i18next-resources-to-backend';
 import LanguageDetector from 'i18next-browser-languagedetector';
 import type { i18n as i18nType } from 'i18next';
 import { writable } from 'svelte/store';
+import languages from './locales/languages.json';
+
+const supportedLanguageCodes = languages.map((language) => language.code);
+const isSupportedLanguage = (lang?: string) => !!lang && supportedLanguageCodes.includes(lang);
 
 const createI18nStore = (i18n: i18nType) => {
 	const i18nWritable = writable(i18n);
@@ -41,10 +45,10 @@ const createIsLoadingStore = (i18n: i18nType) => {
 };
 
 export const initI18n = (defaultLocale?: string | undefined) => {
-	const detectionOrder = defaultLocale
+	const fallbackLocale = isSupportedLanguage(defaultLocale) ? defaultLocale : 'en-US';
+	const detectionOrder = isSupportedLanguage(defaultLocale)
 		? ['querystring', 'localStorage']
-		: ['querystring', 'localStorage', 'navigator'];
-	const fallbackDefaultLocale = defaultLocale ? [defaultLocale] : ['en-US'];
+		: ['querystring', 'navigator'];
 
 	const loadResource = (language: string, namespace: string) =>
 		import(`./locales/${language}/${namespace}.json`);
@@ -54,16 +58,14 @@ export const initI18n = (defaultLocale?: string | undefined) => {
 		.use(LanguageDetector)
 		.init({
 			debug: false,
+			supportedLngs: supportedLanguageCodes,
 			detection: {
 				order: detectionOrder,
 				caches: ['localStorage'],
 				lookupQuerystring: 'lang',
 				lookupLocalStorage: 'locale'
 			},
-			fallbackLng: {
-				fr: ['fr-FR'],
-				default: fallbackDefaultLocale
-			},
+			fallbackLng: { default: [fallbackLocale] },
 			ns: 'translation',
 			returnEmptyString: false,
 			interpolation: {
@@ -80,8 +82,9 @@ export const getLanguages = async () => {
 	return languages;
 };
 export const changeLanguage = (lang: string) => {
-	document.documentElement.setAttribute('lang', lang);
-	i18next.changeLanguage(lang);
+	const nextLang = isSupportedLanguage(lang) ? lang : 'en-US';
+	document.documentElement.setAttribute('lang', nextLang);
+	i18next.changeLanguage(nextLang);
 };
 
 export default i18n;
