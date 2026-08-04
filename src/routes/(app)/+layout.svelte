@@ -7,17 +7,19 @@
 
 	import { goto } from '$app/navigation';
 	import { page } from '$app/stores';
-	import { fade } from 'svelte/transition';
+	// import { fade } from 'svelte/transition'; // used only by the archived update toast
 
-	import { getModels, getToolServersData, getVersionUpdates } from '$lib/apis';
+	import { getModels, getToolServersData } from '$lib/apis';
+	// import { getVersionUpdates } from '$lib/apis'; // used only by the archived update toast
 	import { getTools } from '$lib/apis/tools';
 	import { getBanners } from '$lib/apis/configs';
 	import { getTerminalServers } from '$lib/apis/terminal';
 	import { getUserSettings } from '$lib/apis/users';
 	import { setTextScale } from '$lib/utils/text-scale';
 
-	import { WEBUI_VERSION, WEBUI_API_BASE_URL } from '$lib/constants';
-	import { compareVersion } from '$lib/utils';
+	import { WEBUI_API_BASE_URL } from '$lib/constants';
+	// import { WEBUI_VERSION } from '$lib/constants'; // used only by the archived update toast
+	// import { compareVersion } from '$lib/utils'; // used only by the archived update toast
 
 	import {
 		config,
@@ -46,7 +48,9 @@
 	import SettingsModal from '$lib/components/chat/SettingsModal.svelte';
 	import ChangelogModal from '$lib/components/ChangelogModal.svelte';
 	import AccountPending from '$lib/components/layout/Overlay/AccountPending.svelte';
-	import UpdateInfoToast from '$lib/components/layout/UpdateInfoToast.svelte';
+	// Version update toast is intentionally archived; restore this import with the
+	// corresponding check/render blocks below when update notifications are needed.
+	// import UpdateInfoToast from '$lib/components/layout/UpdateInfoToast.svelte';
 	import Spinner from '$lib/components/common/Spinner.svelte';
 	import { Shortcut, shortcuts } from '$lib/shortcuts';
 
@@ -56,7 +60,7 @@
 	let DB = null;
 	let localDBChats = [];
 
-	let version;
+	// let version; // reserved for the archived version update toast
 
 	const clearChatInputStorage = () => {
 		const chatInputKeys = Object.keys(localStorage).filter((key) => key.startsWith('chat-input'));
@@ -333,20 +337,20 @@
 			}
 		}
 
-		// Check for version updates
-		if ($user?.role === 'admin' && $config?.features?.enable_version_update_check) {
-			// Check if the user has dismissed the update toast in the last 24 hours
-			if (localStorage.dismissedUpdateToast) {
-				const dismissedUpdateToast = new Date(Number(localStorage.dismissedUpdateToast));
-				const now = new Date();
-
-				if (now - dismissedUpdateToast > 24 * 60 * 60 * 1000) {
-					checkForVersionUpdates();
-				}
-			} else {
-				checkForVersionUpdates();
-			}
-		}
+		// Version update checking is intentionally disabled; keep the original logic
+		// commented here so it can be restored without changing the surrounding bootstrap.
+		// if ($user?.role === 'admin' && $config?.features?.enable_version_update_check) {
+		// 	if (localStorage.dismissedUpdateToast) {
+		// 		const dismissedUpdateToast = new Date(Number(localStorage.dismissedUpdateToast));
+		// 		const now = new Date();
+		//
+		// 		if (now - dismissedUpdateToast > 24 * 60 * 60 * 1000) {
+		// 			checkForVersionUpdates();
+		// 		}
+		// 	} else {
+		// 		checkForVersionUpdates();
+		// 	}
+		// }
 		// Persist showControls: track open/close state separately from saved size
 		// chatControlsSize always retains the last width for openPane()
 		await showControls.set(!$mobile ? localStorage.showControls === 'true' : false);
@@ -369,21 +373,23 @@
 		loaded = true;
 	});
 
-	const checkForVersionUpdates = async () => {
-		version = await getVersionUpdates(localStorage.token).catch((error) => {
-			return {
-				current: WEBUI_VERSION,
-				latest: WEBUI_VERSION
-			};
-		});
-	};
+	// Version update toast is intentionally disabled.
+	// const checkForVersionUpdates = async () => {
+	// 	version = await getVersionUpdates(localStorage.token).catch((error) => {
+	// 		return {
+	// 			current: WEBUI_VERSION,
+	// 			latest: WEBUI_VERSION
+	// 		};
+	// 	});
+	// };
 </script>
 
 <SettingsModal bind:show={$showSettings} />
 <ChangelogModal bind:show={$showChangelog} />
 
+<!-- Version update toast intentionally disabled; preserve the block for future restoration.
 {#if version && compareVersion(version.latest, version.current) && ($settings?.showUpdateToast ?? true)}
-	<div class=" absolute bottom-8 right-8 z-50" in:fade={{ duration: 100 }}>
+	<div class="absolute bottom-8 right-8 z-50" in:fade={{ duration: 100 }}>
 		<UpdateInfoToast
 			{version}
 			on:close={() => {
@@ -393,6 +399,7 @@
 		/>
 	</div>
 {/if}
+-->
 
 {#if $user}
 	<div class="app relative">
