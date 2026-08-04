@@ -39,7 +39,8 @@
 
 - Chat middleware gom qua nhieu workflow trong mot file lon, kho test don vi va kho reasoning khi sua nho.
 - Signup duplicate email/zero-admin da xay ra o local DB; can migration unique email va xu ly `IntegrityError` neu muon fix goc.
-- README van la upstream Open WebUI va co encoding hien thi loi trong terminal Windows; chua co branding/tai lieu Ruvie rieng.
+- UI, notification, PWA manifest va ba locale dang bat da dung branding Ruvie; giu nguyen
+  package ID, URL upstream va cac dinh danh ky thuat `open-webui` de bao toan tuong thich.
 - `package.json` scripts dung `;` trong `npm run lint`, co the mang tinh shell-specific tren Windows.
 - Pyodide preparation phu thuoc network va static cache; setup offline can tai lieu/asset strategy ro hon.
 - Nhieu optional providers/vector DB/cloud storage co code support nhung kho biet cai nao duoc team dung that neu khong co env/deploy docs.

@@ -988,7 +988,7 @@ def build_event(
 
 
 async def dispatch_webhook_event(app: Any, event: Event) -> None:
-    name = getattr(getattr(app, 'state', None), 'WEBUI_NAME', 'Open WebUI')
+    name = getattr(getattr(app, 'state', None), 'WEBUI_NAME', 'Ruvie')
     subject = event.subject or {}
     subject_id = subject.get('id')
     definition = EVENT_DEFINITIONS_BY_NAME.get(event.event)

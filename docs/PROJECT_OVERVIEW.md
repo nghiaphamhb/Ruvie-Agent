@@ -41,6 +41,8 @@ Bằng chứng chính:
 
 ## Assumptions / Unknowns
 
-* Tên repo là `Ruvie-Assistant`, nhưng branding trong code và docs vẫn chủ yếu là Open WebUI (`src/lib/constants.ts`, `README.md`). Chưa thấy tài liệu riêng mô tả các thay đổi "Ruvie" ngoài local setup/DB state.
+* Sản phẩm hiển thị thương hiệu `Ruvie`; các tên package, URL upstream và định danh tương thích
+  `open-webui` vẫn được giữ để tránh làm hỏng tích hợp. README tiếp tục ghi nhận nguồn gốc dự án
+  dựa trên Open WebUI.
 * Tài liệu này dựa trên source code hiện tại, không xác minh tất cả tính năng bằng end-to-end UI.
 * Một số chức năng enterprise/production như SCIM, Redis multi-node, cloud storage, vector DB ngoài Chroma có code/config, nhưng chưa được chạy kiểm thử trong môi trường hiện tại.

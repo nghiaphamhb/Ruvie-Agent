@@ -615,7 +615,7 @@ async def _check_calendar_alerts(app) -> None:
 
         # Send webhook notification if user has one configured
         try:
-            webui_name = getattr(app.state, 'WEBUI_NAME', 'Open WebUI')
+            webui_name = getattr(app.state, 'WEBUI_NAME', 'Ruvie')
             enable_user_webhooks = await Config.get('ui.enable_user_webhooks')
 
             if enable_user_webhooks:

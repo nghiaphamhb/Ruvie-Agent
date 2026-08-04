@@ -277,6 +277,8 @@ async def get_session_user_chat_usage_stats(
 # GetChatStatsExport
 ############################
 
+# Sync Usage Stats is archived; keep this block commented for easy restore.
+'''
 
 CHAT_EXPORT_PAGE_ITEM_COUNT = 10
 
@@ -566,6 +568,8 @@ async def export_single_chat_stats(
     except Exception as e:
         log.debug(f'Error exporting single chat stats: {e}')
         raise HTTPException(status_code=status.HTTP_400_BAD_REQUEST, detail=ERROR_MESSAGES.DEFAULT())
+
+'''
 
 
 @router.delete('/', response_model=bool)

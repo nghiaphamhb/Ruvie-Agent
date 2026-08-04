@@ -215,9 +215,8 @@ class WebsocketUpgradeGuardMiddleware:
 
 
 class RedirectMiddleware:
-    """Rewrites a couple of legacy entry-points to the SPA's own routes:
+    """Rewrites legacy entry-points to the SPA's own routes:
 
-    * ``GET /watch?v=ID`` (YouTube) → ``/?youtube=ID``
     * ``GET /?shared=…`` (PWA share-target) → ``/?youtube=…`` /
       ``/?load-url=…`` / ``/?q=…``
     """
@@ -235,8 +234,12 @@ class RedirectMiddleware:
         query_params = parse_qs(query_string)
 
         redirect_params: dict[str, str] = {}
-        if path.endswith('/watch') and 'v' in query_params and query_params['v']:
-            redirect_params['youtube'] = query_params['v'][0]
+
+        # The legacy /watch?v=ID entry-point is outside Ruvie's current scope.
+        # Keep it archived here so it can be restored without affecting the
+        # separate PWA share-target and manual YouTube URL import flows.
+        # if path.endswith('/watch') and 'v' in query_params and query_params['v']:
+        #     redirect_params['youtube'] = query_params['v'][0]
 
         if 'shared' in query_params and query_params['shared']:
             text = query_params['shared'][0]

@@ -26,8 +26,9 @@
 		tags,
 		temporaryChatEnabled,
 		isLastActiveTab,
-		isApp,
-		appInfo,
+		// Browser-only: Electron app shell state disabled.
+		// isApp,
+		// appInfo,
 		toolServers,
 		playingNotificationSound,
 		channels,
@@ -36,8 +37,8 @@
 		showControls,
 		showFileNavPath,
 		showFileNavDir,
-		pyodideWorker,
-		desktopEvent
+		pyodideWorker
+		// desktopEvent
 	} from '$lib/stores';
 	import { getFileContentById } from '$lib/apis/files';
 	import { goto } from '$app/navigation';
@@ -55,12 +56,13 @@
 	import { getSessionUser, updateUserTimezone, userSignOut } from '$lib/apis/auths';
 	import { getAllTags, getChatList } from '$lib/apis/chats';
 	import { chatCompletion } from '$lib/apis/openai';
-	import {
-		addOpenAIConnection,
-		removeOpenAIConnection,
-		addTerminalConnection,
-		removeTerminalConnection
-	} from '$lib/utils/connections';
+	// Browser-only: Electron desktop connection event helpers disabled.
+	// import {
+	// 	addOpenAIConnection,
+	// 	removeOpenAIConnection,
+	// 	addTerminalConnection,
+	// 	removeTerminalConnection
+	// } from '$lib/utils/connections';
 
 	import { WEBUI_API_BASE_URL, WEBUI_BASE_URL, WEBUI_HOSTNAME } from '$lib/constants';
 	import {
@@ -70,14 +72,15 @@
 		getUserTimezone,
 		removeAllDetails
 	} from '$lib/utils';
-	import { setTextScale } from '$lib/utils/text-scale';
+	// import { setTextScale } from '$lib/utils/text-scale';
 
 	import NotificationToast from '$lib/components/NotificationToast.svelte';
-	import AppSidebar from '$lib/components/app/AppSidebar.svelte';
-	import SyncStatsModal from '$lib/components/chat/Settings/SyncStatsModal.svelte';
-	import Spinner from '$lib/components/common/Spinner.svelte';
+	// Browser-only: Electron app sidebar shell disabled.
+	// import AppSidebar from '$lib/components/app/AppSidebar.svelte';
+	// import SyncStatsModal from '$lib/components/chat/Settings/SyncStatsModal.svelte';
+	// import Spinner from '$lib/components/common/Spinner.svelte';
 	import { getOutputText } from '$lib/components/chat/Messages/structuredOutput';
-	import { getUserSettings } from '$lib/apis/users';
+	// import { getUserSettings } from '$lib/apis/users';
 	import dayjs from 'dayjs';
 	import { getChannels } from '$lib/apis/channels';
 
@@ -113,8 +116,9 @@
 
 	let showRefresh = false;
 
-	let showSyncStatsModal = false;
-	let syncStatsEventData = null;
+	// Sync Usage Stats is archived; keep these commented for easy restore.
+	// let showSyncStatsModal = false;
+	// let syncStatsEventData = null;
 
 	let heartbeatInterval = null;
 	let disconnectToastTimer = null;
@@ -470,14 +474,15 @@
 		}
 
 		let isInBackground = document.visibilityState !== 'visible';
-		if (window.electronAPI) {
-			const res = await window.electronAPI.send({
-				type: 'window:isFocused'
-			});
-			if (res) {
-				isInBackground = !res.isFocused;
-			}
-		}
+		// Browser-only: Electron window focus check disabled.
+		// if (window.electronAPI) {
+		// 	const res = await window.electronAPI.send({
+		// 		type: 'window:isFocused'
+		// 	});
+		// 	if (res) {
+		// 		isInBackground = !res.isFocused;
+		// 	}
+		// }
 
 		await tick();
 		const type = event?.data?.type ?? null;
@@ -506,7 +511,7 @@
 
 			if ($isLastActiveTab) {
 				if ($settings?.notificationEnabled ?? false) {
-					new Notification(`${data.title} • Open WebUI`, {
+					new Notification(`${data.title} • Ruvie`, {
 						body: timeStr,
 						icon: `${WEBUI_BASE_URL}/static/favicon.png`
 					});
@@ -638,7 +643,7 @@
 
 					if ($isLastActiveTab) {
 						if ($settings?.notificationEnabled ?? false) {
-							new Notification(`${displayTitle} • Open WebUI`, {
+							new Notification(`${displayTitle} • Ruvie`, {
 								body: contentPreview,
 								icon: `${WEBUI_BASE_URL}/static/favicon.png`
 							});
@@ -694,14 +699,15 @@
 		const channel = $page.url.pathname.includes(`/channels/${event.channel_id}`);
 
 		let isInBackground = document.visibilityState !== 'visible';
-		if (window.electronAPI) {
-			const res = await window.electronAPI.send({
-				type: 'window:isFocused'
-			});
-			if (res) {
-				isInBackground = !res.isFocused;
-			}
-		}
+		// Browser-only: Electron window focus check disabled.
+		// if (window.electronAPI) {
+		// 	const res = await window.electronAPI.send({
+		// 		type: 'window:isFocused'
+		// 	});
+		// 	if (res) {
+		// 		isInBackground = !res.isFocused;
+		// 	}
+		// }
 
 		if ((!channel || isInBackground) && event?.user?.id !== $user?.id) {
 			await tick();
@@ -746,7 +752,7 @@
 
 				if ($isLastActiveTab) {
 					if ($settings?.notificationEnabled ?? false) {
-						new Notification(`${title} • Open WebUI`, {
+						new Notification(`${title} • Ruvie`, {
 							body: data?.content,
 							icon: `${WEBUI_API_BASE_URL}/users/${data?.user?.id}/profile/image`
 						});
@@ -849,109 +855,112 @@
 		}
 	};
 
-	const desktopEventHandler = async (event) => {
-		// Events that don't require auth
-		if (event.type === 'page:reload') {
-			location.reload();
-			return;
-		}
-		if (event.type === 'page:navigate' && event.data?.path) {
-			await goto(event.data.path);
-			return;
-		}
-		if (event.type === 'query' && (event.data?.query || event.data?.files?.length)) {
-			desktopEvent.set(event);
-			await goto('/');
-			return;
-		}
-		if (event.type === 'call') {
-			desktopEvent.set(event);
-			await goto('/');
-			return;
-		}
-		if (event.type === 'theme:update' && event.data?.theme) {
-			const newTheme = event.data.theme;
-			localStorage.setItem('theme', newTheme);
-			theme.set(newTheme);
+	// Browser-only: Electron desktop event bridge disabled.
+	// const desktopEventHandler = async (event) => {
+	// 	// Events that don't require auth
+	// 	if (event.type === 'page:reload') {
+	// 		location.reload();
+	// 		return;
+	// 	}
+	// 	if (event.type === 'page:navigate' && event.data?.path) {
+	// 		await goto(event.data.path);
+	// 		return;
+	// 	}
+	// 	if (event.type === 'query' && (event.data?.query || event.data?.files?.length)) {
+	// 		desktopEvent.set(event);
+	// 		await goto('/');
+	// 		return;
+	// 	}
+	// 	if (event.type === 'call') {
+	// 		desktopEvent.set(event);
+	// 		await goto('/');
+	// 		return;
+	// 	}
+	// 	if (event.type === 'theme:update' && event.data?.theme) {
+	// 		const newTheme = event.data.theme;
+	// 		localStorage.setItem('theme', newTheme);
+	// 		theme.set(newTheme);
 
-			// Apply theme classes (mirrors logic from chat/Settings/General.svelte)
-			const themes = ['dark', 'light', 'oled-dark'];
-			let themeToApply =
-				newTheme === 'oled-dark' ? 'dark' : newTheme === 'her' ? 'light' : newTheme;
-			if (newTheme === 'system') {
-				themeToApply = window.matchMedia('(prefers-color-scheme: dark)').matches ? 'dark' : 'light';
-			}
-			themes
-				.filter((e) => e !== themeToApply)
-				.forEach((e) => {
-					e.split(' ').forEach((cls) => document.documentElement.classList.remove(cls));
-				});
-			themeToApply.split(' ').forEach((cls) => document.documentElement.classList.add(cls));
-			return;
-		}
-		if (event.type === 'models:refresh') {
-			const token = localStorage.token;
-			if (token) {
-				models.set(
-					await getModels(
-						token,
-						$config?.features?.enable_direct_connections
-							? ($settings?.directConnections ?? null)
-							: null
-					)
-				);
-			}
-			return;
-		}
+	// 		// Apply theme classes (mirrors logic from chat/Settings/General.svelte)
+	// 		const themes = ['dark', 'light', 'oled-dark'];
+	// 		let themeToApply =
+	// 			newTheme === 'oled-dark' ? 'dark' : newTheme === 'her' ? 'light' : newTheme;
+	// 		if (newTheme === 'system') {
+	// 			themeToApply = window.matchMedia('(prefers-color-scheme: dark)').matches ? 'dark' : 'light';
+	// 		}
+	// 		themes
+	// 			.filter((e) => e !== themeToApply)
+	// 			.forEach((e) => {
+	// 				e.split(' ').forEach((cls) => document.documentElement.classList.remove(cls));
+	// 			});
+	// 		themeToApply.split(' ').forEach((cls) => document.documentElement.classList.add(cls));
+	// 		return;
+	// 	}
+	// 	if (event.type === 'models:refresh') {
+	// 		const token = localStorage.token;
+	// 		if (token) {
+	// 			models.set(
+	// 				await getModels(
+	// 					token,
+	// 					$config?.features?.enable_direct_connections
+	// 						? ($settings?.directConnections ?? null)
+	// 						: null
+	// 				)
+	// 			);
+	// 		}
+	// 		return;
+	// 	}
 
-		const token = localStorage.token;
-		if (!token) return;
+	// 	const token = localStorage.token;
+	// 	if (!token) return;
 
-		// Only admins can modify system-level connections
-		if ($user?.role !== 'admin') return;
+	// 	// Only admins can modify system-level connections
+	// 	if ($user?.role !== 'admin') return;
 
-		try {
-			if (event.type === 'connections:terminal') {
-				if (event.data.action === 'add') {
-					await addTerminalConnection(token, {
-						url: event.data.url,
-						key: event.data.key,
-						name: 'Local Open Terminal'
-					});
-				} else if (event.data.action === 'remove') {
-					await removeTerminalConnection(token, event.data.url);
-				}
-			} else if (event.type === 'connections:openai') {
-				if (event.data.action === 'add') {
-					await addOpenAIConnection(token, {
-						url: event.data.url,
-						key: event.data.key,
-						config: event.data.config
-					});
-				} else if (event.data.action === 'remove') {
-					await removeOpenAIConnection(token, event.data.url);
-				}
-			}
-		} catch (e) {
-			console.error('Desktop connection update failed:', e);
-		}
-	};
+	// 	try {
+	// 		if (event.type === 'connections:terminal') {
+	// 			if (event.data.action === 'add') {
+	// 				await addTerminalConnection(token, {
+	// 					url: event.data.url,
+	// 					key: event.data.key,
+	// 					name: 'Local Open Terminal'
+	// 				});
+	// 			} else if (event.data.action === 'remove') {
+	// 				await removeTerminalConnection(token, event.data.url);
+	// 			}
+	// 		} else if (event.type === 'connections:openai') {
+	// 			if (event.data.action === 'add') {
+	// 				await addOpenAIConnection(token, {
+	// 					url: event.data.url,
+	// 					key: event.data.key,
+	// 					config: event.data.config
+	// 				});
+	// 			} else if (event.data.action === 'remove') {
+	// 				await removeOpenAIConnection(token, event.data.url);
+	// 			}
+	// 		}
+	// 	} catch (e) {
+	// 		console.error('Desktop connection update failed:', e);
+	// 	}
+	// };
 
-	const windowMessageEventHandler = async (event) => {
-		if (
-			!['https://openwebui.com', 'https://www.openwebui.com', 'http://localhost:9999'].includes(
-				event.origin
-			)
-		) {
-			return;
-		}
+	// Community window messages are disabled because Sync Usage Stats is archived.
+	// const windowMessageEventHandler = async (event) => {
+	// 	if (
+	// 		!['https://openwebui.com', 'https://www.openwebui.com', 'http://localhost:9999'].includes(
+	// 			event.origin
+	// 		)
+	// 	) {
+	// 		return;
+	// 	}
+	//
+	// 	if (event.data === 'export:stats' || event.data?.type === 'export:stats') {
+	// 		syncStatsEventData = event.data;
+	// 		showSyncStatsModal = true;
+	// 	}
+	// };
 
-		if (event.data === 'export:stats' || event.data?.type === 'export:stats') {
-			syncStatsEventData = event.data;
-			showSyncStatsModal = true;
-		}
-	};
-
+	// Check for expired tokens and log out
 	onMount(async () => {
 		const originalFetch = window.fetch.bind(window);
 		window.fetch = async (input, init) => {
@@ -969,41 +978,42 @@
 			return response;
 		};
 
-		window.addEventListener('message', windowMessageEventHandler);
+		// window.addEventListener('message', windowMessageEventHandler);
 
-		let touchstartY = 0;
+		// Mobile pull-to-refresh is disabled because this app is not designed for mobile.
+		// let touchstartY = 0;
 
-		function isNavOrDescendant(el) {
-			const nav = document.querySelector('nav'); // change selector if needed
-			return nav && (el === nav || nav.contains(el));
-		}
+		// function isNavOrDescendant(el) {
+		// 	const nav = document.querySelector('nav'); // change selector if needed
+		// 	return nav && (el === nav || nav.contains(el));
+		// }
 
-		const touchstartHandler = (e) => {
-			if (!isNavOrDescendant(e.target)) return;
-			touchstartY = e.touches[0].clientY;
-		};
+		// const touchstartHandler = (e) => {
+		// 	if (!isNavOrDescendant(e.target)) return;
+		// 	touchstartY = e.touches[0].clientY;
+		// };
 
-		const touchmoveHandler = (e) => {
-			if (!isNavOrDescendant(e.target)) return;
-			const touchY = e.touches[0].clientY;
-			const touchDiff = touchY - touchstartY;
-			if (touchDiff > 50 && window.scrollY === 0) {
-				showRefresh = true;
-				e.preventDefault();
-			}
-		};
+		// const touchmoveHandler = (e) => {
+		// 	if (!isNavOrDescendant(e.target)) return;
+		// 	const touchY = e.touches[0].clientY;
+		// 	const touchDiff = touchY - touchstartY;
+		// 	if (touchDiff > 50 && window.scrollY === 0) {
+		// 		showRefresh = true;
+		// 		e.preventDefault();
+		// 	}
+		// };
 
-		const touchendHandler = (e) => {
-			if (!isNavOrDescendant(e.target)) return;
-			if (showRefresh) {
-				showRefresh = false;
-				location.reload();
-			}
-		};
+		// const touchendHandler = (e) => {
+		// 	if (!isNavOrDescendant(e.target)) return;
+		// 	if (showRefresh) {
+		// 		showRefresh = false;
+		// 		location.reload();
+		// 	}
+		// };
 
-		document.addEventListener('touchstart', touchstartHandler);
-		document.addEventListener('touchmove', touchmoveHandler, { passive: false });
-		document.addEventListener('touchend', touchendHandler);
+		// document.addEventListener('touchstart', touchstartHandler);
+		// document.addEventListener('touchmove', touchmoveHandler, { passive: false });
+		// document.addEventListener('touchend', touchendHandler);
 
 		if (typeof window !== 'undefined') {
 			if (window.applyTheme) {
@@ -1011,29 +1021,30 @@
 			}
 		}
 
-		if (window?.electronAPI) {
-			const info = await window.electronAPI.send({
-				type: 'app:info'
-			});
+		// Browser-only: Electron app info and desktop event listener disabled.
+		// if (window?.electronAPI) {
+		// 	const info = await window.electronAPI.send({
+		// 		type: 'app:info'
+		// 	});
 
-			if (info) {
-				isApp.set(true);
-				appInfo.set(info);
+		// 	if (info) {
+		// 		isApp.set(true);
+		// 		appInfo.set(info);
 
-				const data = await window.electronAPI.send({
-					type: 'app:data'
-				});
+		// 		const data = await window.electronAPI.send({
+		// 			type: 'app:data'
+		// 		});
 
-				if (data) {
-					appData.set(data);
-				}
-			}
+		// 		if (data) {
+		// 			appData.set(data);
+		// 		}
+		// 	}
 
-			// Listen for desktop service lifecycle events (scalable protocol)
-			if (window.electronAPI.onEvent) {
-				window.electronAPI.onEvent(desktopEventHandler);
-			}
-		}
+		// 	// Listen for desktop service lifecycle events (scalable protocol)
+		// 	if (window.electronAPI.onEvent) {
+		// 		window.electronAPI.onEvent(desktopEventHandler);
+		// 	}
+		// }
 
 		// Listen for messages on the BroadcastChannel
 		bc.onmessage = (event) => {
@@ -1074,6 +1085,7 @@
 
 		user.subscribe(async (value) => {
 			if (value) {
+				// turn off for only one handler for one event
 				$socket?.off('events', chatEventHandler);
 				$socket?.off('events:channel', channelEventHandler);
 
@@ -1152,15 +1164,15 @@
 							updateUserTimezone(localStorage.token, timezone);
 						}
 
-						// Relay auth token to desktop app for API access
-						if (window.electronAPI?.send) {
-							window.electronAPI
-								.send({
-									type: 'token:update',
-									token: localStorage.token
-								})
-								.catch(() => {});
-						}
+						// Browser-only: Electron auth token relay disabled.
+						// if (window.electronAPI?.send) {
+						// 	window.electronAPI
+						// 		.send({
+						// 			type: 'token:update',
+						// 			token: localStorage.token
+						// 		})
+						// 		.catch(() => {});
+						// }
 					} else {
 						// Redirect Invalid Session User to /auth Page
 						localStorage.removeItem('token');
@@ -1211,21 +1223,21 @@
 			loaded = true;
 		}
 
-		// Auto-show SyncStatsModal when opened with ?sync=true (from community)
-		if (
-			(window.opener ?? false) &&
-			$page.url.searchParams.get('sync') === 'true' &&
-			($config?.features?.enable_community_sharing ?? false)
-		) {
-			showSyncStatsModal = true;
-		}
+		// Sync Usage Stats is archived; do not auto-show SyncStatsModal from community.
+		// if (
+		// 	(window.opener ?? false) &&
+		// 	$page.url.searchParams.get('sync') === 'true' &&
+		// 	($config?.features?.enable_community_sharing ?? false)
+		// ) {
+		// 	showSyncStatsModal = true;
+		// }
 
 		return () => {
 			window.removeEventListener('resize', onResize);
-			window.removeEventListener('message', windowMessageEventHandler);
-			document.removeEventListener('touchstart', touchstartHandler);
-			document.removeEventListener('touchmove', touchmoveHandler);
-			document.removeEventListener('touchend', touchendHandler);
+			// window.removeEventListener('message', windowMessageEventHandler);
+			// document.removeEventListener('touchstart', touchstartHandler);
+			// document.removeEventListener('touchmove', touchmoveHandler);
+			// document.removeEventListener('touchend', touchendHandler);
 			document.removeEventListener('visibilitychange', handleVisibilityChange);
 		};
 	});
@@ -1239,23 +1251,29 @@
 	<title>{$WEBUI_NAME}</title>
 	<link crossorigin="anonymous" rel="icon" href="{WEBUI_BASE_URL}/static/favicon.png" />
 
-	<meta name="apple-mobile-web-app-title" content={$WEBUI_NAME} />
+	<!-- <meta name="apple-mobile-web-app-title" content={$WEBUI_NAME} /> -->
 	<meta name="description" content={$WEBUI_NAME} />
-	<link
+	<!-- <link
 		rel="search"
 		type="application/opensearchdescription+xml"
 		title={$WEBUI_NAME}
 		href="/opensearch.xml"
 		crossorigin="use-credentials"
-	/>
+	/> -->
 </svelte:head>
 
-{#if showRefresh}
+<!-- {#if showRefresh}
 	<div class=" py-5">
 		<Spinner className="size-5" />
 	</div>
+{/if} -->
+
+<!-- main door render app -->
+{#if loaded}
+	<slot />
 {/if}
 
+<!-- Browser-only: Electron app shell disabled.
 {#if loaded}
 	{#if $isApp}
 		<div class="flex flex-row h-screen">
@@ -1269,10 +1287,12 @@
 		<slot />
 	{/if}
 {/if}
+-->
 
-{#if $config?.features.enable_community_sharing}
+<!-- Sync Usage Stats is archived; keep this commented for easy restore. -->
+<!-- {#if $config?.features.enable_community_sharing}
 	<SyncStatsModal bind:show={showSyncStatsModal} eventData={syncStatsEventData} />
-{/if}
+{/if} -->
 
 <Toaster
 	theme={$theme.includes('dark')

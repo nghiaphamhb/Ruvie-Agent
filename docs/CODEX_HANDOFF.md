@@ -2,13 +2,93 @@
 
 ## Purpose
 
-This file preserves working context for future Codex sessions after the project is moved to a new location.
+This file preserves working context for future Codex sessions, especially when the user changes ChatGPT/Codex accounts. Repository files and Git state are the source of truth; do not rely on account chat history being available.
 
 Repository at the time of this handoff:
 
-- Old/current path: `E:/Desktop/GitHub Repository/Ruvie-Assistant`
+- Current path: `D:/Github Repository/Ruvie-Assistant`
 - Project type: customized Open WebUI-based assistant app
 - Main app name/brand in current customization: Ruvie
+
+## Current Snapshot — 2026-07-28
+
+### Git state
+
+- Branch: `dev-frontend`
+- HEAD: `8445ff6a96fe6ff618d26002cc1025191e844cb3`
+- Latest commit: `8445ff6 refactor: reset config based project`
+- There are no staged changes.
+- The working tree has substantial pre-existing, uncommitted work. Do not discard, reset, clean, or overwrite it.
+
+Tracked changes:
+
+- `backend/ruvie/routers/chats.py`
+- `package-lock.json`
+- `package.json`
+- `src/lib/apis/chats/index.ts`
+- `src/lib/components/chat/Settings/SyncStatsModal.svelte` (deleted; backup exists under `archived/`)
+- `src/lib/constants.ts`
+- `src/routes/+layout.svelte`
+- `static/favicon.png`
+- `static/opensearch.xml` (deleted; backup exists under `archived/`)
+
+Untracked paths:
+
+- `CHANGELOG.md`
+- `archived/`
+- `conversation_history/`
+- `docs/DESTINATION.md`
+- `tmp/`
+
+Treat `conversation_history/` as potentially sensitive account/chat data. Review it before copying, uploading, or committing it. Treat `tmp/` as generated working material until its purpose is confirmed.
+
+### Work in progress inferred from the diff
+
+- User-facing `Open WebUI` branding has been replaced with `Ruvie`; upstream package IDs,
+  compatibility identifiers, repository URLs, and infrastructure prefixes remain unchanged.
+- Archive the Sync Usage Stats feature across backend routes, frontend API helpers, modal wiring, and community window-message handling.
+- Disable desktop/Electron-only layout hooks for the browser-focused build.
+- Archive OpenSearch integration files.
+- Add `openwiki` as a frontend development dependency.
+- Add the enterprise-oriented product direction in `docs/DESTINATION.md`.
+
+These changes have not been validated or committed in the current snapshot. Confirm their intended scope with the user before broad cleanup or refactoring.
+
+### Local environment
+
+- `.env` exists. Do not print or commit its secrets; transfer required values through an approved secure channel.
+- `.venv/Scripts/uvicorn.exe` exists.
+- `node_modules/.bin/vite.cmd` exists.
+- Neither port `8080` nor `5173` was listening when this snapshot was created.
+- The dev servers are not assumed to be running.
+
+### Signup behavior updated — 2026-07-28
+
+- New-user signup is enabled in the current database.
+- New accounts receive the configured `pending` role and still require admin approval.
+- Creating the first admin no longer automatically disables future signup.
+- Database backup before enabling signup: `backend/data/webui.db.backup-before-enable-signup-20260728-232847`.
+- Verification: public config returned `enable_signup=true`; an invalid-email signup probe reached validation and returned HTTP 400 instead of the previous access-prohibited HTTP 403.
+
+### Documentation drift already identified
+
+- `docs/REINSTALL.md` does not exist and was removed from the required-reading list in `AGENTS.md`.
+- Some older docs still mention removed helpers such as `backend/start_windows.bat` and `backend/dev.sh`. The supported backend entrypoint is `ruvie.main:app`; use the commands in `AGENTS.md`.
+- Historical notes below may contain the old `E:/Desktop/...` workspace path. The current repository path is the `D:/Github Repository/...` path above.
+
+### Next session bootstrap
+
+Start a new Codex session in this repository with:
+
+> Read `AGENTS.md` and `docs/CODEX_HANDOFF.md` first. Inspect `git status` and the current diff without reverting anything. Treat the existing working tree as user-owned work. Summarize the intended Ruvie branding and Sync Usage Stats archival changes, then ask for or continue the next concrete task.
+
+Recommended first checks:
+
+```powershell
+git status --short --branch
+git diff --stat
+Get-NetTCPConnection -LocalPort 8080,5173 -ErrorAction SilentlyContinue
+```
 
 ## What Was Done In Recent Sessions
 
@@ -20,9 +100,10 @@ The following documentation files were created under `docs/`:
 - `docs/ARCHITECTURE.md`
 - `docs/USE_CASES.md`
 - `docs/QUICK_SETUP.md`
-- `docs/REINSTALL.md`
 - `docs/CODE_MAP.md`
 - `docs/CHANGE_GUIDE.md`
+
+`docs/REINSTALL.md` was referenced historically but is not present in the current repository.
 
 These files summarize:
 
@@ -219,3 +300,13 @@ Invoke-WebRequest http://127.0.0.1:5173
 - This handoff assumes the user wants to preserve local data, logo assets, docs, and Codex skill when moving the project.
 - The dev server was not confirmed running after logo replacement because the user interrupted the restart step.
 - The external logo source directory may not move with this repository unless copied separately.
+
+## Auth Landing Redesign — 2026-07-29
+
+- `src/routes/auth/+page.svelte` now presents Ruvie as an enterprise document workspace rather than a generic AI chat product.
+- The visual system uses navy, slate, white, and blue in place of the previous green/beige palette.
+- The landing copy explains the document workflow: company files, permission-aware knowledge, and answers linked to sources.
+- Short desktop viewports now use compact spacing and type; the page scrolls instead of clipping content.
+- Sign-in, account-request, OAuth, and administrator-approval behavior remain unchanged.
+- The new landing copy is translated in the `en-US`, `vi-VN`, and `ru-RU` locale files.
+- Remaining Open WebUI references are categorized in `docs/OPEN_WEBUI_LEGACY_AUDIT.md`.

@@ -19,7 +19,6 @@ Important documentation to read first:
 - `docs/ARCHITECTURE.md`
 - `docs/USE_CASES.md`
 - `docs/QUICK_SETUP.md`
-- `docs/REINSTALL.md`
 - `docs/CODE_MAP.md`
 - `docs/CHANGE_GUIDE.md`
 - `docs/CODEX_HANDOFF.md`

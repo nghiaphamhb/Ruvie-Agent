@@ -121,7 +121,7 @@ class ERROR_MESSAGES(str, Enum):
 
     FEATURE_DISABLED = lambda name='': f'{name} is disabled'
     INPUT_TOO_LONG = lambda size='': f'Input prompt exceeds maximum length of {size}'
-    SERVER_CONNECTION_ERROR = 'Open WebUI: Server Connection Error'
+    SERVER_CONNECTION_ERROR = 'Ruvie: Server Connection Error'
     REQUIRED_FIELD_EMPTY = lambda name='': f'Required field {name} is empty'
     OAUTH_NOT_CONFIGURED = lambda name='': f"Provider '{name}' is not configured"
 
