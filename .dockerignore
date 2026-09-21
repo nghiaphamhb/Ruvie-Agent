@@ -1,20 +1,14 @@
-.github
-.DS_Store
-docs
-kubernetes
-node_modules
-/.svelte-kit
-/package
+# The legacy source is available to developers and Codex, but is never part of
+# an application image or its build context.
+references/
+
+.git/
+node_modules/
+.venv/
+.svelte-kit/
+build/
+tmp/
+logs/
 .env
 .env.*
-vite.config.js.timestamp-*
-vite.config.ts.timestamp-*
-__pycache__
-.idea
-venv
-_old
-uploads
-.ipynb_checkpoints
-**/*.db
-_test
-backend/data/*
+!.env.example
