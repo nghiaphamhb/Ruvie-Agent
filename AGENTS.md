@@ -12,3 +12,7 @@ modify it unless the user explicitly asks.
 
 Generated files, environments, caches, logs, downloaded models, and secrets
 must not be committed under `references/`.
+
+## Development workflow
+
+Read `README.md` before running the active application, database migrations, frontend, or tests. Keep those commands documented there; do not duplicate them in this file.
