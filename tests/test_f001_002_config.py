@@ -14,6 +14,10 @@ class ConfigurationTests(unittest.TestCase):
     def run_settings(self, database_url: str | None) -> subprocess.CompletedProcess[str]:
         environment = os.environ.copy()
         environment.pop("DATABASE_URL", None)
+        environment["EMBEDDING_MODEL_ID"] = "BAAI/bge-m3"
+        environment["EMBEDDING_MODEL_VERSION"] = "a" * 40
+        environment["EMBEDDING_DIMENSION"] = "1024"
+        environment["EMBEDDING_DISTANCE_METRIC"] = "cosine"
         environment["PYTHONPATH"] = str(BACKEND)
         if database_url is not None:
             environment["DATABASE_URL"] = database_url

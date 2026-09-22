@@ -2,10 +2,11 @@ from alembic import context
 from sqlalchemy import engine_from_config, pool
 
 from ruvie.config import load_settings
+from ruvie.domain import Base
 
 
 config = context.config
-target_metadata = None
+target_metadata = Base.metadata
 
 
 def run_migrations_offline() -> None:
