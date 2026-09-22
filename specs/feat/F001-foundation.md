@@ -37,17 +37,17 @@ machine state.
    hoạt động.
 
 ## Acceptance Criteria
-- [ ] Active application không import, chạy hoặc phụ thuộc runtime vào
+- [x] Active application không import, chạy hoặc phụ thuộc runtime vào
       `references/`.
-- [ ] `.env` bị ignore và `.env.example` liệt kê mọi biến local bắt buộc mà
+- [x] `.env` bị ignore và `.env.example` liệt kê mọi biến local bắt buộc mà
       không chứa secret thật.
 - [ ] Migration có thể chạy trên một PostgreSQL database trống mà không cần
       thao tác thủ công.
-- [ ] Backend cung cấp `GET /health` và `GET /ready`; cả hai trả trạng thái
+- [x] Backend cung cấp `GET /health` và `GET /ready`; cả hai trả trạng thái
       thành công khi dependency tối thiểu sẵn sàng.
-- [ ] Có một lệnh documented để chạy backend, frontend, migration và test.
-- [ ] Có smoke test tự động cho health endpoint.
-- [ ] Không có feature domain, RAG, tool execution hoặc side effect nào được
+- [x] Có một lệnh documented để chạy backend, frontend, migration và test.
+- [x] Có smoke test tự động cho health endpoint.
+- [x] Không có feature domain, RAG, tool execution hoặc side effect nào được
       thêm trong feature này.
 
 ## Tasks

@@ -15,6 +15,10 @@ class DatabaseFoundationTests(unittest.TestCase):
         environment = {
             **os.environ,
             "DATABASE_URL": DATABASE_URL,
+            "EMBEDDING_MODEL_ID": "BAAI/bge-m3",
+            "EMBEDDING_MODEL_VERSION": "a" * 40,
+            "EMBEDDING_DIMENSION": "1024",
+            "EMBEDDING_DISTANCE_METRIC": "cosine",
         }
         environment.pop("PYTHONPATH", None)
         if include_backend:
