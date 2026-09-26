@@ -1,0 +1,114 @@
+<mxfile host="app.diagrams.net" agent="Codex">
+  <diagram id="ruvie-agent-erd-v1" name="ER Diagram v1.0.1">
+    <mxGraphModel dx="1004" dy="530" grid="1" gridSize="10" guides="1" tooltips="1" connect="1" arrows="1" fold="1" page="1" pageScale="1" pageWidth="2200" pageHeight="1500" math="0" shadow="0">
+      <root>
+        <mxCell id="0" />
+        <mxCell id="1" parent="0" />
+        <mxCell id="title" parent="1" style="text;html=1;strokeColor=none;fillColor=none;align=left;verticalAlign=middle;whiteSpace=wrap;" value="&lt;div style=&quot;font-size:24px;font-weight:700;color:#1e293b;&quot;&gt;Ruvie Agent — Entity Relationship Diagram&lt;/div&gt;&lt;div style=&quot;font-size:13px;color:#475569;margin-top:4px;&quot;&gt;PostgreSQL schema • v1.0.1 • Based on migrations 0001–0003&lt;/div&gt;" vertex="1">
+          <mxGeometry height="70" width="900" x="40" y="25" as="geometry" />
+        </mxCell>
+        <mxCell id="legend" parent="1" style="rounded=1;whiteSpace=wrap;html=1;fillColor=#f8fafc;strokeColor=#94a3b8;fontSize=13;align=left;verticalAlign=middle;spacing=10;" value="&lt;div style=&quot;font-size:13px;line-height:1.55;color:#334155;&quot;&gt;&lt;b&gt;Notation&lt;/b&gt;&lt;br&gt;&lt;span style=&quot;color:#a16207;&quot;&gt;PK&lt;/span&gt; primary key &amp;nbsp; • &amp;nbsp; &lt;span style=&quot;color:#0f766e;&quot;&gt;FK&lt;/span&gt; foreign key&lt;br&gt;Crow’s foot = many; bar = one; circle = optional&lt;br&gt;Solid relationship = enforced database FK&lt;/div&gt;" vertex="1">
+          <mxGeometry height="100" width="460" x="1650" y="25" as="geometry" />
+        </mxCell>
+        <mxCell id="users" parent="1" style="rounded=1;whiteSpace=wrap;html=1;fillColor=#ffffff;strokeColor=#2563eb;strokeWidth=2;align=left;verticalAlign=top;overflow=fill;" value="&lt;div style=&quot;background:#1d4ed8;color:#fff;font-weight:700;font-size:15px;padding:7px 10px;&quot;&gt;users&lt;/div&gt;&lt;div style=&quot;padding:7px 10px;font-size:12px;line-height:1.55;color:#1e293b;&quot;&gt;&lt;span style=&quot;color:#a16207;font-weight:700;&quot;&gt;PK&lt;/span&gt; id : varchar(36)&lt;br&gt;email : varchar(320) [UQ]&lt;br&gt;display_name : varchar(255)&lt;br&gt;is_active : boolean&lt;br&gt;created_at : timestamptz&lt;br&gt;updated_at : timestamptz&lt;/div&gt;" vertex="1">
+          <mxGeometry height="195" width="280" x="40" y="160" as="geometry" />
+        </mxCell>
+        <mxCell id="roles" parent="1" style="rounded=1;whiteSpace=wrap;html=1;fillColor=#ffffff;strokeColor=#2563eb;strokeWidth=2;align=left;verticalAlign=top;overflow=fill;" value="&lt;div style=&quot;background:#1d4ed8;color:#fff;font-weight:700;font-size:15px;padding:7px 10px;&quot;&gt;roles&lt;/div&gt;&lt;div style=&quot;padding:7px 10px;font-size:12px;line-height:1.55;color:#1e293b;&quot;&gt;&lt;span style=&quot;color:#a16207;font-weight:700;&quot;&gt;PK&lt;/span&gt; id : varchar(36)&lt;br&gt;code : role_code [UQ]&lt;/div&gt;" vertex="1">
+          <mxGeometry height="95" width="280" x="230" y="650" as="geometry" />
+        </mxCell>
+        <mxCell id="projects" parent="1" style="rounded=1;whiteSpace=wrap;html=1;fillColor=#ffffff;strokeColor=#2563eb;strokeWidth=2;align=left;verticalAlign=top;overflow=fill;" value="&lt;div style=&quot;background:#1d4ed8;color:#fff;font-weight:700;font-size:15px;padding:7px 10px;&quot;&gt;projects&lt;/div&gt;&lt;div style=&quot;padding:7px 10px;font-size:12px;line-height:1.55;color:#1e293b;&quot;&gt;&lt;span style=&quot;color:#a16207;font-weight:700;&quot;&gt;PK&lt;/span&gt; id : varchar(36)&lt;br&gt;code : varchar(100) [UQ]&lt;br&gt;name : varchar(255) [UQ]&lt;br&gt;created_at : timestamptz&lt;br&gt;updated_at : timestamptz&lt;/div&gt;" vertex="1">
+          <mxGeometry height="165" width="280" x="550" y="580" as="geometry" />
+        </mxCell>
+        <mxCell id="memberships" parent="1" style="rounded=1;whiteSpace=wrap;html=1;fillColor=#ffffff;strokeColor=#0f766e;strokeWidth=2;align=left;verticalAlign=top;overflow=fill;" value="&lt;div style=&quot;background:#0f766e;color:#fff;font-weight:700;font-size:15px;padding:7px 10px;&quot;&gt;memberships&lt;/div&gt;&lt;div style=&quot;padding:7px 10px;font-size:12px;line-height:1.55;color:#1e293b;&quot;&gt;&lt;span style=&quot;color:#a16207;font-weight:700;&quot;&gt;PK&lt;/span&gt; id : varchar(36)&lt;br&gt;&lt;span style=&quot;color:#0f766e;font-weight:700;&quot;&gt;FK&lt;/span&gt; user_id : varchar(36)&lt;br&gt;&lt;span style=&quot;color:#0f766e;font-weight:700;&quot;&gt;FK&lt;/span&gt; project_id : varchar(36)&lt;br&gt;&lt;span style=&quot;color:#0f766e;font-weight:700;&quot;&gt;FK&lt;/span&gt; role_id : varchar(36)&lt;br&gt;created_at : timestamptz&lt;br&gt;&lt;i&gt;UQ(user_id, project_id, role_id)&lt;/i&gt;&lt;/div&gt;" vertex="1">
+          <mxGeometry height="210" width="300" x="220" y="388" as="geometry" />
+        </mxCell>
+        <mxCell id="audit_events" parent="1" style="rounded=1;whiteSpace=wrap;html=1;fillColor=#ffffff;strokeColor=#7c3aed;strokeWidth=2;align=left;verticalAlign=top;overflow=fill;" value="&lt;div style=&quot;background:#7c3aed;color:#fff;font-weight:700;font-size:15px;padding:7px 10px;&quot;&gt;audit_events&lt;/div&gt;&lt;div style=&quot;padding:7px 10px;font-size:12px;line-height:1.55;color:#1e293b;&quot;&gt;&lt;span style=&quot;color:#a16207;font-weight:700;&quot;&gt;PK&lt;/span&gt; id : varchar(36)&lt;br&gt;&lt;span style=&quot;color:#0f766e;font-weight:700;&quot;&gt;FK&lt;/span&gt; actor_user_id : varchar(36)&lt;br&gt;action : varchar(100)&lt;br&gt;resource_type : varchar(50)&lt;br&gt;resource_id : varchar(36)&lt;br&gt;&lt;span style=&quot;color:#0f766e;font-weight:700;&quot;&gt;FK&lt;/span&gt; project_id : varchar(36) [nullable]&lt;br&gt;outcome : varchar(10)&lt;br&gt;reason : text&lt;br&gt;created_at : timestamptz&lt;/div&gt;" vertex="1">
+          <mxGeometry height="275" width="300" x="30" y="765" as="geometry" />
+        </mxCell>
+        <mxCell id="documents" parent="1" style="rounded=1;whiteSpace=wrap;html=1;fillColor=#ffffff;strokeColor=#0284c7;strokeWidth=2;align=left;verticalAlign=top;overflow=fill;" value="&lt;div style=&quot;background:#0369a1;color:#fff;font-weight:700;font-size:15px;padding:7px 10px;&quot;&gt;documents&lt;/div&gt;&lt;div style=&quot;padding:7px 10px;font-size:12px;line-height:1.55;color:#1e293b;&quot;&gt;&lt;span style=&quot;color:#a16207;font-weight:700;&quot;&gt;PK&lt;/span&gt; id : varchar(36)&lt;br&gt;&lt;span style=&quot;color:#0f766e;font-weight:700;&quot;&gt;FK&lt;/span&gt; project_id : varchar(36)&lt;br&gt;title : varchar(500)&lt;br&gt;document_type : varchar(100)&lt;br&gt;status : varchar(50)&lt;br&gt;allowed_role_codes : json&lt;br&gt;created_at : timestamptz&lt;br&gt;updated_at : timestamptz&lt;br&gt;&lt;i&gt;UQ(id, project_id)&lt;/i&gt;&lt;/div&gt;" vertex="1">
+          <mxGeometry height="255" width="310" x="870" y="535" as="geometry" />
+        </mxCell>
+        <mxCell id="document_revisions" parent="1" style="rounded=1;whiteSpace=wrap;html=1;fillColor=#ffffff;strokeColor=#0284c7;strokeWidth=2;align=left;verticalAlign=top;overflow=fill;" value="&lt;div style=&quot;background:#0369a1;color:#fff;font-weight:700;font-size:15px;padding:7px 10px;&quot;&gt;document_revisions&lt;/div&gt;&lt;div style=&quot;padding:7px 10px;font-size:12px;line-height:1.47;color:#1e293b;&quot;&gt;&lt;span style=&quot;color:#a16207;font-weight:700;&quot;&gt;PK&lt;/span&gt; id : varchar(36)&lt;br&gt;&lt;span style=&quot;color:#0f766e;font-weight:700;&quot;&gt;FK&lt;/span&gt; document_id : varchar(36)&lt;br&gt;&lt;span style=&quot;color:#0f766e;font-weight:700;&quot;&gt;FK&lt;/span&gt; project_id : varchar(36)&lt;br&gt;revision_number : integer&lt;br&gt;content_hash : varchar(64)&lt;br&gt;blob_uri : varchar(2048) [private]&lt;br&gt;mime_type : varchar(255)&lt;br&gt;size_bytes : integer&lt;br&gt;software : varchar(255)&lt;br&gt;software_version : varchar(255)&lt;br&gt;ingestion_state : revision_ingestion_state&lt;br&gt;embedding_model_id : varchar(255)&lt;br&gt;embedding_model_version : varchar(255)&lt;br&gt;embedding_dimension : integer&lt;br&gt;embedding_distance_metric : varchar(32)&lt;br&gt;created_at : timestamptz&lt;br&gt;&lt;i&gt;UQ(document_id, revision_number)&lt;/i&gt;&lt;/div&gt;" vertex="1">
+          <mxGeometry height="490" width="350" x="1240" y="180" as="geometry" />
+        </mxCell>
+        <mxCell id="ingestion_jobs" parent="1" style="rounded=1;whiteSpace=wrap;html=1;fillColor=#ffffff;strokeColor=#d97706;strokeWidth=2;align=left;verticalAlign=top;overflow=fill;" value="&lt;div style=&quot;background:#b45309;color:#fff;font-weight:700;font-size:15px;padding:7px 10px;&quot;&gt;ingestion_jobs&lt;/div&gt;&lt;div style=&quot;padding:7px 10px;font-size:12px;line-height:1.55;color:#1e293b;&quot;&gt;&lt;span style=&quot;color:#a16207;font-weight:700;&quot;&gt;PK&lt;/span&gt; id : varchar(36)&lt;br&gt;&lt;span style=&quot;color:#0f766e;font-weight:700;&quot;&gt;FK&lt;/span&gt; document_revision_id : varchar(36) [UQ]&lt;br&gt;state : ingestion_job_state&lt;br&gt;attempt_count : integer&lt;br&gt;error_code : varchar(100) [nullable]&lt;br&gt;created_at : timestamptz&lt;br&gt;updated_at : timestamptz&lt;/div&gt;" vertex="1">
+          <mxGeometry height="225" width="350" x="1650" y="312.5" as="geometry" />
+        </mxCell>
+        <mxCell id="document_chunks" parent="1" style="rounded=1;whiteSpace=wrap;html=1;fillColor=#ffffff;strokeColor=#0284c7;strokeWidth=2;align=left;verticalAlign=top;overflow=fill;" value="&lt;div style=&quot;background:#0369a1;color:#fff;font-weight:700;font-size:15px;padding:7px 10px;&quot;&gt;document_chunks&lt;/div&gt;&lt;div style=&quot;padding:7px 10px;font-size:12px;line-height:1.48;color:#1e293b;&quot;&gt;&lt;span style=&quot;color:#a16207;font-weight:700;&quot;&gt;PK&lt;/span&gt; id : varchar(36)&lt;br&gt;&lt;span style=&quot;color:#0f766e;font-weight:700;&quot;&gt;FK&lt;/span&gt; document_revision_id : varchar(36)&lt;br&gt;&lt;span style=&quot;color:#0f766e;font-weight:700;&quot;&gt;FK&lt;/span&gt; document_id : varchar(36)&lt;br&gt;&lt;span style=&quot;color:#0f766e;font-weight:700;&quot;&gt;FK&lt;/span&gt; project_id : varchar(36)&lt;br&gt;ordinal : integer&lt;br&gt;text : text&lt;br&gt;content_hash : varchar(64)&lt;br&gt;start_offset : integer&lt;br&gt;end_offset : integer&lt;br&gt;software : varchar(255)&lt;br&gt;software_version : varchar(255)&lt;br&gt;embedding : vector(1024)&lt;br&gt;created_at : timestamptz&lt;br&gt;&lt;i&gt;UQ(document_revision_id, ordinal)&lt;/i&gt;&lt;/div&gt;" vertex="1">
+          <mxGeometry height="410" width="350" x="1240" y="710" as="geometry" />
+        </mxCell>
+        <mxCell id="access_grants" parent="1" style="rounded=1;whiteSpace=wrap;html=1;fillColor=#ffffff;strokeColor=#7c3aed;strokeWidth=2;align=left;verticalAlign=top;overflow=fill;" value="&lt;div style=&quot;background:#7c3aed;color:#fff;font-weight:700;font-size:15px;padding:7px 10px;&quot;&gt;access_grants&lt;/div&gt;&lt;div style=&quot;padding:7px 10px;font-size:12px;line-height:1.55;color:#1e293b;&quot;&gt;&lt;span style=&quot;color:#a16207;font-weight:700;&quot;&gt;PK&lt;/span&gt; id : varchar(36)&lt;br&gt;resource_type : varchar(50) = document&lt;br&gt;&lt;span style=&quot;color:#0f766e;font-weight:700;&quot;&gt;FK&lt;/span&gt; resource_id : varchar(36)&lt;br&gt;principal_type : varchar(50) = user&lt;br&gt;&lt;span style=&quot;color:#0f766e;font-weight:700;&quot;&gt;FK&lt;/span&gt; principal_id : varchar(36)&lt;br&gt;permission : varchar(50) = read&lt;br&gt;expires_at : timestamptz [nullable]&lt;br&gt;created_at : timestamptz&lt;br&gt;&lt;i&gt;UQ(resource_type, resource_id, principal_type, principal_id, permission)&lt;/i&gt;&lt;/div&gt;" vertex="1">
+          <mxGeometry height="285" width="350" x="580" y="115" as="geometry" />
+        </mxCell>
+        <mxCell id="rel_membership_user" edge="1" parent="1" source="users" style="edgeStyle=orthogonalEdgeStyle;rounded=0;orthogonalLoop=1;jettySize=auto;html=1;startArrow=ERone;startFill=0;endArrow=ERzeroToMany;endFill=0;strokeColor=#0f766e;strokeWidth=2;" target="memberships" value="">
+          <mxGeometry relative="1" as="geometry">
+            <Array as="points">
+              <mxPoint x="375" y="280" />
+              <mxPoint x="375" y="425.06" />
+            </Array>
+          </mxGeometry>
+        </mxCell>
+        <mxCell id="rel_membership_role" edge="1" parent="1" source="roles" style="edgeStyle=orthogonalEdgeStyle;rounded=0;orthogonalLoop=1;jettySize=auto;html=1;startArrow=ERone;startFill=0;endArrow=ERzeroToMany;endFill=0;strokeColor=#0f766e;strokeWidth=2;" target="memberships" value="">
+          <mxGeometry relative="1" as="geometry">
+            <Array as="points">
+              <mxPoint x="490" y="695" />
+              <mxPoint x="480" y="695" />
+            </Array>
+          </mxGeometry>
+        </mxCell>
+        <mxCell id="rel_membership_project" edge="1" parent="1" source="projects" style="edgeStyle=orthogonalEdgeStyle;rounded=0;orthogonalLoop=1;jettySize=auto;html=1;startArrow=ERone;startFill=0;endArrow=ERzeroToMany;endFill=0;strokeColor=#0f766e;strokeWidth=2;" target="memberships" value="">
+          <mxGeometry relative="1" as="geometry">
+            <Array as="points">
+              <mxPoint x="630" y="560" />
+              <mxPoint x="630" y="560" />
+            </Array>
+          </mxGeometry>
+        </mxCell>
+        <mxCell id="rel_project_document" edge="1" parent="1" source="projects" style="edgeStyle=orthogonalEdgeStyle;rounded=0;orthogonalLoop=1;jettySize=auto;html=1;startArrow=ERone;startFill=0;endArrow=ERzeroToMany;endFill=0;strokeColor=#0284c7;strokeWidth=2;" target="documents" value="">
+          <mxGeometry relative="1" as="geometry" />
+        </mxCell>
+        <mxCell id="rel_document_revision" edge="1" parent="1" source="documents" style="edgeStyle=orthogonalEdgeStyle;rounded=0;orthogonalLoop=1;jettySize=auto;html=1;startArrow=ERone;startFill=0;endArrow=ERzeroToMany;endFill=0;strokeColor=#0284c7;strokeWidth=2;" target="document_revisions" value="">
+          <mxGeometry relative="1" as="geometry">
+            <Array as="points">
+              <mxPoint x="1060" y="370" />
+            </Array>
+          </mxGeometry>
+        </mxCell>
+        <mxCell id="rel_revision_job" edge="1" parent="1" source="document_revisions" style="edgeStyle=orthogonalEdgeStyle;rounded=0;orthogonalLoop=1;jettySize=auto;html=1;startArrow=ERone;startFill=0;endArrow=ERzeroToOne;endFill=0;strokeColor=#d97706;strokeWidth=2;" target="ingestion_jobs" value="">
+          <mxGeometry relative="1" as="geometry" />
+        </mxCell>
+        <mxCell id="rel_revision_chunk" edge="1" parent="1" source="document_revisions" style="edgeStyle=orthogonalEdgeStyle;rounded=0;orthogonalLoop=1;jettySize=auto;html=1;startArrow=ERone;startFill=0;endArrow=ERzeroToMany;endFill=0;strokeColor=#0284c7;strokeWidth=2;" target="document_chunks" value="">
+          <mxGeometry relative="1" as="geometry" />
+        </mxCell>
+        <mxCell id="rel_user_grant" edge="1" parent="1" source="users" style="edgeStyle=orthogonalEdgeStyle;rounded=0;orthogonalLoop=1;jettySize=auto;html=1;startArrow=ERone;startFill=0;endArrow=ERzeroToMany;endFill=0;strokeColor=#7c3aed;strokeWidth=2;" target="access_grants" value="">
+          <mxGeometry relative="1" as="geometry" />
+        </mxCell>
+        <mxCell id="rel_document_grant" edge="1" parent="1" source="documents" style="edgeStyle=orthogonalEdgeStyle;rounded=0;orthogonalLoop=1;jettySize=auto;html=1;startArrow=ERone;startFill=0;endArrow=ERzeroToMany;endFill=0;strokeColor=#7c3aed;strokeWidth=2;" target="access_grants" value="">
+          <mxGeometry relative="1" as="geometry">
+            <Array as="points">
+              <mxPoint x="970" y="260" />
+            </Array>
+          </mxGeometry>
+        </mxCell>
+        <mxCell id="rel_user_audit" edge="1" parent="1" source="users" style="edgeStyle=orthogonalEdgeStyle;rounded=0;orthogonalLoop=1;jettySize=auto;html=1;startArrow=ERone;startFill=0;endArrow=ERzeroToMany;endFill=0;strokeColor=#7c3aed;strokeWidth=2;" target="audit_events" value="">
+          <mxGeometry relative="1" as="geometry">
+            <Array as="points">
+              <mxPoint x="110" y="500" />
+              <mxPoint x="110" y="500" />
+            </Array>
+          </mxGeometry>
+        </mxCell>
+        <mxCell id="rel_project_audit" edge="1" parent="1" source="projects" style="edgeStyle=orthogonalEdgeStyle;rounded=0;orthogonalLoop=1;jettySize=auto;html=1;startArrow=ERzeroToOne;startFill=0;endArrow=ERzeroToMany;endFill=0;strokeColor=#7c3aed;strokeWidth=2;" target="audit_events" value="">
+          <mxGeometry relative="1" as="geometry">
+            <Array as="points">
+              <mxPoint x="690" y="840" />
+            </Array>
+          </mxGeometry>
+        </mxCell>
+        <mxCell id="note" parent="1" style="rounded=1;whiteSpace=wrap;html=1;fillColor=#fffbeb;strokeColor=#f59e0b;fontSize=12;align=left;verticalAlign=middle;spacing=10;" value="&lt;div style=&quot;font-size:12px;line-height:1.45;color:#475569;&quot;&gt;&lt;b&gt;Implementation notes&lt;/b&gt;&lt;br&gt;• document_revisions and document_chunks are immutable.&lt;br&gt;• blob_uri remains private; it is never exposed directly.&lt;br&gt;• The chunk FK repeats document and project to preserve revision ownership.&lt;br&gt;• Audit event resource_type/resource_id is intentionally polymorphic and has no direct FK.&lt;/div&gt;" vertex="1">
+          <mxGeometry height="165" width="490" x="1640" y="780" as="geometry" />
+        </mxCell>
+      </root>
+    </mxGraphModel>
+  </diagram>
+</mxfile>
