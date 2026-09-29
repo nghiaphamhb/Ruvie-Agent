@@ -9,7 +9,7 @@ from sqlalchemy.orm import Session
 ROOT = Path(__file__).resolve().parents[1]
 sys.path.insert(0, str(ROOT / "backend"))
 
-from ruvie.document_retrieval import DocumentRetrievalService
+from ruvie.services.retrieval import DocumentRetrievalService
 from ruvie.domain import AuditEvent, Base, Document, Membership, Project, Role, RoleCode, User
 
 

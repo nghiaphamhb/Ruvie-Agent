@@ -149,7 +149,6 @@ class DocumentUploadService:
             software_version=request.software_version,
             ingestion_state=RevisionIngestionState.PENDING,
             embedding_model_id=self.embedding_profile.model_id,
-            embedding_model_version=self.embedding_profile.model_version,
             embedding_dimension=self.embedding_profile.dimension,
             embedding_distance_metric=self.embedding_profile.distance_metric,
         )

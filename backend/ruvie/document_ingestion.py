@@ -48,7 +48,7 @@ class DocumentIngestionWorker:
     def _ingest(self, job_id: str) -> None:
         job = self.session.get(IngestionJob, job_id)
         revision = self.session.get(DocumentRevision, job.document_revision_id)
-        if (revision.embedding_model_id, revision.embedding_model_version, revision.embedding_dimension, revision.embedding_distance_metric) != (self.profile.model_id, self.profile.model_version, self.profile.dimension, self.profile.distance_metric):
+        if (revision.embedding_model_id, revision.embedding_dimension, revision.embedding_distance_metric) != (self.profile.model_id, self.profile.dimension, self.profile.distance_metric):
             raise ValueError("revision embedding profile does not match worker profile")
         text = TextExtractor().extract(self.blob_store.get(revision.blob_uri), revision.mime_type)
         pieces = self._chunks(text)

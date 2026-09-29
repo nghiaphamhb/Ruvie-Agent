@@ -21,6 +21,10 @@ class IngestionSchemaTests(unittest.TestCase):
     def tearDown(self) -> None:
         self.engine.dispose()
 
+    def test_revision_schema_does_not_require_provider_model_version(self) -> None:
+        revision = Base.metadata.tables["document_revisions"]
+        self.assertNotIn("embedding_model_version", revision.c)
+
     def test_chunk_cannot_use_a_project_other_than_its_document_revision(self) -> None:
         self.assertIn("document_revisions", Base.metadata.tables)
         self.assertIn("ingestion_jobs", Base.metadata.tables)
@@ -61,7 +65,6 @@ class IngestionSchemaTests(unittest.TestCase):
                     software_version="2026",
                     ingestion_state="pending",
                     embedding_model_id="BAAI/bge-m3",
-                    embedding_model_version="v1",
                     embedding_dimension=1024,
                     embedding_distance_metric="cosine",
                 )

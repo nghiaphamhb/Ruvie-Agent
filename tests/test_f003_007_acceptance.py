@@ -6,7 +6,7 @@ from sqlalchemy import create_engine, event
 from sqlalchemy.orm import Session
 
 ROOT = Path(__file__).resolve().parents[1]; sys.path.insert(0, str(ROOT / "backend"))
-from ruvie.document_retrieval import AuthorizedScope, PgvectorChunkRepository
+from ruvie.services.retrieval import AuthorizedScope, PgvectorChunkRepository
 from ruvie.domain import AccessGrant, Base, Document, DocumentChunk, DocumentRevision, Membership, Project, RevisionIngestionState, Role, RoleCode, User
 
 
@@ -19,7 +19,7 @@ class F003AcceptanceTests(unittest.TestCase):
             s.add(Membership(id="m",user_id="u",project_id="a",role_id="r")); s.add_all((Document(id="da",project_id="a",title="Alpha",allowed_role_codes=["BIM_CAD_SPECIALIST"]),Document(id="bg",project_id="b",title="Granted",allowed_role_codes=[]),Document(id="bp",project_id="b",title="Private",allowed_role_codes=[]))); s.commit()
             s.add(AccessGrant(id="g",resource_type="document",resource_id="bg",principal_type="user",principal_id="u",permission="read"))
             for rid,did,pid in (("ra","da","a"),("rg","bg","b"),("rp","bp","b")):
-                s.add(DocumentRevision(id=rid,document_id=did,project_id=pid,revision_number=1,content_hash=rid*32,blob_uri="file:///x",mime_type="text/plain",size_bytes=1,software="x",software_version="1",ingestion_state=RevisionIngestionState.READY,embedding_model_id="m",embedding_model_version="a"*40,embedding_dimension=1024,embedding_distance_metric="cosine"))
+                s.add(DocumentRevision(id=rid,document_id=did,project_id=pid,revision_number=1,content_hash=rid*32,blob_uri="file:///x",mime_type="text/plain",size_bytes=1,software="x",software_version="1",ingestion_state=RevisionIngestionState.READY,embedding_model_id="m",embedding_dimension=1024,embedding_distance_metric="cosine"))
             s.commit()
             for cid,rid,did,pid in (("ca","ra","da","a"),("cg","rg","bg","b"),("cp","rp","bp","b")):
                 s.add(DocumentChunk(id=cid,document_revision_id=rid,document_id=did,project_id=pid,ordinal=0,text=cid,content_hash=cid*32,start_offset=0,end_offset=2,software="x",software_version="1",embedding=[0.0]*1024))

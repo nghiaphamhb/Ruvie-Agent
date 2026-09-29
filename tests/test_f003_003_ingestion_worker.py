@@ -36,7 +36,7 @@ class IngestionWorkerTests(unittest.TestCase):
         self.engine.dispose()
 
     def test_worker_creates_deterministic_chunks_and_marks_revision_ready(self) -> None:
-        profile = EmbeddingProfile("BAAI/bge-m3", "a" * 40, 1024, "cosine")
+        profile = EmbeddingProfile("BAAI/bge-m3", 1024, "cosine")
         with TemporaryDirectory() as directory, Session(self.engine) as session:
             upload = DocumentUploadService(session, LocalBlobStore(Path(directory)), profile).create_revision(
                 UploadRequest("user-1", "project-1", "Alpha", "alpha.txt", b"alpha bravo charlie", "text/plain", "Revit", "2026", ["BIM_CAD_SPECIALIST"])

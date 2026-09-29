@@ -143,7 +143,6 @@ class DocumentRevision(Base):
         server_default=RevisionIngestionState.PENDING.value,
     )
     embedding_model_id: Mapped[str] = mapped_column(String(255), nullable=False)
-    embedding_model_version: Mapped[str] = mapped_column(String(255), nullable=False)
     embedding_dimension: Mapped[int] = mapped_column(Integer, nullable=False)
     embedding_distance_metric: Mapped[str] = mapped_column(
         String(32), nullable=False, default="cosine", server_default="cosine"

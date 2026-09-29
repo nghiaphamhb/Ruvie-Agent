@@ -67,7 +67,7 @@ class DocumentUploadTests(unittest.TestCase):
     def test_member_upload_creates_private_blob_pending_revision_and_job(self) -> None:
         content = b"Project Alpha technical design"
         with TemporaryDirectory() as directory, Session(self.engine) as session:
-            result = DocumentUploadService(session, LocalBlobStore(Path(directory)), EmbeddingProfile("BAAI/bge-m3", "a" * 40, 1024, "cosine")).create_revision(
+            result = DocumentUploadService(session, LocalBlobStore(Path(directory)), EmbeddingProfile("BAAI/bge-m3", 1024, "cosine")).create_revision(
                 UploadRequest(
                     actor_user_id="user-alpha",
                     project_id="project-alpha",
