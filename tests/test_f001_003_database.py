@@ -16,7 +16,6 @@ class DatabaseFoundationTests(unittest.TestCase):
             **os.environ,
             "DATABASE_URL": DATABASE_URL,
             "EMBEDDING_MODEL_ID": "BAAI/bge-m3",
-            "EMBEDDING_MODEL_VERSION": "a" * 40,
             "EMBEDDING_DIMENSION": "1024",
             "EMBEDDING_DISTANCE_METRIC": "cosine",
         }
@@ -31,7 +30,7 @@ class DatabaseFoundationTests(unittest.TestCase):
                 sys.executable,
                 "-c",
                 "from ruvie.database import create_database_engine; "
-                "print(create_database_engine().url.drivername)",
+                f"print(create_database_engine('{DATABASE_URL}').url.drivername)",
             ],
             capture_output=True,
             check=False,

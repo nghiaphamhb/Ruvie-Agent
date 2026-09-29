@@ -28,13 +28,14 @@ without exposing documents from another project.
 - Xử lý nền theo các bước extract text -> normalize -> chunk -> embed -> index.
   Job state nằm trong PostgreSQL để có thể retry an toàn; không cần Redis hay
   broker ngoài ở F003.
-- Dùng embedding adapter với model self-hosted. Embedding profile là cấu hình
-  server-side duy nhất, gồm `EMBEDDING_MODEL_ID`, `EMBEDDING_MODEL_VERSION`,
-  `EMBEDDING_DIMENSION` và `EMBEDDING_DISTANCE_METRIC`; giá trị khởi đầu là
-  `BAAI/bge-m3`, dimension `1024`, metric `cosine`. Version phải là model
-  revision cụ thể, không được là `unspecified`; client không được gửi hoặc
-  chọn profile. Test inject deterministic fake profile/embedder, không tải
-  model hoặc gọi dịch vụ bên ngoài.
+- Dùng embedding adapter với model self-hosted hoặc OpenAI-compatible.
+  Embedding profile là cấu hình server-side duy nhất, gồm
+  `EMBEDDING_MODEL_ID`, `EMBEDDING_DIMENSION` và
+  `EMBEDDING_DISTANCE_METRIC`; giá trị khởi đầu là `BAAI/bge-m3`, dimension
+  `1024`, metric `cosine`. MVP không yêu cầu model version vì provider có thể
+  không cung cấp tham số này; client không được gửi hoặc chọn profile. Test
+  inject deterministic fake profile/embedder, không tải model hoặc gọi dịch
+  vụ bên ngoài.
 - Tạo `DocumentChunk` bất biến với ordinal, text, start/end character offsets,
   content hash và embedding. Metadata `project_id`, `software`,
   `software_version`, `document_id`, `revision_id` phải hiện diện ở đường
@@ -78,13 +79,14 @@ without exposing documents from another project.
   không sinh chunks/vectors duplicate. Revision thất bại không được retrieve.
 - `EmbeddingProfile` được parse/validate một lần khi application khởi động và
   inject vào upload service/ingestion worker; production code không gọi
-  `os.getenv()` trực tiếp tại request/job path. `model_id` và `model_version`
-  phải non-empty; dimension phải đúng `1024` của `Vector(1024)` hiện tại; metric
-  phải là `cosine`. Nếu cần model khác dimension, phải có migration/schema
-  embedding mới, không chỉ thay đổi `.env`.
-- Mỗi model embedding có `model_id`, pinned `model_version`, dimension và
-  distance metric được snapshot cùng revision/index. Không trộn vector từ
-  model/dimension khác trong một truy vấn.
+  `os.getenv()` trực tiếp tại request/job path. `model_id` phải non-empty;
+  dimension phải đúng `1024` của `Vector(1024)` hiện tại; metric phải là
+  `cosine`. Nếu cần model khác dimension, phải có migration/schema embedding
+  mới, không chỉ thay đổi `.env`.
+- `model_id`, dimension và distance metric được snapshot cùng revision/index.
+  Không trộn vector từ model/dimension khác trong một truy vấn. Các cải tiến
+  để thay đổi profile an toàn được theo dõi trong
+  `specs/to-be/embedding-profile-evolution.md`.
 - Citation ổn định trong vòng đời một retained revision. Nếu nội dung thay đổi,
   tạo revision mới và citation mới; citation revision cũ vẫn resolve được khi
   revision còn giữ lại.
@@ -110,7 +112,7 @@ copy có chủ đích vào chunk/index để filter hiệu quả, nhưng phải 
    rồi audit upload. Request trả revision ở trạng thái pending; không chờ
    embedding hoàn tất.
 3. Worker claim job, lấy blob, extract text, tạo chunks có offsets xác định,
-   embed bằng model pinned, rồi insert chunks/vectors vào pgvector trong một
+   embed bằng model server-side, rồi insert chunks/vectors vào pgvector trong một
    trạng thái nhất quán. Thành công chuyển revision sang `ready`; thất bại lưu
    lỗi an toàn và không publish chunks.
 4. Caller gửi retrieval query. Identity layer tạo `AuthorizedScope` bằng
@@ -131,8 +133,8 @@ copy có chủ đích vào chunk/index để filter hiệu quả, nhưng phải 
       trên chunk/index; chunk metadata project luôn khớp project của document.
 - [ ] Worker xử lý PDF/text fixture thành chunks có ordinal/offset xác định,
       embeddings model metadata, và revision `ready`; retry không duplicate.
-- [x] Application từ chối khởi động khi embedding profile thiếu model ID/model
-      revision, dùng dimension khác `1024`, hoặc metric khác `cosine`; upload
+- [x] Application từ chối khởi động khi embedding profile thiếu model ID, dùng
+      dimension khác `1024`, hoặc metric khác `cosine`; upload
       snapshot đúng profile server-side, không dùng hard-code hay input client.
 - [x] Revision failed hoặc pending không xuất hiện trong retrieval.
 - [x] Public retrieval API không nhận client-controlled `AuthorizedScope`,
@@ -157,7 +159,7 @@ copy có chủ đích vào chunk/index để filter hiệu quả, nhưng phải 
 - [x] F003-002 Implement private `BlobStore` ports/adapters local và
       S3-compatible, validation upload, content hashing và revision creation.
 - [x] F003-003 Implement PostgreSQL-backed ingestion worker: extraction,
-      deterministic chunking/offsets, idempotent job lifecycle và model-pinned
+      deterministic chunking/offsets, idempotent job lifecycle và server-side
       embedding adapter; thêm `EmbeddingProfile` server-side, config validation,
       injection vào upload/worker, và thay hard-code embedding metadata F003-002.
 - [x] F003-004 Implement pgvector chunk repository/search nhận typed

@@ -19,7 +19,6 @@ class HealthEndpointTests(unittest.TestCase):
                 f"sys.path.insert(0, {str(BACKEND)!r})",
                 "os.environ['DATABASE_URL'] = 'postgresql+psycopg://localhost/ruvie'",
                 "os.environ['EMBEDDING_MODEL_ID'] = 'BAAI/bge-m3'",
-                "os.environ['EMBEDDING_MODEL_VERSION'] = 'a' * 40",
                 "os.environ['EMBEDDING_DIMENSION'] = '1024'",
                 "os.environ['EMBEDDING_DISTANCE_METRIC'] = 'cosine'",
                 "from fastapi.testclient import TestClient",

@@ -30,7 +30,6 @@ class MembershipRepository:
             membership = membership.join(allowed_roles, allowed_roles.c.value == Role.code)
         else:
             return false()
-
         return exists(membership.where(
             Membership.user_id == user_id,
             Membership.project_id == Document.project_id,
@@ -65,7 +64,7 @@ class DocumentAccessService:
 
     @staticmethod
     def can_read_document(session: Session, user_id: str, document_id: str, *, at: datetime | None = None) -> bool:
-        statement = DocumentAccessService.readable_documents_statement(session, user_id, at=at).where(
-            Document.id == document_id
-        )
+        statement = DocumentAccessService.readable_documents_statement(
+            session, user_id, at=at
+        ).where(Document.id == document_id)
         return session.scalar(statement) is not None
