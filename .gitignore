@@ -30,6 +30,7 @@ logs/
 tmp/
 *.log
 *.pid
+/data/
 
 # Editor and operating-system files
 .DS_Store

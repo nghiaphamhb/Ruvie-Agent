@@ -2,7 +2,7 @@ from uuid import uuid4
 
 from sqlalchemy.orm import Session
 
-from ruvie.domain import AuditEvent
+from ruvie.models import AuditEvent
 
 
 class DocumentRetrievalAuditWriter:
@@ -15,12 +15,37 @@ class DocumentRetrievalAuditWriter:
         reason: str,
         project_id: str | None = None,
     ) -> AuditEvent:
-        event = AuditEvent(
-            id=str(uuid4()),
-            actor_user_id=actor_user_id,
+        return AuditEventWriter.append(
+            session,
+            actor_user_id,
             action="document.retrieve",
             resource_type="document",
             resource_id=document_id,
+            outcome=outcome,
+            reason=reason,
+            project_id=project_id,
+        )
+
+
+class AuditEventWriter:
+    @staticmethod
+    def append(
+        session: Session,
+        actor_user_id: str,
+        *,
+        action: str,
+        resource_type: str,
+        resource_id: str,
+        outcome: str,
+        reason: str,
+        project_id: str | None = None,
+    ) -> AuditEvent:
+        event = AuditEvent(
+            id=str(uuid4()),
+            actor_user_id=actor_user_id,
+            action=action,
+            resource_type=resource_type,
+            resource_id=resource_id,
             project_id=project_id,
             outcome=outcome,
             reason=reason,

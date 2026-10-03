@@ -1,16 +1,16 @@
 from contextlib import asynccontextmanager
-from pathlib import Path
-
 import httpx
 from fastapi import FastAPI
 
+from ruvie.adapters.blob_storage import DEFAULT_BLOB_ROOT, LocalBlobStore
 from ruvie.adapters.embedding import create_query_embedder
 from ruvie.adapters.llm import create_llm_adapter
 from ruvie.api.chat import router as chat_router
+from ruvie.api.auth import router as auth_router
 from ruvie.api.documents import router as document_router
+from ruvie.api.projects import router as projects_router
 from ruvie.config import load_settings
 from ruvie.database import create_database_engine, create_session_factory
-from ruvie.document_upload import LocalBlobStore
 
 
 @asynccontextmanager
@@ -24,7 +24,7 @@ async def lifespan(app: FastAPI):
         app.state.engine = engine
         app.state.session_factory = create_session_factory(engine)
         app.state.http_client = http_client
-        app.state.blob_store = LocalBlobStore(Path("data/uploads"))
+        app.state.blob_store = LocalBlobStore(DEFAULT_BLOB_ROOT)
         app.state.query_embedder = create_query_embedder(settings, http_client) if settings.embedding_provider else None
         app.state.llm_adapter = create_llm_adapter(settings, http_client) if settings.llm else None
         yield
@@ -38,7 +38,9 @@ async def lifespan(app: FastAPI):
 
 app = FastAPI(title="Ruvie Assistant", lifespan=lifespan)
 app.include_router(chat_router)
+app.include_router(auth_router)
 app.include_router(document_router)
+app.include_router(projects_router)
 
 
 @app.get("/health")

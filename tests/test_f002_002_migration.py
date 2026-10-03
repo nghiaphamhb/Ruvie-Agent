@@ -44,6 +44,8 @@ class DomainMigrationTests(unittest.TestCase):
         ):
             self.assertIn(f"CREATE TABLE {table_name}", result.stdout)
         self.assertIn("DROP COLUMN embedding_model_version", result.stdout)
+        self.assertIn("ADD COLUMN uploaded_by_user_id VARCHAR(36)", result.stdout)
+        self.assertIn("ON DELETE SET NULL", result.stdout)
 
 
 if __name__ == "__main__":

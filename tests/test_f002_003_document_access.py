@@ -11,7 +11,7 @@ ROOT = Path(__file__).resolve().parents[1]
 sys.path.insert(0, str(ROOT / "backend"))
 
 from ruvie.services.access import DocumentAccessService, MembershipRepository
-from ruvie.domain import AccessGrant, Base, Document, Membership, Project, Role, RoleCode, User
+from ruvie.models import AccessGrant, Base, Document, Membership, Project, Role, RoleCode, User
 
 
 class DocumentAccessTests(unittest.TestCase):

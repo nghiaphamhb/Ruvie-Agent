@@ -11,9 +11,10 @@ from sqlalchemy.orm import Session
 ROOT = Path(__file__).resolve().parents[1]
 sys.path.insert(0, str(ROOT / "backend"))
 
-from ruvie.document_upload import DocumentUploadService, LocalBlobStore, S3BlobStore, UploadRequest
+from ruvie.services.documents.upload import DocumentUploadService, UploadRequest
+from ruvie.adapters.blob_storage import LocalBlobStore, S3BlobStore
 from ruvie.config import EmbeddingProfile
-from ruvie.domain import (
+from ruvie.models import (
     Base,
     Document,
     DocumentRevision,
@@ -77,7 +78,6 @@ class DocumentUploadTests(unittest.TestCase):
                     mime_type="application/pdf",
                     software="Revit",
                     software_version="2026",
-                    allowed_role_codes=[RoleCode.BIM_CAD_SPECIALIST.value],
                 )
             )
 
@@ -91,7 +91,8 @@ class DocumentUploadTests(unittest.TestCase):
             revision = session.get(DocumentRevision, result.revision_id)
             job = session.get(IngestionJob, result.job_id)
             self.assertEqual(document.project_id, "project-alpha")
-            self.assertEqual(document.allowed_role_codes, ["BIM_CAD_SPECIALIST"])
+            self.assertEqual(document.allowed_role_codes, [role.value for role in RoleCode])
+            self.assertEqual(revision.uploaded_by_user_id, "user-alpha")
             self.assertEqual(revision.ingestion_state, RevisionIngestionState.PENDING)
             self.assertEqual(revision.software_version, "2026")
             self.assertEqual(job.state, IngestionJobState.PENDING)

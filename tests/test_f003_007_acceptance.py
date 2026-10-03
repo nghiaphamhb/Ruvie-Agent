@@ -7,7 +7,7 @@ from sqlalchemy.orm import Session
 
 ROOT = Path(__file__).resolve().parents[1]; sys.path.insert(0, str(ROOT / "backend"))
 from ruvie.services.retrieval import AuthorizedScope, PgvectorChunkRepository
-from ruvie.domain import AccessGrant, Base, Document, DocumentChunk, DocumentRevision, Membership, Project, RevisionIngestionState, Role, RoleCode, User
+from ruvie.models import AccessGrant, Base, Document, DocumentChunk, DocumentRevision, Membership, Project, RevisionIngestionState, Role, RoleCode, User
 
 
 class F003AcceptanceTests(unittest.TestCase):

@@ -15,7 +15,7 @@ from sqlalchemy.pool import StaticPool
 ROOT = Path(__file__).resolve().parents[1]
 sys.path.insert(0, str(ROOT / "backend"))
 
-from ruvie.domain import (
+from ruvie.models import (
     AccessGrant, AuditEvent, Base, Document, DocumentChunk, DocumentRevision, Membership,
     Project, RevisionIngestionState, Role, RoleCode, User,
 )

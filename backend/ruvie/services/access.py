@@ -4,7 +4,7 @@ from sqlalchemy import Text, cast, exists, false, func, or_, select
 from sqlalchemy.dialects import postgresql
 from sqlalchemy.orm import Session
 
-from ruvie.domain import AccessGrant, Document, Membership, Role
+from ruvie.models import AccessGrant, Document, Membership, Role
 
 
 class MembershipRepository:

@@ -6,7 +6,7 @@ from sqlalchemy.orm import Session
 from ruvie.adapters.embedding import QueryEmbedder
 from ruvie.adapters.llm import LlmAdapter
 from ruvie.config import Settings
-from ruvie.document_upload import BlobStore
+from ruvie.services.documents.upload import BlobStore
 
 
 def get_settings(request: Request) -> Settings:
@@ -15,9 +15,19 @@ def get_settings(request: Request) -> Settings:
 
 def get_authenticated_user_id(request: Request) -> str:
     user_id = getattr(request.state, "domain_user_id", None)
-    if not user_id:
-        raise HTTPException(status_code=401, detail="authentication required")
-    return user_id
+    if user_id:
+        return user_id
+    token = request.cookies.get("ruvie_session")
+    factory = getattr(request.app.state, "session_factory", None)
+    if token and factory:
+        from ruvie.services.auth import AuthService
+
+        with factory() as session:
+            resolved = AuthService(session).resolve_session(token)
+            if resolved is not None:
+                request.state.domain_user_id = resolved.user.id
+                return resolved.user.id
+    raise HTTPException(status_code=401, detail="authentication required")
 
 
 def get_session(request: Request) -> Iterator[Session]:

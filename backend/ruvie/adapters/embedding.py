@@ -13,6 +13,7 @@ Example HTTP response:
     {"data": [{"embedding": [0.12, -0.08, ...]}]}
 """
 
+import math
 from typing import Protocol
 
 import httpx
@@ -44,14 +45,49 @@ class OpenAICompatibleQueryEmbedder:
         except (TypeError, ValueError) as error:
             raise ValueError("embedding provider returned a non-numeric vector") from error
 
-    def _post(self, path: str, payload: dict[str, str]) -> httpx.Response:
-        request = {"headers": {"Authorization": f"Bearer {self.provider.api_key}"}, "json": payload}
+    def embed(self, texts: list[str]) -> list[list[float]]:
+        if not texts:
+            return []
+        if any(not text.strip() for text in texts):
+            raise ValueError("embedding inputs must not be empty")
+        response = self._post("/embeddings", {"input": texts, "model": self.profile.model_id})
+        response.raise_for_status()
+        try:
+            data = response.json()["data"]
+            if not isinstance(data, list) or len(data) != len(texts):
+                raise ValueError
+            if any("index" in item for item in data):
+                if any(not isinstance(item, dict) or not isinstance(item.get("index"), int) for item in data):
+                    raise ValueError
+                indexed = {item["index"]: item for item in data}
+                if len(indexed) != len(texts) or set(indexed) != set(range(len(texts))):
+                    raise ValueError
+                data = [indexed[index] for index in range(len(texts))]
+            vectors = [item["embedding"] for item in data]
+        except (KeyError, TypeError, ValueError) as error:
+            raise ValueError("embedding provider returned an invalid batch response") from error
+
+        result: list[list[float]] = []
+        try:
+            for vector in vectors:
+                if not isinstance(vector, list) or len(vector) != self.profile.dimension:
+                    raise ValueError
+                values = [float(value) for value in vector]
+                if any(not math.isfinite(value) for value in values):
+                    raise ValueError
+                result.append(values)
+        except (TypeError, ValueError) as error:
+            raise ValueError("embedding provider returned an invalid vector") from error
+        return result
+
+    def _post(self, path: str, payload: dict[str, object]) -> httpx.Response:
+        request = {"headers": {"Authorization": f"Bearer {self.provider.api_key}"}, "json": payload, "timeout": 60.0}
         if self.client:
             return self.client.post(f"{self.provider.base_url}{path}", **request)
         return httpx.post(f"{self.provider.base_url}{path}", **request)
 
 
-def create_query_embedder(settings: Settings, client: httpx.Client | None = None) -> QueryEmbedder:
+def create_query_embedder(settings: Settings, client: httpx.Client | None = None) -> OpenAICompatibleQueryEmbedder:
     if settings.embedding_provider is None:
         raise RuntimeError("embedding provider is not configured")
     return OpenAICompatibleQueryEmbedder(settings.embedding_provider, settings.embedding_profile, client)

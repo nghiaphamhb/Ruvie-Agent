@@ -1,0 +1,4 @@
+interface:
+  display_name: "Dev mode toggle"
+  short_description: "Start or stop the Ruvie development app"
+  default_prompt: "Use $dev-mode-toggle to start or stop the Ruvie development app."

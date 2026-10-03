@@ -4,6 +4,13 @@ The repository root is the active application. Add production code,
 configuration, tests, and documentation here. The backend lives in `backend/`,
 the Svelte 5/Vite frontend in `frontend/`, and automated tests in `tests/`.
 
+## Archived files
+
+- Any directory named `archive` is outside the active project context. Do not
+  read, search, edit, execute, or use files under it as project input.
+- Exclude archive directories from file searches and context collection at any
+  depth. This rule applies regardless of filename casing.
+
 ## Architecture boundaries
 
 - PostgreSQL is the system of record. Use Alembic migrations for persistent
