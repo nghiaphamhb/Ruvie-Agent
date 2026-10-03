@@ -3,7 +3,7 @@ from pathlib import Path
 import unittest
 
 ROOT = Path(__file__).resolve().parents[1]; sys.path.insert(0, str(ROOT / "backend"))
-from ruvie.document_citation import CitationBuilder
+from ruvie.services.documents.citation import CitationBuilder
 
 class CitationTests(unittest.TestCase):
     def test_stable_id_uses_immutable_document_revision_and_chunk_ids(self) -> None:

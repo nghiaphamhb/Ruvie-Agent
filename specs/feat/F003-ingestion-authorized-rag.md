@@ -127,7 +127,7 @@ copy có chủ đích vào chunk/index để filter hiệu quả, nhưng phải 
 - [ ] Migration trên PostgreSQL trống tạo được revision, ingestion job, chunk
       và pgvector schema/index cần thiết; schema liên kết đúng `Document` và
       `Project` của F002.
-- [ ] Upload của member tạo private blob, revision pending và job; upload bởi
+- [x] Upload của member tạo private blob, revision pending và job; upload bởi
       non-member bị deny và không tạo blob/document/revision.
 - [x] Metadata project/software/version được persist ở revision và hiện diện
       trên chunk/index; chunk metadata project luôn khớp project của document.
@@ -148,7 +148,7 @@ copy có chủ đích vào chunk/index để filter hiệu quả, nhưng phải 
 - [x] Citation trả về có ID ổn định qua các retrieval lặp lại của cùng revision
       và chứa document/revision/chunk IDs, ordinal, offsets, title, source hash
       và software/version; rank thay đổi không đổi citation ID.
-- [ ] Upload và retrieval allow/deny tạo audit event an toàn; deny không lộ
+- [x] Upload và retrieval allow/deny tạo audit event an toàn; deny không lộ
       metadata hoặc content ngoài authorized scope.
 - [x] Test suite chạy bằng lệnh documented trong README, dùng fake embedder và
       gồm Project Alpha/Project Beta isolation test.

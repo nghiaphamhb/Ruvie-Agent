@@ -11,9 +11,10 @@ ROOT = Path(__file__).resolve().parents[1]
 sys.path.insert(0, str(ROOT / "backend"))
 
 from ruvie.config import EmbeddingProfile
-from ruvie.document_ingestion import DocumentIngestionWorker
-from ruvie.document_upload import DocumentUploadService, LocalBlobStore, UploadRequest
-from ruvie.domain import Base, DocumentChunk, DocumentRevision, IngestionJob, IngestionJobState, Membership, Project, RevisionIngestionState, Role, RoleCode, User
+from ruvie.services.documents.ingestion import DocumentIngestionWorker
+from ruvie.services.documents.upload import DocumentUploadService, UploadRequest
+from ruvie.adapters.blob_storage import LocalBlobStore
+from ruvie.models import Base, DocumentChunk, DocumentRevision, IngestionJob, IngestionJobState, Membership, Project, RevisionIngestionState, Role, RoleCode, User
 
 
 class FakeEmbedder:
@@ -39,7 +40,7 @@ class IngestionWorkerTests(unittest.TestCase):
         profile = EmbeddingProfile("BAAI/bge-m3", 1024, "cosine")
         with TemporaryDirectory() as directory, Session(self.engine) as session:
             upload = DocumentUploadService(session, LocalBlobStore(Path(directory)), profile).create_revision(
-                UploadRequest("user-1", "project-1", "Alpha", "alpha.txt", b"alpha bravo charlie", "text/plain", "Revit", "2026", ["BIM_CAD_SPECIALIST"])
+                UploadRequest("user-1", "project-1", "Alpha", "alpha.txt", b"alpha bravo charlie", "text/plain", "Revit", "2026")
             )
             worker = DocumentIngestionWorker(session, LocalBlobStore(Path(directory)), FakeEmbedder(), profile, chunk_size=8, chunk_overlap=2)
 

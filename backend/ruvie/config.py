@@ -54,6 +54,7 @@ class Settings:
     embedding_profile: EmbeddingProfile
     embedding_provider: EmbeddingProviderSettings | None
     llm: LlmProviderSettings | None
+    auth_allowed_origins: tuple[str, ...] = ("http://localhost:5173", "http://127.0.0.1:5173")
 
 
 def load_settings() -> Settings:
@@ -65,4 +66,5 @@ def load_settings() -> Settings:
     embedding_provider = EmbeddingProviderSettings(embedding_values[0].rstrip("/"), embedding_values[1]) if any(embedding_values) else None
     llm_values = tuple(os.getenv(name, "").strip() for name in ("LLM_BASE_URL", "LLM_MODEL", "LLM_API_KEY"))
     llm = LlmProviderSettings(llm_values[0].rstrip("/"), llm_values[1], llm_values[2]) if any(llm_values) else None
-    return Settings(database_url, EmbeddingProfile(os.getenv("EMBEDDING_MODEL_ID", "").strip(), int(os.getenv("EMBEDDING_DIMENSION", "0")), os.getenv("EMBEDDING_DISTANCE_METRIC", "").strip()), embedding_provider, llm)
+    origins = tuple(value.strip().rstrip("/") for value in os.getenv("AUTH_ALLOWED_ORIGINS", "http://localhost:5173,http://127.0.0.1:5173").split(",") if value.strip())
+    return Settings(database_url, EmbeddingProfile(os.getenv("EMBEDDING_MODEL_ID", "").strip(), int(os.getenv("EMBEDDING_DIMENSION", "0")), os.getenv("EMBEDDING_DISTANCE_METRIC", "").strip()), embedding_provider, llm, origins)

@@ -17,7 +17,7 @@
 
 * { box-sizing: border-box; }
 body { margin: 0; }
-button, textarea { font: inherit; }
+button, textarea, input { font: inherit; }
 button { cursor: pointer; }
 button:disabled { cursor: not-allowed; }
 button:focus-visible, textarea:focus-visible, summary:focus-visible {
@@ -32,7 +32,37 @@ button:focus-visible, textarea:focus-visible, summary:focus-visible {
 .brand-mark, .welcome-mark, .assistant-mark { display: grid; place-items: center; background: var(--accent); color: white; font-weight: 700; }
 .brand-mark { width: 30px; height: 30px; border-radius: 10px; font-size: 15px; }
 .topbar-note { color: var(--muted); font-size: 13px; }
+.account-actions { display: flex; align-items: center; gap: 16px; }
+.logout-button { border: 1px solid var(--border); border-radius: 9px; padding: 8px 12px; background: var(--surface); color: var(--ink); }
+.auth-layout { flex: 1; display: grid; place-items: center; padding: 24px; }
+.auth-state { flex: 1; display: grid; place-items: center; color: var(--muted); }
+.auth-card { width: min(100%, 420px); padding: 34px; border: 1px solid var(--border); border-radius: 18px; background: var(--surface); box-shadow: 0 18px 55px #24454a0c; }
+.auth-card .welcome-mark { margin-bottom: 20px; }
+.auth-card h1 { margin: 0; font-size: 30px; letter-spacing: -.03em; }
+.auth-description { color: var(--muted); line-height: 1.55; }
+.auth-card label { display: block; margin: 19px 0 7px; font-size: 13px; font-weight: 650; }
+.auth-card input { width: 100%; min-height: 44px; padding: 10px 12px; border: 1px solid #cdd8d7; border-radius: 9px; background: var(--surface); color: var(--ink); }
+.auth-card input:focus-visible { outline: 2px solid var(--accent); outline-offset: 2px; }
+.auth-submit { width: 100%; min-height: 46px; margin-top: 24px; border: 0; border-radius: 10px; background: var(--accent); color: white; font-weight: 650; }
+.auth-submit:disabled { opacity: .65; }
+.auth-error { padding: 10px 12px; border: 1px solid #efccca; border-radius: 9px; background: #fff4f3; color: #9a3530; font-size: 13px; }
 .chat-layout { flex: 1; min-height: 0; display: flex; flex-direction: column; }
+.upload-panel { flex: none; width: min(100%, 1000px); margin: 18px auto 0; padding: 17px 20px; border: 1px solid var(--border); border-radius: 14px; background: var(--surface); }
+.upload-heading { display: flex; align-items: baseline; justify-content: space-between; gap: 16px; }
+.upload-heading h2 { margin: 0; font-size: 19px; letter-spacing: -.02em; }
+.upload-heading .eyebrow { margin-bottom: 5px; }
+.upload-heading > p, .upload-note { margin: 0; color: var(--muted); font-size: 12px; }
+.upload-form { display: grid; grid-template-columns: repeat(4, minmax(0, 1fr)); gap: 11px; margin-top: 14px; align-items: end; }
+.upload-form label { display: grid; gap: 6px; color: var(--muted); font-size: 12px; font-weight: 600; }
+.upload-form input, .upload-form select { min-width: 0; min-height: 38px; padding: 8px 10px; border: 1px solid #cdd8d7; border-radius: 8px; background: var(--surface); color: var(--ink); font: inherit; font-weight: 400; }
+.upload-form .upload-file { grid-column: span 3; }
+.upload-form .upload-file input { padding: 5px; }
+.upload-submit { min-height: 38px; border: 0; border-radius: 8px; background: var(--accent); color: white; font-weight: 650; }
+.upload-submit:disabled { opacity: .55; }
+.upload-status { display: flex; align-items: center; flex-wrap: wrap; gap: 12px; margin-top: 12px; color: var(--accent); font-size: 13px; }
+.upload-status button, .upload-error button { border: 1px solid var(--border); border-radius: 7px; padding: 6px 9px; background: var(--surface); color: var(--accent); }
+.upload-error { margin: 12px 0 0; color: #9a3530; font-size: 13px; }
+.upload-note { margin-top: 12px; }
 .conversation { flex: 1; min-height: 0; overflow-y: auto; overscroll-behavior: contain; scroll-padding-bottom: 24px; }
 .welcome { width: min(100%, 680px); min-height: 100%; margin: 0 auto; padding: 48px 24px 104px; display: flex; flex-direction: column; align-items: flex-start; justify-content: center; }
 .welcome-mark { width: 48px; height: 48px; margin-bottom: 26px; border-radius: 16px; font-size: 23px; box-shadow: 0 12px 25px #286b751c; }
@@ -78,6 +108,11 @@ button:focus-visible, textarea:focus-visible, summary:focus-visible {
 @media (max-width: 600px) {
   .topbar { min-height: 56px; padding: 0 16px; }
   .topbar-note { display: none; }
+  .upload-panel { margin: 12px 12px 0; padding: 14px; }
+  .upload-heading { align-items: flex-start; flex-direction: column; gap: 6px; }
+  .upload-form { grid-template-columns: 1fr 1fr; }
+  .upload-form .upload-file { grid-column: span 2; }
+  .upload-submit { grid-column: span 2; }
   .welcome { padding: 32px 22px 80px; }
   .turn-list { padding: 25px 17px 44px; }
   .assistant-row { gap: 10px; }

@@ -1,24 +1,24 @@
 from contextlib import suppress
 from dataclasses import dataclass
 from hashlib import sha256
-from os import name as os_name
 from pathlib import Path
 from typing import Protocol
-from urllib.parse import unquote, urlparse
 from uuid import uuid4
 
 from sqlalchemy import func, select
 from sqlalchemy.orm import Session
 
 from ruvie.config import EmbeddingProfile
-from ruvie.domain import (
+from ruvie.models import (
     Document,
     DocumentRevision,
     IngestionJob,
     Membership,
+    Project,
     RevisionIngestionState,
-    Role,
+    RoleCode,
 )
+from ruvie.services.audit import AuditEventWriter
 
 
 class BlobStore(Protocol):
@@ -29,70 +29,12 @@ class BlobStore(Protocol):
     def delete(self, uri: str) -> None: ...
 
 
-class S3Client(Protocol):
-    def put_object(self, **kwargs: object) -> object: ...
-
-    def delete_object(self, **kwargs: object) -> object: ...
-
-    def get_object(self, **kwargs: object) -> object: ...
-
-
 class UploadValidationError(ValueError):
     pass
 
 
 class UploadAuthorizationError(PermissionError):
     pass
-
-
-class LocalBlobStore:
-    def __init__(self, root: Path) -> None:
-        self.root = root.resolve()
-
-    def put(self, *, key: str, content: bytes, mime_type: str) -> str:
-        path = self._path_for(key)
-        path.parent.mkdir(parents=True, exist_ok=True)
-        path.write_bytes(content)
-        return path.as_uri()
-
-    def delete(self, uri: str) -> None:
-        path = Path(uri.removeprefix("file://")).resolve()
-        if path.is_relative_to(self.root):
-            path.unlink(missing_ok=True)
-
-    def get(self, uri: str) -> bytes:
-        path = unquote(urlparse(uri).path)
-        return Path(path[1:] if os_name == "nt" and path.startswith("/") else path).read_bytes()
-
-    def _path_for(self, key: str) -> Path:
-        path = (self.root / key).resolve()
-        if not path.is_relative_to(self.root):
-            raise UploadValidationError("blob key must stay inside local storage")
-        return path
-
-
-class S3BlobStore:
-    def __init__(self, client: S3Client, *, bucket: str, prefix: str = "") -> None:
-        self.client = client
-        self.bucket = bucket
-        self.prefix = prefix.strip("/")
-
-    def put(self, *, key: str, content: bytes, mime_type: str) -> str:
-        object_key = self._object_key(key)
-        self.client.put_object(Bucket=self.bucket, Key=object_key, Body=content, ContentType=mime_type, ACL="private")
-        return f"s3://{self.bucket}/{object_key}"
-
-    def delete(self, uri: str) -> None:
-        object_key = uri.removeprefix(f"s3://{self.bucket}/")
-        self.client.delete_object(Bucket=self.bucket, Key=object_key)
-
-    def get(self, uri: str) -> bytes:
-        object_key = uri.removeprefix(f"s3://{self.bucket}/")
-        return self.client.get_object(Bucket=self.bucket, Key=object_key)["Body"].read()
-
-    def _object_key(self, key: str) -> str:
-        key = key.lstrip("/")
-        return f"{self.prefix}/{key}" if self.prefix else key
 
 
 @dataclass(frozen=True)
@@ -105,7 +47,6 @@ class UploadRequest:
     mime_type: str
     software: str
     software_version: str
-    allowed_role_codes: list[str]
     document_id: str | None = None
 
 
@@ -127,7 +68,6 @@ class DocumentUploadService:
     def create_revision(self, request: UploadRequest) -> UploadResult:
         self._validate(request)
         self._require_membership(request.actor_user_id, request.project_id)
-        self._require_known_roles(request.allowed_role_codes)
 
         document = self._document_for(request)
         revision_number = self._next_revision_number(document.id)
@@ -140,6 +80,7 @@ class DocumentUploadService:
             id=revision_id,
             document_id=document.id,
             project_id=request.project_id,
+            uploaded_by_user_id=request.actor_user_id,
             revision_number=revision_number,
             content_hash=content_hash,
             blob_uri=blob_uri,
@@ -158,6 +99,16 @@ class DocumentUploadService:
             if request.document_id is None:
                 self.session.add(document)
             self.session.add_all((revision, job))
+            AuditEventWriter.append(
+                self.session,
+                request.actor_user_id,
+                action="document.upload",
+                resource_type="document",
+                resource_id=document.id,
+                project_id=request.project_id,
+                outcome="allow",
+                reason="revision_created",
+            )
             self.session.commit()
         except Exception:
             self.session.rollback()
@@ -186,12 +137,19 @@ class DocumentUploadService:
             select(Membership.id).where(Membership.user_id == user_id, Membership.project_id == project_id).limit(1)
         )
         if membership_id is None:
+            project_exists = self.session.scalar(select(Project.id).where(Project.id == project_id)) is not None
+            AuditEventWriter.append(
+                self.session,
+                user_id,
+                action="document.upload",
+                resource_type="project",
+                resource_id=project_id,
+                project_id=project_id if project_exists else None,
+                outcome="deny",
+                reason="project_membership_required",
+            )
+            self.session.commit()
             raise UploadAuthorizationError("project membership is required for upload")
-
-    def _require_known_roles(self, role_codes: list[str]) -> None:
-        known_codes = {role.value for role in self.session.scalars(select(Role.code))}
-        if not set(role_codes).issubset(known_codes):
-            raise UploadValidationError("allowed_role_codes contains an unknown role")
 
     def _document_for(self, request: UploadRequest) -> Document:
         if request.document_id is None:
@@ -199,7 +157,7 @@ class DocumentUploadService:
                 id=str(uuid4()),
                 project_id=request.project_id,
                 title=request.title,
-                allowed_role_codes=request.allowed_role_codes,
+                allowed_role_codes=[role.value for role in RoleCode],
             )
 
         document = self.session.get(Document, request.document_id)

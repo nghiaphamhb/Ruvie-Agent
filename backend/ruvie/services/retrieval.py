@@ -4,8 +4,8 @@ from uuid import uuid4
 from sqlalchemy import select
 from sqlalchemy.orm import Session
 
-from ruvie.document_citation import Citation, CitationBuilder
-from ruvie.domain import Document, DocumentChunk, DocumentRevision, RevisionIngestionState
+from ruvie.models import Document, DocumentChunk, DocumentRevision, RevisionIngestionState
+from ruvie.services.documents.citation import Citation, CitationBuilder
 from ruvie.services.access import DocumentAccessService
 from ruvie.services.audit import DocumentRetrievalAuditWriter
 

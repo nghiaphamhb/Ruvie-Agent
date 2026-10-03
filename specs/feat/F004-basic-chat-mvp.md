@@ -176,23 +176,23 @@ Khi thành công, thứ tự là nhiều `delta` -> có thể một `citations` 
 Không trả API key, base URL, raw upstream body hay nội dung private trong lỗi.
 
 ## Acceptance Criteria
-- [ ] Người dùng có thể gửi câu hỏi, thấy answer hiện dần, citations, loading
+- [x] Người dùng có thể gửi câu hỏi, thấy answer hiện dần, citations, loading
       state và error state trên chat UI.
-- [ ] `POST /chat` chỉ nhận `message`; thiếu trusted identity trả `401` và
+- [x] `POST /chat` chỉ nhận `message`; thiếu trusted identity trả `401` và
       không có fallback identity lấy từ client.
-- [ ] Embedding provider và LLM provider đọc từ cấu hình server-side. Client
+- [x] Embedding provider và LLM provider đọc từ cấu hình server-side. Client
       không thể thay model, API key, embedding profile, project, document ID
       hay authorized scope.
-- [ ] Backend luôn làm authorization trước retrieval. Chunk không được phép
+- [x] Backend luôn làm authorization trước retrieval. Chunk không được phép
       không xuất hiện trong prompt, answer context, citations hoặc response.
-- [ ] Không có chunk phù hợp vẫn tạo được answer nhưng không có citation.
-- [ ] SSE tuân theo contract `delta`, `citations`, `completed`, `error`; lỗi
+- [x] Không có chunk phù hợp vẫn tạo được answer nhưng không có citation.
+- [x] SSE tuân theo contract `delta`, `citations`, `completed`, `error`; lỗi
       provider không làm lộ secret hoặc dữ liệu private.
-- [ ] Citation trên UI giữ document ID, revision ID, chunk ID, offsets, title
+- [x] Citation trên UI giữ document ID, revision ID, chunk ID, offsets, title
       và source hash từ F003.
-- [ ] Request path F004 không lưu chat/message, không chạy skill/tool và không
+- [x] Request path F004 không lưu chat/message, không chạy skill/tool và không
       tạo ticket.
-- [ ] Tests dùng fake embedding/LLM adapter; gồm stream success/error, thiếu
+- [x] Tests dùng fake embedding/LLM adapter; gồm stream success/error, thiếu
       identity, client-scope injection và Project Alpha/Beta isolation; không
       gọi provider bên ngoài.
 - [x] Mỗi acceptance criterion chưa hoàn thành của F001–F003 có evidence rõ

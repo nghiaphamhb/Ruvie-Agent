@@ -6,7 +6,7 @@ from sqlalchemy.orm import Session
 
 ROOT = Path(__file__).resolve().parents[1]; sys.path.insert(0, str(ROOT / "backend"))
 from ruvie.services.retrieval import AuthorizedScope, PgvectorChunkRepository
-from ruvie.domain import Base, Document, DocumentChunk, DocumentRevision, Membership, Project, RevisionIngestionState, Role, RoleCode, User
+from ruvie.models import Base, Document, DocumentChunk, DocumentRevision, Membership, Project, RevisionIngestionState, Role, RoleCode, User
 
 class VectorSearchTests(unittest.TestCase):
     def test_scope_excludes_ready_chunks_from_another_project(self) -> None:

@@ -2,7 +2,7 @@ from alembic import context
 from sqlalchemy import engine_from_config, pool
 
 from ruvie.config import load_settings
-from ruvie.domain import Base
+from ruvie.models import Base
 
 
 config = context.config

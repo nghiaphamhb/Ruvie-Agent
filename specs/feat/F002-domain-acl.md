@@ -100,7 +100,7 @@ tường minh, không dựa vào giá trị mặc định ẩn.
       document khác.
 - [x] User Project Alpha không thể retrieve document Project Beta; Beta không
       có trong retrieval result hoặc LLM context.
-- [ ] Mỗi quyết định document retrieval allow/deny tạo `AuditEvent` append-only
+- [x] Mỗi quyết định document retrieval allow/deny tạo `AuditEvent` append-only
       với actor, target, outcome, reason và timestamp.
 - [x] Không có endpoint/retrieval path nào retrieve toàn bộ documents rồi mới
       lọc authorization trong memory hoặc ở LLM layer.
