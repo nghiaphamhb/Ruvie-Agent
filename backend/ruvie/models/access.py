@@ -8,6 +8,7 @@ from .base import Base
 
 
 class AccessGrant(Base):
+    """Direct document-read permission for a user, optionally limited by expiry."""
     __tablename__ = "access_grants"
     __table_args__ = (
         CheckConstraint("resource_type = 'document'", name="ck_access_grant_document_resource"),

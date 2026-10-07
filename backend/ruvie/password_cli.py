@@ -9,6 +9,7 @@ from ruvie.services.auth import AuthService
 
 
 def main() -> int:
+    """Read email from CLI and password privately; update an existing user or exit with an error."""
     parser = argparse.ArgumentParser(description="Provision a password for an existing user")
     parser.add_argument("email", help="Email of an existing user (does not create accounts)")
     args = parser.parse_args()

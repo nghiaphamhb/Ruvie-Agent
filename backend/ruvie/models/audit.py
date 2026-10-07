@@ -8,6 +8,7 @@ from .base import Base
 
 
 class AuditEvent(Base):
+    """Append-only access/action decision; immutability is enforced by the database."""
     __tablename__ = "audit_events"
     __table_args__ = (
         CheckConstraint("outcome IN ('allow', 'deny')", name="ck_audit_event_outcome"),

@@ -15,12 +15,14 @@ SESSION_HOURS = 12
 
 
 def hash_password(password: str) -> str:
+    """Return scrypt$N$r$p$salt$digest with a fresh random salt; never store plaintext."""
     salt = secrets.token_bytes(16)
     digest = hashlib.scrypt(password.encode(), salt=salt, n=2**14, r=8, p=1, dklen=32)
     return f"scrypt$16384$8$1${salt.hex()}${digest.hex()}"
 
 
 def verify_password(password: str, encoded: str) -> bool:
+    """Check a password against its stored scrypt record; malformed records return False."""
     try:
         algorithm, n, r, p, salt_hex, digest_hex = encoded.split("$")
         if algorithm != "scrypt":
@@ -35,6 +37,7 @@ def verify_password(password: str, encoded: str) -> bool:
 
 @dataclass(frozen=True)
 class CreatedSession:
+    """New session secrets returned to the login route; store only the cookie token hash."""
     token: str
     csrf_token: str
     expires_at: datetime
@@ -42,6 +45,7 @@ class CreatedSession:
 
 @dataclass(frozen=True)
 class ResolvedSession:
+    """Active user and CSRF token after validating the session cookie."""
     user: User
     csrf_token: str
 
@@ -51,12 +55,14 @@ class AuthService:
         self.session = session
 
     def authenticate(self, email: str, password: str) -> User | None:
+        """Return an active user with a matching password, or None for invalid credentials."""
         user = self.session.scalar(select(User).where(func.lower(User.email) == email.strip().casefold()))
         if not user or not user.is_active or not user.password_hash:
             return None
         return user if verify_password(password, user.password_hash) else None
 
     def set_existing_user_password(self, email: str, password: str) -> bool:
+        """Update/commit a password hash for an existing email; return whether it exists."""
         user = self.session.scalar(select(User).where(func.lower(User.email) == email.strip().casefold()))
         if user is None:
             return False
@@ -65,6 +71,7 @@ class AuthService:
         return True
 
     def create_session(self, user_id: str) -> CreatedSession:
+        """Generate cookie/CSRF secrets, store the token hash, and return the new session."""
         token = secrets.token_urlsafe(32)
         csrf = secrets.token_urlsafe(32)
         expires = datetime.now(timezone.utc) + timedelta(hours=SESSION_HOURS)
@@ -76,6 +83,8 @@ class AuthService:
         return CreatedSession(token, csrf, expires)
 
     def resolve_session(self, token: str) -> ResolvedSession | None:
+        """Resolve a cookie token; remove expired sessions and reject inactive users."""
+        # The browser holds the raw token; database lookup uses only its SHA-256 hash.
         token_hash = hashlib.sha256(token.encode()).hexdigest()
         record = self.session.scalar(select(AuthSession).where(AuthSession.token_hash == token_hash))
         if record is None:
@@ -93,6 +102,8 @@ class AuthService:
         return ResolvedSession(user, record.csrf_token)
 
     def revoke_session(self, token: str) -> bool:
+        """Delete/commit the matching session; return False when it is already absent."""
+        # The browser holds the raw token; database lookup uses only its SHA-256 hash.
         token_hash = hashlib.sha256(token.encode()).hexdigest()
         record = self.session.scalar(select(AuthSession).where(AuthSession.token_hash == token_hash))
         if record is None:
@@ -103,4 +114,5 @@ class AuthService:
 
     @staticmethod
     def verify_csrf(expected: str, supplied: str | None) -> bool:
+        """Compare CSRF secrets in constant time; a missing supplied token fails."""
         return bool(supplied) and hmac.compare_digest(expected, supplied)

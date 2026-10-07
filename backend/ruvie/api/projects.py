@@ -9,6 +9,10 @@ router = APIRouter(prefix="/projects", tags=["projects"])
 
 
 @router.get("")
-def list_projects(user_id: str = Depends(get_authenticated_user_id), session: Session = Depends(get_session)) -> dict[str, list[dict[str, str]]]:
+def list_projects(
+    user_id: str = Depends(get_authenticated_user_id),
+    session: Session = Depends(get_session),
+) -> dict[str, list[dict[str, str]]]:
+    """GET /projects: session -> {items: [{id, code, name}]} for this user only."""
     projects = ProjectListingService(session).list_for_user(user_id)
     return {"items": [{"id": project.id, "code": project.code, "name": project.name} for project in projects]}

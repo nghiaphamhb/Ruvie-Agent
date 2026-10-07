@@ -8,6 +8,7 @@ from .base import Base
 
 
 class User(Base):
+    """Domain account; authentication uses password_hash and is_active."""
     __tablename__ = "users"
 
     id: Mapped[str] = mapped_column(String(36), primary_key=True)
@@ -24,11 +25,13 @@ class User(Base):
 
 
 class AuthSession(Base):
+    """Server session with hashed cookie token, CSRF secret and expiry."""
     __tablename__ = "auth_sessions"
     __table_args__ = (Index("ix_auth_sessions_user_expires", "user_id", "expires_at"),)
 
     id: Mapped[str] = mapped_column(String(36), primary_key=True)
     user_id: Mapped[str] = mapped_column(ForeignKey("users.id", ondelete="CASCADE"), nullable=False)
+    # Store the cookie token hash, never the raw browser session token.
     token_hash: Mapped[str] = mapped_column(String(64), unique=True, nullable=False)
     csrf_token: Mapped[str] = mapped_column(String(64), nullable=False)
     expires_at: Mapped[datetime] = mapped_column(DateTime(timezone=True), nullable=False)

@@ -12,6 +12,7 @@ from ruvie.services.audit import DocumentRetrievalAuditWriter
 
 @dataclass(frozen=True)
 class AuthorizedScope:
+    """Search identity built by the server, not an ACL scope supplied by clients."""
     user_id: str
 
     @classmethod
@@ -22,10 +23,12 @@ class AuthorizedScope:
 class DocumentRetrievalService:
     @staticmethod
     def retrieve_documents(session: Session, user_id: str) -> list[Document]:
+        """Return only documents matched by the readable predicate."""
         return list(session.scalars(DocumentAccessService.readable_documents_statement(session, user_id)))
 
     @staticmethod
     def retrieve_document(session: Session, user_id: str, document_id: str) -> Document | None:
+        """Return an authorized document or None; append an allow/deny audit decision."""
         document = session.scalar(
             DocumentAccessService.readable_documents_statement(session, user_id).where(Document.id == document_id)
         )
@@ -44,9 +47,17 @@ class PgvectorChunkRepository:
     def __init__(self, session: Session) -> None:
         self.session = session
 
-    def search(self, scope: AuthorizedScope, query_embedding: list[float], *, limit: int = 10) -> list[DocumentChunk]:
+    def search(
+        self,
+        scope: AuthorizedScope,
+        query_embedding: list[float],
+        *,
+        limit: int = 10,
+    ) -> list[DocumentChunk]:
+        """Apply document access/ready status before ranking 1024-dimensional vectors."""
         if len(query_embedding) != 1024 or limit <= 0:
             raise ValueError("query embedding must have 1024 dimensions and limit must be positive")
+        # Filter document access in SQL before similarity ranking or exposing chunk text.
         readable = DocumentAccessService.readable_documents_statement(
             self.session, scope.user_id
         ).with_only_columns(Document.id)
@@ -59,12 +70,14 @@ class PgvectorChunkRepository:
         if self.session.get_bind().dialect.name == "postgresql":
             statement = statement.order_by(DocumentChunk.embedding.cosine_distance(query_embedding))
         else:
+            # SQLite test fallback is deterministic; production ranking uses pgvector cosine.
             statement = statement.order_by(DocumentChunk.ordinal)
         return list(self.session.scalars(statement.limit(limit)))
 
 
 @dataclass(frozen=True)
 class RetrievalHit:
+    """Authorized chunk text and stable citation metadata; never contains a blob URI."""
     chunk_id: str
     document_id: str
     text: str
@@ -75,7 +88,14 @@ class AuthorizedRetrievalService:
     def __init__(self, session: Session) -> None:
         self.session = session
 
-    def retrieve(self, user_id: str, query_embedding: list[float], *, limit: int = 10) -> list[RetrievalHit]:
+    def retrieve(
+        self,
+        user_id: str,
+        query_embedding: list[float],
+        *,
+        limit: int = 10,
+    ) -> list[RetrievalHit]:
+        """Retrieve allowed chunks, attach citations, commit the audit, and return hits."""
         chunks = PgvectorChunkRepository(self.session).search(
             AuthorizedScope.for_user(user_id), query_embedding, limit=limit
         )
@@ -85,6 +105,7 @@ class AuthorizedRetrievalService:
         return hits
 
     def _build_hit(self, chunk: DocumentChunk) -> RetrievalHit:
+        """Build a citation from the authorized chunk and its original document revision."""
         document = self.session.get(Document, chunk.document_id)
         revision = self.session.get(DocumentRevision, chunk.document_revision_id)
         if document is None or revision is None:
@@ -97,6 +118,7 @@ class AuthorizedRetrievalService:
         return RetrievalHit(chunk.id, chunk.document_id, chunk.text, citation)
 
     def _append_audit(self, user_id: str, hits: list[RetrievalHit]) -> None:
+        """Record an allowed result or a denial for no readable matches."""
         if hits:
             document = self.session.get(Document, hits[0].document_id)
             if document is None:

@@ -9,6 +9,7 @@ from ruvie.services.access import DocumentAccessService
 
 @dataclass(frozen=True)
 class RevisionStatus:
+    """Safe ingestion status/error code for the uploader or an authorized reader."""
     revision_id: str
     status: str
     error_code: str | None
@@ -19,6 +20,7 @@ class DocumentStatusService:
         self.session = session
 
     def get_revision_status(self, user_id: str, revision_id: str) -> RevisionStatus | None:
+        """Return status for the uploader/readable document; otherwise return None."""
         row = self.session.execute(
             select(DocumentRevision, IngestionJob.state, IngestionJob.error_code)
             .outerjoin(IngestionJob, IngestionJob.document_revision_id == DocumentRevision.id)
@@ -28,6 +30,7 @@ class DocumentStatusService:
             return None
 
         revision, job_state, job_error_code = row
+        # The uploader can follow their job; other users must pass document-read authorization.
         if revision.uploaded_by_user_id != user_id and not DocumentAccessService.can_read_document(
             self.session, user_id, revision.document_id
         ):

@@ -29,7 +29,7 @@ class ApplicationLifecycleTests(unittest.TestCase):
                 with app.state.session_factory() as session:
                     self.assertIs(session.bind, app.state.engine)
                 self.assertIs(app.state.query_embedder.client, app.state.http_client)
-                self.assertIs(app.state.llm_adapter.client, app.state.http_client)
+                self.assertIs(app.state.settings, TEST_SETTINGS)
 
         self.assertTrue(app.state.http_client.is_closed)
 
@@ -45,7 +45,7 @@ class ApplicationLifecycleTests(unittest.TestCase):
             with TestClient(app) as client:
                 self.assertEqual(client.get("/health").json(), {"status": "ok"})
                 self.assertIs(app.state.query_embedder.client, http_client)
-                self.assertIs(app.state.llm_adapter.client, http_client)
+                self.assertIs(app.state.settings, TEST_SETTINGS)
 
         create_engine.assert_called_once_with(TEST_SETTINGS.database_url)
         create_http_client.assert_called_once_with()
@@ -60,7 +60,7 @@ class ApplicationLifecycleTests(unittest.TestCase):
             patch("ruvie.main.create_database_engine", return_value=engine),
             patch("ruvie.main.create_session_factory", return_value=Mock()),
             patch("ruvie.main.httpx.Client", return_value=http_client),
-            patch("ruvie.main.create_llm_adapter", side_effect=RuntimeError("adapter setup failed")),
+            patch("ruvie.main.create_query_embedder", side_effect=RuntimeError("adapter setup failed")),
         ):
             with self.assertRaisesRegex(RuntimeError, "adapter setup failed"):
                 with TestClient(app):

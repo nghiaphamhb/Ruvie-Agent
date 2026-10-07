@@ -36,8 +36,10 @@ async def upload_document(
     blob_store: BlobStore = Depends(get_blob_store),
     settings: Settings = Depends(get_settings),
 ) -> dict[str, str | None]:
+    """POST /documents/upload: multipart metadata/file -> IDs and pending status (202)."""
     check_origin(request, settings)
     verify_csrf(request, user_id, session)
+    # Read one extra byte to detect oversized uploads without loading the whole file.
     content = await file.read(MAX_UPLOAD_BYTES + 1)
     if len(content) > MAX_UPLOAD_BYTES:
         raise HTTPException(status_code=413, detail="file too large")
@@ -62,6 +64,7 @@ async def upload_document(
 
 
 def _detect_mime_type(content: bytes) -> str:
+    """Detect PDF bytes or valid UTF-8 text; do not trust the uploaded Content-Type."""
     if content.startswith(b"%PDF-"):
         return "application/pdf"
     try:
@@ -79,6 +82,7 @@ def get_revision_status(
     user_id: str = Depends(get_authenticated_user_id),
     session: Session = Depends(get_session),
 ) -> dict[str, str | None]:
+    """GET revision status: session + revision ID -> safe status, or 404 if unavailable."""
     result = DocumentStatusService(session).get_revision_status(user_id, revision_id)
     if result is None:
         raise HTTPException(status_code=404, detail="revision not found")
@@ -86,7 +90,13 @@ def get_revision_status(
 
 
 @router.post("/retrieve")
-def retrieve_chunks(body: RetrievalBody, user_id: str = Depends(get_authenticated_user_id), session: Session = Depends(get_session), embedder: QueryEmbedder = Depends(get_query_embedder)) -> list[dict[str, object]]:
+def retrieve_chunks(
+    body: RetrievalBody,
+    user_id: str = Depends(get_authenticated_user_id),
+    session: Session = Depends(get_session),
+    embedder: QueryEmbedder = Depends(get_query_embedder),
+) -> list[dict[str, object]]:
+    """POST /documents/retrieve: {query, limit?} -> readable chunks with citations."""
     if not body.query.strip():
         raise HTTPException(status_code=422, detail="query is required")
     hits = AuthorizedRetrievalService(session).retrieve(

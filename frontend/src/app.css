@@ -108,7 +108,9 @@ button:focus-visible, textarea:focus-visible, summary:focus-visible {
 @media (max-width: 600px) {
   .topbar { min-height: 56px; padding: 0 16px; }
   .topbar-note { display: none; }
-  .upload-panel { margin: 12px 12px 0; padding: 14px; }
+  .upload-panel { width: auto; margin: 12px 12px 0; padding: 14px; }
+  .chat-layout { overflow-y: auto; }
+  .conversation { min-height: 220px; }
   .upload-heading { align-items: flex-start; flex-direction: column; gap: 6px; }
   .upload-form { grid-template-columns: 1fr 1fr; }
   .upload-form .upload-file { grid-column: span 2; }

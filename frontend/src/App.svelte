@@ -1,5 +1,6 @@
 <script lang="ts">
   import { onDestroy, onMount, tick } from 'svelte';
+  import LlmConnectionForm from './lib/components/LlmConnectionForm.svelte';
   import { ChatApiError, streamChat, type Citation } from './lib/chat-api';
   import { AuthApiError, getAuthSession, login, logout, type AuthUser } from './lib/auth-api';
   import {
@@ -19,6 +20,8 @@
   let draft = $state('');
   let turns = $state<ChatTurn[]>([]);
   let busy = $state(false);
+  let llmBusy = $state(false);
+  let sessionSequence = 0;
   let conversation = $state<HTMLDivElement | undefined>(undefined);
   let followOutput = true;
   let nextTurnId = 1;
@@ -77,18 +80,31 @@
     }
   }
 
+  /** Drop account data and invalidate responses from the previous login session. */
+  function clearSession() {
+    sessionSequence += 1;
+    activeRequest?.abort();
+    activeRequest = null;
+    busy = false;
+    llmBusy = false;
+    authUser = null;
+    csrfToken = '';
+    turns = [];
+    draft = '';
+    uploadSequence += 1;
+    projects = [];
+    projectsLoading = false;
+    projectsError = '';
+    selectedProjectId = '';
+    uploadStatus = null;
+  }
+
   async function signOut() {
     authBusy = true;
     authError = '';
     try {
       await logout(csrfToken);
-      authUser = null;
-      csrfToken = '';
-      turns = [];
-      uploadSequence += 1;
-      projects = [];
-      selectedProjectId = '';
-      uploadStatus = null;
+      clearSession();
     } catch (error) {
       authError = error instanceof AuthApiError ? error.message : 'Không thể đăng xuất.';
     } finally {
@@ -97,14 +113,18 @@
   }
 
   async function loadProjects() {
+    const sequence = sessionSequence;
     projectsLoading = true;
     projectsError = '';
     try {
-      projects = await listProjects();
-    } catch {
+      const result = await listProjects();
+      if (sequence === sessionSequence) projects = result;
+    } catch (error) {
+      if (sequence !== sessionSequence) return;
+      if (error instanceof DocumentsApiError && error.status === 401) { clearSession(); return; }
       projectsError = 'Không thể tải danh sách project. Hãy thử tải lại trang.';
     } finally {
-      projectsLoading = false;
+      if (sequence === sessionSequence) projectsLoading = false;
     }
   }
 
@@ -180,7 +200,8 @@
   async function submit(event: SubmitEvent) {
     event.preventDefault();
     const message = draft.trim();
-    if (!message || busy) return;
+    if (!message || busy || llmBusy || authBusy) return;
+    const sequence = sessionSequence;
 
     const turn: ChatTurn = {
       id: nextTurnId++, question: message, answer: '', citations: [], status: 'loading', error: ''
@@ -190,11 +211,13 @@
     draft = '';
     busy = true;
     followOutput = true;
-    activeRequest = new AbortController();
+    const controller = new AbortController();
+    activeRequest = controller;
     void scrollToLatest();
 
     try {
       await streamChat(message, (received) => {
+        if (sequence !== sessionSequence) return;
         if (received.type === 'delta') {
           activeTurn.answer += received.text;
           activeTurn.status = 'streaming';
@@ -204,21 +227,22 @@
           activeTurn.status = 'completed';
         }
         void scrollToLatest();
-      }, activeRequest.signal);
+      }, controller.signal);
     } catch (error) {
-      if (!activeRequest.signal.aborted) {
+      if (sequence !== sessionSequence) return;
+      if (error instanceof ChatApiError && error.code === 'auth_required') { clearSession(); return; }
+      if (!controller.signal.aborted) {
         activeTurn.status = 'error';
         activeTurn.citations = [];
         activeTurn.error = error instanceof ChatApiError ? error.message : 'Không thể hoàn tất câu trả lời.';
         void scrollToLatest();
       }
     } finally {
-      activeRequest = null;
-      busy = false;
+      if (sequence === sessionSequence) { activeRequest = null; busy = false; }
     }
   }
 
-  onDestroy(() => { activeRequest?.abort(); uploadSequence += 1; });
+  onDestroy(() => { sessionSequence += 1; activeRequest?.abort(); uploadSequence += 1; });
 </script>
 
 <svelte:head>
@@ -288,6 +312,10 @@
       {/if}
       {#if uploadError}<p class="upload-error" role="alert">{uploadError}</p>{/if}
     </section>
+    {#key authUser.id + csrfToken}
+      <LlmConnectionForm {csrfToken} disabled={busy || authBusy}
+        onexpired={clearSession} onbusychange={(value) => { llmBusy = value; }} />
+    {/key}
     <div class="conversation" bind:this={conversation} onscroll={handleScroll}>
       {#if turns.length === 0}
         <div class="welcome">
@@ -358,7 +386,7 @@
             onkeydown={handleInputKeydown}
             oncompositionend={(event) => (compositionEndedAt = event.timeStamp)}
           ></textarea>
-          <button type="submit" disabled={busy || !draft.trim()} aria-label="Gửi câu hỏi" title="Gửi câu hỏi">
+          <button type="submit" disabled={busy || llmBusy || authBusy || !draft.trim()} aria-label="Gửi câu hỏi" title="Gửi câu hỏi">
             <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round" aria-hidden="true">
               <path d="m5 12 14-7-4 14-3-6-7-1Z" />
               <path d="m12 13 7-8" />

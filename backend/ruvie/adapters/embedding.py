@@ -22,14 +22,24 @@ from ruvie.config import EmbeddingProfile, EmbeddingProviderSettings, Settings
 
 
 class QueryEmbedder(Protocol):
+    """Contract for converting one query string into a numeric search vector."""
+
     def embed_query(self, query: str) -> list[float]: ...
 
 
 class OpenAICompatibleQueryEmbedder:
-    def __init__(self, provider: EmbeddingProviderSettings, profile: EmbeddingProfile, client: httpx.Client | None = None) -> None:
+    """Use server-owned endpoint/key and the pinned embedding profile."""
+
+    def __init__(
+        self,
+        provider: EmbeddingProviderSettings,
+        profile: EmbeddingProfile,
+        client: httpx.Client | None = None,
+    ) -> None:
         self.provider, self.profile, self.client = provider, profile, client
 
     def embed_query(self, query: str) -> list[float]:
+        """POST /embeddings: {input: query, model} -> vector of the pinned dimension."""
         if not query.strip():
             raise ValueError("query is required")
         response = self._post("/embeddings", {"input": query, "model": self.profile.model_id})
@@ -46,6 +56,7 @@ class OpenAICompatibleQueryEmbedder:
             raise ValueError("embedding provider returned a non-numeric vector") from error
 
     def embed(self, texts: list[str]) -> list[list[float]]:
+        """POST /embeddings: {input: texts, model} -> finite vectors in input order."""
         if not texts:
             return []
         if any(not text.strip() for text in texts):
@@ -59,6 +70,7 @@ class OpenAICompatibleQueryEmbedder:
             if any("index" in item for item in data):
                 if any(not isinstance(item, dict) or not isinstance(item.get("index"), int) for item in data):
                     raise ValueError
+                # Providers may return vectors out of order; index maps them back to input texts.
                 indexed = {item["index"]: item for item in data}
                 if len(indexed) != len(texts) or set(indexed) != set(range(len(texts))):
                     raise ValueError
@@ -81,13 +93,22 @@ class OpenAICompatibleQueryEmbedder:
         return result
 
     def _post(self, path: str, payload: dict[str, object]) -> httpx.Response:
-        request = {"headers": {"Authorization": f"Bearer {self.provider.api_key}"}, "json": payload, "timeout": 60.0}
+        """Send a JSON payload with provider auth and a 60-second timeout."""
+        request = {
+            "headers": {"Authorization": f"Bearer {self.provider.api_key}"},
+            "json": payload,
+            "timeout": 60.0,
+        }
         if self.client:
             return self.client.post(f"{self.provider.base_url}{path}", **request)
         return httpx.post(f"{self.provider.base_url}{path}", **request)
 
 
-def create_query_embedder(settings: Settings, client: httpx.Client | None = None) -> OpenAICompatibleQueryEmbedder:
+def create_query_embedder(
+    settings: Settings,
+    client: httpx.Client | None = None,
+) -> OpenAICompatibleQueryEmbedder:
+    """Build the adapter from server settings; reject a missing embedding provider."""
     if settings.embedding_provider is None:
         raise RuntimeError("embedding provider is not configured")
     return OpenAICompatibleQueryEmbedder(settings.embedding_provider, settings.embedding_profile, client)

@@ -8,6 +8,7 @@ from ruvie.models import Membership, Project
 
 @dataclass(frozen=True)
 class ProjectSummary:
+    """Public project fields returned by the project-list API."""
     id: str
     code: str
     name: str
@@ -18,6 +19,7 @@ class ProjectListingService:
         self.session = session
 
     def list_for_user(self, user_id: str) -> list[ProjectSummary]:
+        """Return unique, sorted projects where the user has a database membership."""
         projects = self.session.scalars(
             select(Project)
             .join(Membership, Membership.project_id == Project.id)
