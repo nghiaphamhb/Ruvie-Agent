@@ -15,6 +15,7 @@ class DocumentRetrievalAuditWriter:
         reason: str,
         project_id: str | None = None,
     ) -> AuditEvent:
+        """Add a retrieval decision to the caller transaction; return the audit row."""
         return AuditEventWriter.append(
             session,
             actor_user_id,
@@ -40,6 +41,7 @@ class AuditEventWriter:
         reason: str,
         project_id: str | None = None,
     ) -> AuditEvent:
+        """Add/flush one audit event; the caller owns commit or rollback."""
         event = AuditEvent(
             id=str(uuid4()),
             actor_user_id=actor_user_id,

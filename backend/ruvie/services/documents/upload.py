@@ -22,6 +22,8 @@ from ruvie.services.audit import AuditEventWriter
 
 
 class BlobStore(Protocol):
+    """Private storage contract; returned URIs stay inside backend services."""
+
     def put(self, *, key: str, content: bytes, mime_type: str) -> str: ...
 
     def get(self, uri: str) -> bytes: ...
@@ -39,6 +41,7 @@ class UploadAuthorizationError(PermissionError):
 
 @dataclass(frozen=True)
 class UploadRequest:
+    """Upload metadata/bytes with actor ID from the session; document_id enables a new revision."""
     actor_user_id: str
     project_id: str
     title: str
@@ -52,6 +55,7 @@ class UploadRequest:
 
 @dataclass(frozen=True)
 class UploadResult:
+    """Internal upload result; API omits blob_uri and content_hash from its response."""
     document_id: str
     revision_id: str
     job_id: str
@@ -60,18 +64,25 @@ class UploadResult:
 
 
 class DocumentUploadService:
-    def __init__(self, session: Session, blob_store: BlobStore, embedding_profile: EmbeddingProfile) -> None:
+    def __init__(
+        self,
+        session: Session,
+        blob_store: BlobStore,
+        embedding_profile: EmbeddingProfile,
+    ) -> None:
         self.session = session
         self.blob_store = blob_store
         self.embedding_profile = embedding_profile
 
     def create_revision(self, request: UploadRequest) -> UploadResult:
+        """Validate membership, store a new revision/job/audit, and return internal IDs."""
         self._validate(request)
         self._require_membership(request.actor_user_id, request.project_id)
 
         document = self._document_for(request)
         revision_number = self._next_revision_number(document.id)
         revision_id = str(uuid4())
+        # Hash and unique revision key identify this upload without overwriting older content.
         content_hash = sha256(request.content).hexdigest()
         suffix = Path(request.filename).suffix.lower()
         key = f"projects/{request.project_id}/documents/{document.id}/revisions/{revision_number}/{revision_id}{suffix}"
@@ -112,6 +123,7 @@ class DocumentUploadService:
             self.session.commit()
         except Exception:
             self.session.rollback()
+            # If DB persistence fails, best-effort cleanup removes the newly written private blob.
             with suppress(Exception):
                 self.blob_store.delete(blob_uri)
             raise
@@ -119,6 +131,7 @@ class DocumentUploadService:
         return UploadResult(document.id, revision.id, job.id, blob_uri, content_hash)
 
     def _validate(self, request: UploadRequest) -> None:
+        """Reject blank required metadata and empty bytes before writing a blob."""
         for name, value in (
             ("project_id", request.project_id),
             ("title", request.title),
@@ -133,6 +146,7 @@ class DocumentUploadService:
             raise UploadValidationError("content is required")
 
     def _require_membership(self, user_id: str, project_id: str) -> None:
+        """Require project membership; audit and reject unauthorized uploads."""
         membership_id = self.session.scalar(
             select(Membership.id).where(Membership.user_id == user_id, Membership.project_id == project_id).limit(1)
         )
@@ -152,6 +166,7 @@ class DocumentUploadService:
             raise UploadAuthorizationError("project membership is required for upload")
 
     def _document_for(self, request: UploadRequest) -> Document:
+        """Create a document or verify the existing document belongs to the requested project."""
         if request.document_id is None:
             return Document(
                 id=str(uuid4()),
@@ -166,6 +181,7 @@ class DocumentUploadService:
         return document
 
     def _next_revision_number(self, document_id: str) -> int:
+        """Return the next revision number without overwriting previous content."""
         previous = self.session.scalar(
             select(func.max(DocumentRevision.revision_number)).where(DocumentRevision.document_id == document_id)
         )

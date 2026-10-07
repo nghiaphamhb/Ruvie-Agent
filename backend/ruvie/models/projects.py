@@ -17,12 +17,14 @@ from .base import Base
 
 
 class RoleCode(str, Enum):
+    """Supported project roles used by document access rules."""
     BIM_CAD_SPECIALIST = "BIM_CAD_SPECIALIST"
     DEVELOPER = "DEVELOPER"
     IT_SUPPORT = "IT_SUPPORT"
 
 
 class Role(Base):
+    """Named role referenced by memberships and document role lists."""
     __tablename__ = "roles"
 
     id: Mapped[str] = mapped_column(String(36), primary_key=True)
@@ -32,6 +34,7 @@ class Role(Base):
 
 
 class Project(Base):
+    """Project metadata; membership controls project listing and uploads."""
     __tablename__ = "projects"
 
     id: Mapped[str] = mapped_column(String(36), primary_key=True)
@@ -46,6 +49,7 @@ class Project(Base):
 
 
 class Membership(Base):
+    """User/project/role link used for document access and upload permissions."""
     __tablename__ = "memberships"
     __table_args__ = (
         UniqueConstraint("user_id", "project_id", "role_id", name="uq_membership_user_project_role"),

@@ -10,6 +10,7 @@ from ruvie.models import AccessGrant, Document, Membership, Role
 class MembershipRepository:
     @staticmethod
     def has_membership(session: Session, user_id: str, project_id: str) -> bool:
+        """Check that a database membership links this user to this project."""
         statement = select(Membership.id).where(
             Membership.user_id == user_id,
             Membership.project_id == project_id,
@@ -18,6 +19,7 @@ class MembershipRepository:
 
     @staticmethod
     def allowed_document_predicate(user_id: str, dialect_name: str):
+        """Build a SQL role/membership condition; unsupported dialects deny access."""
         membership = select(1).select_from(Membership).join(Role, Role.id == Membership.role_id)
         if dialect_name == "postgresql":
             membership = membership.where(
@@ -29,6 +31,7 @@ class MembershipRepository:
             allowed_roles = func.json_each(Document.allowed_role_codes).table_valued("value").alias("allowed_roles")
             membership = membership.join(allowed_roles, allowed_roles.c.value == Role.code)
         else:
+            # An unknown database dialect must deny access rather than weaken the ACL.
             return false()
         return exists(membership.where(
             Membership.user_id == user_id,
@@ -39,6 +42,7 @@ class MembershipRepository:
 class AccessGrantRepository:
     @staticmethod
     def active_document_read_predicate(user_id: str, at: datetime):
+        """Build a SQL condition for direct read grants that have not expired."""
         return exists(
             select(1).where(
                 AccessGrant.resource_type == "document",
@@ -54,6 +58,7 @@ class AccessGrantRepository:
 class DocumentAccessService:
     @staticmethod
     def readable_documents_statement(session: Session, user_id: str, *, at: datetime | None = None):
+        """Return a query restricted by membership roles OR active user grants."""
         now = at or datetime.now(timezone.utc)
         return select(Document).where(
             or_(
@@ -63,7 +68,14 @@ class DocumentAccessService:
         )
 
     @staticmethod
-    def can_read_document(session: Session, user_id: str, document_id: str, *, at: datetime | None = None) -> bool:
+    def can_read_document(
+        session: Session,
+        user_id: str,
+        document_id: str,
+        *,
+        at: datetime | None = None,
+    ) -> bool:
+        """Test one document against the same database-backed readable predicate."""
         statement = DocumentAccessService.readable_documents_statement(
             session, user_id, at=at
         ).where(Document.id == document_id)

@@ -34,6 +34,8 @@ tmp/
 
 # Editor and operating-system files
 .DS_Store
+Thumbs.db
+desktop.ini
 .idea/
 
 # Legacy reference source: never commit generated or machine-local files.

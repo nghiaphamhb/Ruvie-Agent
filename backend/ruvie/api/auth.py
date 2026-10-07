@@ -16,19 +16,38 @@ def _auth_response(user, csrf_token: str) -> AuthResponse:
 
 
 @router.post("/login", response_model=AuthResponse)
-def login(body: LoginRequest, request: Request, response: Response, db: Session = Depends(get_session)) -> AuthResponse:
+def login(
+    body: LoginRequest,
+    request: Request,
+    response: Response,
+    db: Session = Depends(get_session),
+) -> AuthResponse:
+    """POST /auth/login: {email, password} -> user/CSRF token and a secure session cookie."""
     check_origin(request, request.app.state.settings)
     service = AuthService(db)
     user = service.authenticate(body.email, body.password)
     if user is None:
         raise HTTPException(status_code=401, detail="email or password is incorrect")
     created = service.create_session(user.id)
-    response.set_cookie(COOKIE_NAME, created.token, max_age=SESSION_HOURS * 3600, httponly=True, secure=True, samesite="lax", path="/")
+    # HttpOnly keeps the cookie out of JavaScript; CSRF token is returned separately.
+    response.set_cookie(
+        COOKIE_NAME, created.token,
+        max_age=SESSION_HOURS * 3600,
+        httponly=True,
+        secure=True,
+        samesite="lax",
+        path="/",
+    )
     return _auth_response(user, created.csrf_token)
 
 
 @router.get("/session", response_model=AuthResponse)
-def current_session(request: Request, user_id: str = Depends(get_authenticated_user_id), db: Session = Depends(get_session)) -> AuthResponse:
+def current_session(
+    request: Request,
+    user_id: str = Depends(get_authenticated_user_id),
+    db: Session = Depends(get_session),
+) -> AuthResponse:
+    """GET /auth/session: session cookie -> active user/CSRF token, or HTTP 401."""
     token = request.cookies.get(COOKIE_NAME)
     if not token:
         raise HTTPException(status_code=401, detail="authentication required")
@@ -39,7 +58,13 @@ def current_session(request: Request, user_id: str = Depends(get_authenticated_u
 
 
 @router.post("/logout", status_code=204)
-def logout(request: Request, response: Response, user_id: str = Depends(get_authenticated_user_id), db: Session = Depends(get_session)) -> Response:
+def logout(
+    request: Request,
+    response: Response,
+    user_id: str = Depends(get_authenticated_user_id),
+    db: Session = Depends(get_session),
+) -> Response:
+    """POST /auth/logout: session + Origin/CSRF -> revoke session, clear cookie, return 204."""
     check_origin(request, request.app.state.settings)
     verify_csrf(request, user_id, db)
     token = request.cookies[COOKIE_NAME]

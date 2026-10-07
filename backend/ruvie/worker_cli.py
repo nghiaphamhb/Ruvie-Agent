@@ -14,7 +14,13 @@ from ruvie.database import create_database_engine, create_session_factory
 from ruvie.services.documents.ingestion import DocumentIngestionWorker
 
 
-def run_worker_loop(run_once: Callable[[], str | None], stop_event: threading.Event, *, poll_interval: float = 2.0) -> None:
+def run_worker_loop(
+    run_once: Callable[[], str | None],
+    stop_event: threading.Event,
+    *,
+    poll_interval: float = 2.0,
+) -> None:
+    """Run jobs until stopped; wait poll_interval seconds only when the queue is empty."""
     while not stop_event.is_set():
         job_id = run_once()
         if job_id is None:
@@ -22,10 +28,12 @@ def run_worker_loop(run_once: Callable[[], str | None], stop_event: threading.Ev
 
 
 def main() -> int:
+    """Build worker resources and handle shutdown signals; return the process exit code."""
     logging.basicConfig(level=logging.INFO, format="%(asctime)s %(levelname)s %(message)s")
     settings = load_settings()
     engine = create_database_engine(settings.database_url)
     client = httpx.Client()
+    # The signal handler sets this event; waiting workers wake up and stop cleanly.
     stop_event = threading.Event()
     previous_handlers = {}
 
@@ -39,6 +47,7 @@ def main() -> int:
         embedder = create_query_embedder(settings, client)
         blob_store = LocalBlobStore(DEFAULT_BLOB_ROOT)
 
+        # One fresh session per job; the worker heartbeat uses separate sessions.
         def run_once() -> str | None:
             with session_factory() as session:
                 return DocumentIngestionWorker(

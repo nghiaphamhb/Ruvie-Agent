@@ -23,9 +23,12 @@ class EmbeddingAdapter(Protocol):
 
 
 logger = logging.getLogger(__name__)
+# Total attempts include the first run; retries stop after this limit.
 MAX_ATTEMPTS = 3
-EMBED_BATCH_SIZE = 64 # 64 jobs 
+EMBED_BATCH_SIZE = 64  # Text chunks per embedding request, not ingestion jobs.
+# Wait times after failed attempts; running jobs refresh updated_at as a heartbeat.
 RETRY_DELAYS = {1: timedelta(seconds=5), 2: timedelta(seconds=30)}
+# A running job without a heartbeat for this long is considered interrupted.
 STALE_AFTER = timedelta(minutes=5)
 HEARTBEAT_INTERVAL = 60.0
 
@@ -38,6 +41,7 @@ class _IngestionFailure(Exception):
 
 class TextExtractor:
     def extract(self, content: bytes, mime_type: str) -> str:
+        """Convert UTF-8 text or PDF bytes into text; unsupported MIME types fail."""
         if mime_type.startswith("text/"):
             return content.decode("utf-8")
         if mime_type == "application/pdf":
@@ -48,7 +52,19 @@ class TextExtractor:
 
 
 class DocumentIngestionWorker:
-    def __init__(self, session: Session, blob_store: BlobStore, embedder: EmbeddingAdapter, profile: EmbeddingProfile, *, chunk_size: int = 800, chunk_overlap: int = 120, session_factory: Callable[[], Session] | None = None) -> None:
+    """Process private revision blobs into chunks/vectors; expose fully ready revisions only."""
+
+    def __init__(
+        self,
+        session: Session,
+        blob_store: BlobStore,
+        embedder: EmbeddingAdapter,
+        profile: EmbeddingProfile,
+        *,
+        chunk_size: int = 800,
+        chunk_overlap: int = 120,
+        session_factory: Callable[[], Session] | None = None,
+    ) -> None:
         if chunk_size <= 0 or not 0 <= chunk_overlap < chunk_size:
             raise ValueError("chunk overlap must be non-negative and smaller than chunk size")
         self.session, self.blob_store, self.embedder, self.profile = session, blob_store, embedder, profile
@@ -56,8 +72,10 @@ class DocumentIngestionWorker:
         self.chunk_size, self.chunk_overlap, self.extractor = chunk_size, chunk_overlap, TextExtractor()
 
     def run_next(self) -> str | None:
+        """Claim one eligible job, run it, handle failure, and return its ID or None."""
         self._recover_stale_jobs()
         now = datetime.now(timezone.utc)
+        # Pending retries become claimable only after their delay has elapsed.
         eligible = or_(
             IngestionJob.attempt_count == 0,
             (IngestionJob.attempt_count == 1) & (IngestionJob.updated_at <= now - RETRY_DELAYS[1]),
@@ -67,6 +85,7 @@ class DocumentIngestionWorker:
             select(IngestionJob)
             .where(IngestionJob.state == IngestionJobState.PENDING, eligible)
             .order_by(IngestionJob.created_at)
+            # PostgreSQL skips jobs another worker has already locked.
             .with_for_update(skip_locked=True)
             .limit(1)
         )
@@ -83,6 +102,7 @@ class DocumentIngestionWorker:
         return job_id
 
     def _run_with_heartbeat(self, job_id: str) -> None:
+        """Keep the job alive using separate DB sessions during slow provider calls."""
         if self.session_factory is None:
             self._ingest(job_id)
             return
@@ -112,12 +132,14 @@ class DocumentIngestionWorker:
             thread.join()
 
     def _recover_stale_jobs(self) -> None:
+        """Remove partial chunks from interrupted jobs; retry or mark them failed."""
         stale = self.session.scalars(
             select(IngestionJob)
             .where(
                 IngestionJob.state == IngestionJobState.RUNNING,
-                IngestionJob.updated_at <= datetime.now(timezone.utc) - STALE_AFTER, # out of date 
+                IngestionJob.updated_at <= datetime.now(timezone.utc) - STALE_AFTER,
             )
+            # PostgreSQL skips jobs another worker has already locked.
             .with_for_update(skip_locked=True)
         ).all()
         for job in stale:
@@ -133,6 +155,7 @@ class DocumentIngestionWorker:
             self.session.commit()
 
     def _ingest(self, job_id: str) -> None:
+        """Read a private blob, extract/chunk/embed, then mark ready after all batches succeed."""
         job = self.session.get(IngestionJob, job_id)
         revision = self.session.get(DocumentRevision, job.document_revision_id)
         if (revision.embedding_model_id, revision.embedding_dimension, revision.embedding_distance_metric) != (self.profile.model_id, self.profile.dimension, self.profile.distance_metric):
@@ -159,6 +182,7 @@ class DocumentIngestionWorker:
         self.session.execute(delete(DocumentChunk).where(DocumentChunk.document_revision_id == revision_id))
         self.session.commit()
 
+        # Partial batches remain hidden because retrieval accepts only READY revisions.
         for batch_start in range(0, len(pieces), EMBED_BATCH_SIZE):
             batch = pieces[batch_start : batch_start + EMBED_BATCH_SIZE]
             try:
@@ -207,14 +231,16 @@ class DocumentIngestionWorker:
         self.session.commit()
 
     def _fail(self, job_id: str, error: Exception) -> None:
+        """Rollback and remove partial chunks; store a safe error code and bounded retry state."""
         self.session.rollback()
         job = self.session.get(IngestionJob, job_id)
         revision = self.session.get(DocumentRevision, job.document_revision_id)
-        self.session.execute(delete(DocumentChunk).where(DocumentChunk.document_revision_id == revision.id)) # rollback
+        self.session.execute(delete(DocumentChunk).where(DocumentChunk.document_revision_id == revision.id))  # Remove batches committed before the failure.
         failure = error if isinstance(error, _IngestionFailure) else _IngestionFailure(
             "database_unavailable" if isinstance(error, OperationalError) else "worker_error",
             retryable=isinstance(error, OperationalError),
         )
+        # Retry transient failures only while the total attempt budget remains.
         retry = failure.retryable and job.attempt_count < MAX_ATTEMPTS
         if retry:
             job.state, revision.ingestion_state = IngestionJobState.PENDING, RevisionIngestionState.PENDING
@@ -226,6 +252,7 @@ class DocumentIngestionWorker:
         logger.info("ingestion job %s ended as %s (%s)", job_id, job.state.value, failure.code)
 
     def _chunks(self, text: str) -> list[tuple[str, int, int]]:
+        """Return (text, start, end) chunks with overlap and original character offsets [start, end)."""
         chunks, start = [], 0
         while start < len(text):
             end, chunk = min(start + self.chunk_size, len(text)), text[start : min(start + self.chunk_size, len(text))]

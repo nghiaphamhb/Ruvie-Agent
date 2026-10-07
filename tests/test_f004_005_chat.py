@@ -3,6 +3,8 @@ import json
 import sys
 from pathlib import Path
 import unittest
+from types import SimpleNamespace
+from unittest.mock import patch
 
 import httpx
 from fastapi import FastAPI, Request
@@ -122,7 +124,15 @@ class ChatTests(unittest.TestCase):
         app.include_router(router)
         app.state.session_factory = self.session_factory
         app.state.query_embedder = embedder
-        app.state.llm_adapter = llm
+        app.state.settings = SimpleNamespace(llm=None, llm_allowed_local_origins=())
+        def resolve(_service, _user_id, _model_id=None):
+            if llm is None:
+                from ruvie.services.llm import LlmNotConfiguredError
+                raise LlmNotConfiguredError
+            return llm
+        provider_patch = patch("ruvie.services.llm.LlmConnectionService.resolve_chat_adapter", resolve)
+        provider_patch.start()
+        self.addCleanup(provider_patch.stop)
 
         @app.middleware("http")
         async def trusted_test_identity(request: Request, call_next):
@@ -136,8 +146,9 @@ class ChatTests(unittest.TestCase):
         from ruvie.services.chat import ChatService
 
         llm = CapturingLlm()
-        service = ChatService(FakeEmbedder(), llm, self.session_factory)
-        hits = service.prepare("alpha", "Install plugin")
+        service = ChatService(FakeEmbedder(), SimpleNamespace(), self.session_factory)
+        with patch("ruvie.services.llm.LlmConnectionService.resolve_chat_adapter", return_value=llm):
+            hits = service.prepare("alpha", "Install plugin").hits
 
         self.assertEqual([hit.chunk_id for hit in hits], ["chunk-alpha"])
         self.assertTrue(TrackedSession.last.closed)
@@ -316,6 +327,16 @@ class ChatTests(unittest.TestCase):
         self.assertEqual([name for name, _ in events], ["error"])
         self.assertEqual(events[0][1]["code"], "generation_failed")
         self.assertTrue(events[0][1]["message"])
+
+    def test_unusable_embedding_is_safe_provider_error(self):
+        class InvalidEmbedder:
+            def embed_query(self, _query):
+                raise ValueError("private vector details")
+        with self._client(InvalidEmbedder(), CapturingLlm()) as client:
+            response = client.post("/chat", json={"message": "Question"}, headers={"x-test-user": "alpha"})
+        self.assertEqual(response.status_code, 200)
+        self.assertEqual(parse_events(response)[0][1]["code"], "provider_unavailable")
+        self.assertNotIn("private vector details", response.text)
 
     def test_active_application_registers_chat_route(self) -> None:
         from ruvie.main import app

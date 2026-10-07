@@ -6,10 +6,12 @@ from ruvie.models import Base
 
 
 config = context.config
+# Importing ruvie.models registers all active tables; applied version files stay unchanged.
 target_metadata = Base.metadata
 
 
 def run_migrations_offline() -> None:
+    """Generate migration SQL without opening a database connection."""
     context.configure(
         url=load_settings().database_url,
         target_metadata=target_metadata,
@@ -22,6 +24,7 @@ def run_migrations_offline() -> None:
 
 
 def run_migrations_online() -> None:
+    """Connect using server DATABASE_URL and apply migrations in a transaction."""
     configuration = config.get_section(config.config_ini_section, {})
     configuration["sqlalchemy.url"] = load_settings().database_url
     connectable = engine_from_config(configuration, prefix="sqlalchemy.", poolclass=pool.NullPool)

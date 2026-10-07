@@ -67,9 +67,10 @@ Before implementing behavior that may already exist in `references/`:
    settings. Legacy auth, SQLite assumptions, and client-selected scope must
    not become active authorization paths.
 4. Bring over relevant tests or add focused tests for the adapted behavior.
-   Record what was reused and what changed; check provenance and license terms
-   before copying substantial code. Never import runtime code from
-   `references/` into the active application.
+   Record source paths, what was reused, and what changed. For the supplied
+   code in this repository's `references/`, the project owner does not require
+   a separate license check; a missing `LICENSE` must not block reuse.
+   Never import runtime code from `references/` into the active application.
 
 UI layout and interactions may be adapted from `references/`; the active
 frontend's API contract and backend authorization boundary remain in force.

@@ -1,3 +1,5 @@
+"""Import all models so Base.metadata and Alembic see every active table."""
+
 from .base import Base
 from .auth import AuthSession, User
 from .projects import Membership, Project, Role, RoleCode
@@ -11,11 +13,13 @@ from .documents import (
 )
 from .access import AccessGrant
 from .audit import AuditEvent
+from .llm import UserLlmSettings
 
 __all__ = [
     "Base",
     "AuthSession",
     "User",
+    "UserLlmSettings",
     "Membership",
     "Project",
     "Role",

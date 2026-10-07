@@ -23,12 +23,14 @@ from .base import Base
 
 
 class RevisionIngestionState(str, Enum):
+    """Revision visibility state: only ready revisions participate in retrieval."""
     PENDING = "pending"
     READY = "ready"
     FAILED = "failed"
 
 
 class IngestionJobState(str, Enum):
+    """Worker lifecycle, separate from whether revision content is searchable."""
     PENDING = "pending"
     RUNNING = "running"
     COMPLETED = "completed"
@@ -36,6 +38,7 @@ class IngestionJobState(str, Enum):
 
 
 class Document(Base):
+    """Project document metadata and allowed membership roles."""
     __tablename__ = "documents"
     __table_args__ = (
         UniqueConstraint("id", "project_id", name="uq_document_id_project"),
@@ -53,6 +56,7 @@ class Document(Base):
     status: Mapped[str] = mapped_column(
         String(50), nullable=False, default="active", server_default="active"
     )
+    # Empty roles grant no membership-based access; direct read grants are checked separately.
     allowed_role_codes: Mapped[list[str]] = mapped_column(JSON, nullable=False, default=list)
     created_at: Mapped[datetime] = mapped_column(
         DateTime(timezone=True), nullable=False, server_default=func.now()
@@ -63,6 +67,7 @@ class Document(Base):
 
 
 class DocumentRevision(Base):
+    """Immutable upload content/profile metadata; only ingestion status may change."""
     __tablename__ = "document_revisions"
     __table_args__ = (
         UniqueConstraint("document_id", "revision_number", name="uq_document_revision_number"),
@@ -92,6 +97,7 @@ class DocumentRevision(Base):
     uploaded_by_user_id: Mapped[str | None] = mapped_column(ForeignKey("users.id", ondelete="SET NULL"))
     revision_number: Mapped[int] = mapped_column(Integer, nullable=False)
     content_hash: Mapped[str] = mapped_column(String(64), nullable=False)
+    # Private storage reference; only backend services use it after authorization.
     blob_uri: Mapped[str] = mapped_column(String(2048), nullable=False)
     mime_type: Mapped[str] = mapped_column(String(255), nullable=False)
     size_bytes: Mapped[int] = mapped_column(Integer, nullable=False)
@@ -117,6 +123,7 @@ class DocumentRevision(Base):
 
 
 class IngestionJob(Base):
+    """One job per revision with bounded attempts and a heartbeat timestamp."""
     __tablename__ = "ingestion_jobs"
     __table_args__ = (
         UniqueConstraint("document_revision_id", name="uq_ingestion_job_revision"),
@@ -148,6 +155,7 @@ class IngestionJob(Base):
 
 
 class DocumentChunk(Base):
+    """Immutable text/vector and character offsets belonging to one source revision."""
     __tablename__ = "document_chunks"
     __table_args__ = (
         UniqueConstraint("document_revision_id", "ordinal", name="uq_document_chunk_revision_ordinal"),
@@ -174,9 +182,11 @@ class DocumentChunk(Base):
     ordinal: Mapped[int] = mapped_column(Integer, nullable=False)
     text: Mapped[str] = mapped_column(Text, nullable=False)
     content_hash: Mapped[str] = mapped_column(String(64), nullable=False)
+    # Character positions in the extracted source text; end_offset is exclusive.
     start_offset: Mapped[int] = mapped_column(Integer, nullable=False)
     end_offset: Mapped[int] = mapped_column(Integer, nullable=False)
     software: Mapped[str] = mapped_column(String(255), nullable=False)
     software_version: Mapped[str] = mapped_column(String(255), nullable=False)
+    # Pinned 1024-dimensional vectors match the cosine index and embedding profile.
     embedding: Mapped[list[float]] = mapped_column(Vector(1024), nullable=False)
     created_at: Mapped[datetime] = mapped_column(DateTime(timezone=True), nullable=False, server_default=func.now())

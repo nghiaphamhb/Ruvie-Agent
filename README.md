@@ -9,6 +9,7 @@ data and vectors; uploaded files stay in private blob storage.
 - Python 3.11+
 - Node.js and npm
 - PostgreSQL with the pgvector extension
+- Docker Desktop with Linux containers (for a Docker database)
 
 ## Setup
 
@@ -38,17 +39,10 @@ Copy-Item .env.example .env
 
 ## Database
 
-Review the SQL, apply migrations to the database in `DATABASE_URL`, then check
-the active revision:
+For PostgreSQL setup, migrations, database operations, backups and
+troubleshooting, see [Database setup](docs/database-setup.md).
 
-~~~powershell
-.\.venv\Scripts\python.exe -m alembic -c backend\alembic.ini upgrade head --sql
-.\.venv\Scripts\python.exe -m alembic -c backend\alembic.ini upgrade head
-.\.venv\Scripts\python.exe -m alembic -c backend\alembic.ini current
-~~~
-
-Confirm the target database before applying migrations. It must have pgvector
-installed.
+### Provision a user password
 
 There is no public signup. Provision a password for an existing user:
 
@@ -115,3 +109,18 @@ Run frontend tests from `frontend/`:
 ~~~powershell
 npm test
 ~~~
+
+Build the frontend before checking the connection form in a browser:
+
+~~~powershell
+Set-Location frontend
+npm run build
+node tests/llm-browser.mjs
+Set-Location ..
+~~~
+
+The browser check uses fake APIs and does not access application data. It needs
+an existing Playwright installation and Chromium. If they are outside the
+frontend, set `RUVIE_PLAYWRIGHT_PATH` to the Playwright package directory and
+`RUVIE_BROWSER_PATH` to the browser executable. No new runtime dependency is
+required. API and form-render tests remain part of `npm test`.
