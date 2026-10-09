@@ -266,7 +266,7 @@ class LlmConnectionApiTests(unittest.TestCase):
         missing_csrf = {key: value for key, value in self.headers.items() if key != "X-CSRF-Token"}
         self.assertEqual(self.client.put("/llm/connection", headers=missing_csrf, json={"base_url": "https://personal.test"}).status_code, 403)
         self.assertEqual(self.client.delete("/llm/connection", headers={**self.headers, "Origin": "https://wrong.test"}).status_code, 403)
-        for field in ("user_id", "llm_allowed_local_origins", "project_id"):
+        for field in ("user_id", "llm_allowed_local_origins", "llm_proxy_url", "project_id"):
             self.assertEqual(self.client.put("/llm/connection", headers=self.headers, json={"base_url": "https://personal.test", field: "forged"}).status_code, 422)
         self.assertEqual(self.requests, [])
 

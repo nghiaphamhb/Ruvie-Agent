@@ -1,4 +1,6 @@
 <script lang="ts">
+  import { i18n } from '../i18n/index.ts';
+  import type { UiMessage } from '../i18n/messages.ts';
   import { tick } from 'svelte';
   import type { ModelsResult } from '../llm-api.ts';
 
@@ -6,7 +8,7 @@
     catalog: ModelsResult | null;
     loading: boolean;
     disabled: boolean;
-    error: string;
+    error: UiMessage | null;
     onselect: (id: string) => Promise<boolean>;
     onreload: () => void;
   } = $props();
@@ -22,7 +24,7 @@
   // Plain substring search is enough for one provider's id/name catalog.
   let filtered = $derived(items.filter((item) => `${item.name} ${item.id}`.toLowerCase().includes(search.trim().toLowerCase())));
 
-  /** Position the native popover above/below the trigger without clipping on mobile. */
+  /** Position the native popover above/below the trigger inside the desktop viewport. */
   function toggleOpen() {
     if (disabled || loading || !items.length) return;
     if (open) { menu.hidePopover(); return; }
@@ -73,30 +75,31 @@
   $effect(() => { if (disabled || loading) menu?.hidePopover(); });
 </script>
 
+<!-- Rounded search/tick rows adapted from legacy chat/ModelSelector/Selector.svelte. -->
 <div class="model-selector" aria-busy={loading}>
   <div class="controls">
     <button class="trigger" type="button" bind:this={trigger} onclick={toggleOpen}
-      aria-label="Chọn model" aria-haspopup="listbox" aria-expanded={open}
-      disabled={disabled || loading || !items.length}>Model: {selectedName ?? 'Chọn model'} <span aria-hidden="true">⌄</span></button>
-    <button type="button" aria-label="Tải lại model" onclick={onreload} disabled={disabled || loading}>Tải lại</button>
+      aria-label={$i18n.t('model.choose')} aria-haspopup="listbox" aria-expanded={open}
+      disabled={disabled || loading || !items.length} title={selectedName ?? $i18n.t('model.choose')}><span class="selected-name">{$i18n.t('model.prefix', {name: selectedName ?? $i18n.t('model.choose')})}</span><span aria-hidden="true">⌄</span></button>
+    <button type="button" aria-label={$i18n.t('model.reload')} onclick={onreload} disabled={disabled || loading}>{$i18n.t('common.reload')}</button>
   </div>
-  {#if loading}<p role="status">Đang kiểm tra model…</p>
-  {:else if catalog?.selection_required}<p role="status">Model đã lưu không còn khả dụng. Hãy chọn lại model.</p>
-  {:else if !items.length && !error}<p role="status">Kết nối LLM để lấy danh sách model.</p>{/if}
-  {#if error}<p class="error" role="alert">{error}</p>{/if}
+  {#if loading}<p role="status">{$i18n.t('model.checking')}</p>
+  {:else if catalog?.selection_required}<p role="status">{$i18n.t('model.missing')}</p>
+  {:else if !items.length && !error}<p role="status">{$i18n.t('model.connectFirst')}</p>{/if}
+  {#if error}<p class="error" role="alert">{$i18n.message(error)}</p>{/if}
 </div>
 
 <div class="menu" id="model-menu" popover="auto" bind:this={menu}
   ontoggle={(event) => { open = event.newState === 'open'; }}
   style:top={`${position.top}px`} style:left={`${position.left}px`}
   style:width={`${position.width}px`} style:max-height={`${position.maxHeight}px`}>
-  <label for="model-search">Tìm model</label>
+  <label for="model-search">{$i18n.t('model.search')}</label>
   <input id="model-search" bind:this={searchInput} bind:value={search} type="search" role="combobox"
-    aria-label="Tìm model" aria-controls="model-list" aria-expanded={open} aria-autocomplete="list"
+    aria-label={$i18n.t('model.search')} aria-controls="model-list" aria-expanded={open} aria-autocomplete="list"
     aria-activedescendant={activeIndex >= 0 ? `model-option-${activeIndex}` : undefined}
     oninput={() => { activeIndex = -1; }} onkeydown={handleKeydown} disabled={disabled || loading} />
   {#if open}
-    <div class="options" id="model-list" role="listbox" aria-label="Danh sách model">
+    <div class="options" id="model-list" role="listbox" aria-label={$i18n.t('model.list')}>
       {#each filtered as item, index (item.id)}
         <button id={`model-option-${index}`} type="button" role="option"
           aria-selected={item.id === catalog?.selected_model_id} class:active={index === activeIndex}
@@ -106,25 +109,26 @@
         </button>
       {/each}
     </div>
-    {#if !filtered.length}<p role="status">Không có model phù hợp.</p>{/if}
+    {#if !filtered.length}<p role="status">{$i18n.t('model.noMatch')}</p>{/if}
   {/if}
 </div>
 
 <style>
   .model-selector { margin-bottom: 12px; }
-  .controls { display: flex; gap: 8px; }
-  button, input { min-height: 44px; border: 1px solid var(--border); border-radius: 9px; background: var(--surface); color: var(--ink); }
+  .controls { display: flex; flex-wrap: wrap; gap: 8px; }
+  button, input { min-height: 44px; border: 1px solid var(--border); border-radius: var(--radius); background: var(--surface); color: var(--ink); }
   button { padding: 8px 12px; }
-  .trigger { display: flex; align-items: center; justify-content: space-between; gap: 12px; min-width: 0; max-width: 100%; text-align: left; overflow-wrap: anywhere; }
+  .trigger { border: 0; background: transparent; font-size: 18px; font-weight: 600; display: flex; align-items: center; justify-content: space-between; gap: 12px; min-width: 0; max-width: 100%; text-align: left; overflow-wrap: anywhere; }
+  .selected-name { min-width: 0; display: -webkit-box; -webkit-line-clamp: 2; -webkit-box-orient: vertical; overflow: hidden; }
   :is(button, input):focus-visible { outline: 2px solid var(--accent); outline-offset: 2px; }
   button:disabled { opacity: .65; }
-  .menu { position: fixed; inset: auto; margin: 0; padding: 12px; border: 1px solid var(--border); border-radius: 12px; background: var(--surface); color: var(--ink); box-shadow: 0 8px 24px #0002; overflow: auto; }
+  .menu { position: fixed; inset: auto; margin: 0; padding: 12px; border: 1px solid var(--border); border-radius: var(--radius); background: var(--surface); color: var(--ink); box-shadow: 0 8px 24px #0002; overflow: auto; }
   label { display: block; margin-bottom: 6px; font-size: 13px; }
   input { width: 100%; padding: 8px 10px; }
   .options { margin-top: 8px; max-height: 220px; overflow-y: auto; }
-  .options button { display: flex; justify-content: space-between; align-items: center; gap: 10px; width: 100%; border: 0; text-align: left; overflow-wrap: anywhere; }
+  .options button { display: flex; justify-content: space-between; align-items: center; gap: 10px; width: 100%; border: 0; border-radius: var(--radius); text-align: left; overflow-wrap: anywhere; }
   .options button:hover, .options button.active, .options button[aria-selected="true"] { background: var(--soft); }
   small { display: block; color: var(--muted); font-size: 12px; }
   p { margin: 8px 0 0; font-size: 13px; line-height: 1.5; }
-  .error { color: #9a3530; }
+  .error { color: var(--error); }
 </style>

@@ -73,9 +73,11 @@ class PinnedLlmTransport(httpx.HTTPTransport):
     Keep the original HTTP Host and TLS hostname while changing the dial address.
     """
 
-    def __init__(self, allowed_local_origins: tuple[str, ...] = ()) -> None:
-        # Disable environment-derived TLS settings; the owning client also disables proxies.
-        super().__init__(trust_env=False)
+    def __init__(
+        self, allowed_local_origins: tuple[str, ...] = (), *, proxy_url: str | None = None,
+    ) -> None:
+        # Only the server-selected proxy is used. SOCKS keeps the checked dial IP and TLS name.
+        super().__init__(proxy=proxy_url, trust_env=False)
         self.allowed_local_origins = allowed_local_origins
 
     def handle_request(self, request: httpx.Request) -> httpx.Response:
@@ -144,9 +146,11 @@ class OpenAICompatibleLlmAdapter:
         client: httpx.Client | None = None,
         *,
         allowed_local_origins: tuple[str, ...] = (),
+        proxy_url: str | None = None,
     ) -> None:
         self.provider, self.client = provider, client
         self.allowed_local_origins = allowed_local_origins
+        self.proxy_url = proxy_url
 
     @contextmanager
     def _request_client(self):
@@ -155,7 +159,7 @@ class OpenAICompatibleLlmAdapter:
             yield self.client
         else:
             with httpx.Client(
-                transport=PinnedLlmTransport(self.allowed_local_origins),
+                transport=PinnedLlmTransport(self.allowed_local_origins, proxy_url=self.proxy_url),
                 trust_env=False,
                 follow_redirects=False,
             ) as client:
@@ -243,4 +247,8 @@ def create_llm_adapter(settings: Settings, client: httpx.Client | None = None) -
     """Build the current server chat adapter; reject missing LLM settings."""
     if settings.llm is None:
         raise RuntimeError("LLM provider is not configured")
-    return OpenAICompatibleLlmAdapter(settings.llm, client)
+    return OpenAICompatibleLlmAdapter(
+        settings.llm, client,
+        allowed_local_origins=settings.llm_allowed_local_origins,
+        proxy_url=getattr(settings, "llm_proxy_url", None),
+    )

@@ -59,3 +59,16 @@ test('API errors retain status and hide raw provider details', async () => {
     await assert.rejects(api.getModels(), (error) => error instanceof api.LlmApiError && !error.message.includes('private-network'));
   });
 });
+
+test('selection saves only model_id using cookie and CSRF', async () => {
+  const api = await client();
+  assert.equal(typeof api.selectLlmModel, 'function');
+  await withFetch(async (path, options) => {
+    assert.equal(path, '/llm/connection/model');
+    assert.equal(options.method, 'PATCH');
+    assert.equal(options.credentials, 'same-origin');
+    assert.equal(options.headers['X-CSRF-Token'], 'csrf');
+    assert.deepEqual(JSON.parse(options.body), { model_id: 'b' });
+    return Response.json({ selected_model_id: 'b' });
+  }, async () => assert.equal((await api.selectLlmModel('csrf', 'b')).selected_model_id, 'b'));
+});

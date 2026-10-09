@@ -42,6 +42,7 @@ class LlmConnectionService:
         return OpenAICompatibleLlmAdapter(
             LlmProviderSettings(base_url, provider.model, provider.api_key),
             allowed_local_origins=self.settings.llm_allowed_local_origins,
+            proxy_url=getattr(self.settings, "llm_proxy_url", None),
         )
 
     def _commit(self) -> None:

@@ -1,3 +1,4 @@
+import { message, type UiMessage } from './i18n/messages.ts';
 export type ProjectSummary = { id: string; code: string; name: string };
 export type RevisionStatus = {
   revision_id: string;
@@ -18,11 +19,14 @@ export type UploadDocumentResult = {
   status: 'pending';
 };
 
+/** Carry a safe message key; translate only when the UI renders it. */
 export class DocumentsApiError extends Error {
   readonly status?: number;
+  readonly uiMessage: UiMessage;
 
   constructor(status?: number) {
-    super(status === 401 ? 'Phiên đăng nhập đã hết hạn.' : 'Không thể hoàn tất yêu cầu tài liệu.');
+    super('Document request failed');
+    this.uiMessage = message(status === 401 ? 'common.errors.session' : 'upload.errors.request');
     this.name = 'DocumentsApiError';
     this.status = status;
   }

@@ -41,7 +41,7 @@ machine state.
       `references/`.
 - [x] `.env` bị ignore và `.env.example` liệt kê mọi biến local bắt buộc mà
       không chứa secret thật.
-- [ ] Migration có thể chạy trên một PostgreSQL database trống mà không cần
+- [x] Migration có thể chạy trên một PostgreSQL database trống mà không cần
       thao tác thủ công.
 - [x] Backend cung cấp `GET /health` và `GET /ready`; cả hai trả trạng thái
       thành công khi dependency tối thiểu sẵn sàng.

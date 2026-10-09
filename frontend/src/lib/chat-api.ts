@@ -1,3 +1,4 @@
+import { message, type UiMessage } from './i18n/messages.ts';
 export type Citation = {
   citation_id: string;
   document_id: string;
@@ -20,27 +21,21 @@ export type ChatEvent =
 export type ChatErrorCode =
   | 'auth_required'
   | 'invalid_request'
+  | 'model_unavailable'
   | 'provider_unavailable'
   | 'generation_failed'
   | 'network_error'
   | 'interrupted'
   | 'protocol_error';
 
-const errorMessages: Record<ChatErrorCode, string> = {
-  auth_required: 'Cần đăng nhập để đặt câu hỏi.',
-  invalid_request: 'Câu hỏi không hợp lệ. Vui lòng thử lại.',
-  provider_unavailable: 'Dịch vụ trả lời hiện không khả dụng. Vui lòng thử lại sau.',
-  generation_failed: 'Không thể tạo câu trả lời. Vui lòng thử lại.',
-  network_error: 'Không thể kết nối đến máy chủ. Vui lòng thử lại.',
-  interrupted: 'Câu trả lời bị gián đoạn. Vui lòng thử lại.',
-  protocol_error: 'Không đọc được câu trả lời từ máy chủ.'
-};
-
+/** Carry a safe message key; translate only when the UI renders it. */
 export class ChatApiError extends Error {
   readonly code: ChatErrorCode;
+  readonly uiMessage: UiMessage;
 
   constructor(code: ChatErrorCode) {
-    super(errorMessages[code]);
+    super('Chat request failed');
+    this.uiMessage = message(`chat.errors.${code}`);
     this.name = 'ChatApiError';
     this.code = code;
   }
@@ -80,10 +75,12 @@ function parseFrame(frame: string): ChatEvent | { type: 'error'; code: 'provider
   throw new ChatApiError('protocol_error');
 }
 
+/** POST {message, model_id?}; read the existing SSE contract. URL/key stay on the server. */
 export async function streamChat(
   message: string,
   onEvent: (event: ChatEvent) => void,
-  signal?: AbortSignal
+  signal?: AbortSignal,
+  modelId?: string
 ): Promise<void> {
   if (!message.trim()) throw new ChatApiError('invalid_request');
 
@@ -92,7 +89,7 @@ export async function streamChat(
     response = await fetch('/chat', {
       method: 'POST',
       headers: { 'Content-Type': 'application/json' },
-      body: JSON.stringify({ message }),
+      body: JSON.stringify({ message, ...(modelId === undefined ? {} : { model_id: modelId }) }),
       credentials: 'same-origin',
       signal
     });
@@ -102,7 +99,7 @@ export async function streamChat(
   }
 
   if (response.status === 401) throw new ChatApiError('auth_required');
-  if (response.status === 422) throw new ChatApiError('invalid_request');
+  if (response.status === 422) throw new ChatApiError(modelId === undefined ? 'invalid_request' : 'model_unavailable');
   if (!response.ok) throw new ChatApiError('network_error');
   if (!response.headers.get('content-type')?.startsWith('text/event-stream') || !response.body) {
     throw new ChatApiError('protocol_error');
