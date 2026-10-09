@@ -124,7 +124,7 @@ copy có chủ đích vào chunk/index để filter hiệu quả, nhưng phải 
    audit phù hợp mà không làm lộ resource ngoài scope.
 
 ## Acceptance Criteria
-- [ ] Migration trên PostgreSQL trống tạo được revision, ingestion job, chunk
+- [x] Migration trên PostgreSQL trống tạo được revision, ingestion job, chunk
       và pgvector schema/index cần thiết; schema liên kết đúng `Document` và
       `Project` của F002.
 - [x] Upload của member tạo private blob, revision pending và job; upload bởi

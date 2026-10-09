@@ -85,7 +85,7 @@ tường minh, không dựa vào giá trị mặc định ẩn.
    không tiết lộ metadata/nội dung của document không được phép.
 
 ## Acceptance Criteria
-- [ ] Một migration mới tạo đầy đủ bảy schema entity cùng foreign key, unique
+- [x] Một migration mới tạo đầy đủ bảy schema entity cùng foreign key, unique
       constraint và ACL query indexes cần thiết trên PostgreSQL database trống.
 - [x] Không thể tạo `Document` thiếu `project_id`; document tham chiếu project
       không tồn tại bị database từ chối.

@@ -1,3 +1,4 @@
+import { llmErrorMessage, type UiMessage } from './i18n/messages.ts';
 export type LlmConnection = {
   source: 'personal' | 'server' | 'none';
   base_url: string | null;
@@ -11,17 +12,13 @@ export type ModelsResult = {
 };
 export type ConnectionInput = { base_url: string; api_key?: string };
 
+/** Carry a safe message key; translate only when the UI renders it. */
 export class LlmApiError extends Error {
   readonly status?: number;
+  readonly uiMessage: UiMessage;
   constructor(status?: number) {
-    const messages: Record<number, string> = {
-      401: 'Phiên đăng nhập đã hết hạn.',
-      403: 'Không thể xác nhận yêu cầu. Hãy tải lại trang.',
-      422: 'URL hoặc model không hợp lệ. Hãy kiểm tra kết nối.',
-      502: 'Không lấy được model. Hãy kiểm tra URL, key và thử lại.',
-      503: 'Chưa có kết nối LLM hoặc không thể lưu cấu hình.'
-    };
-    super(messages[status ?? 0] ?? 'Không thể kết nối máy chủ. Hãy thử lại.');
+    super('LLM request failed');
+    this.uiMessage = llmErrorMessage(status);
     this.name = 'LlmApiError';
     this.status = status;
   }
@@ -56,4 +53,13 @@ export async function saveLlmConnection(csrfToken: string, input: ConnectionInpu
 /** DELETE personal settings, then the caller reloads the server fallback. */
 export async function deleteLlmConnection(csrfToken: string): Promise<void> {
   await request('/llm/connection', { method: 'DELETE', headers: { 'X-CSRF-Token': csrfToken } });
+}
+
+/** PATCH {model_id}: verify/save one preference; keep the previous UI ID until this succeeds. */
+export async function selectLlmModel(csrfToken: string, modelId: string): Promise<{ selected_model_id: string }> {
+  return (await request('/llm/connection/model', {
+    method: 'PATCH',
+    headers: { 'Content-Type': 'application/json', 'X-CSRF-Token': csrfToken },
+    body: JSON.stringify({ model_id: modelId })
+  })).json();
 }

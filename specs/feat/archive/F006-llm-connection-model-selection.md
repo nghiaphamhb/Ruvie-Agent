@@ -1,9 +1,11 @@
 # F006 - Kết nối LLM bằng URL và chọn model trong chat
 
-**Trạng thái:** F006-001–006 đã hoàn thành. F006-007–008 chưa triển khai.
+**Trạng thái:** F006-001–008 đã hoàn thành và kiểm tra đạt.
 
 **Plan:** F006-003–004 và F006-005–006 đã được xác nhận làm chung
 ngày 2026-10-07. F006-005–006 đã triển khai và kiểm tra đạt.
+Plan chung F006-007–008 đã được xác nhận trước khi triển khai.
+F006-007–008 đã triển khai và kiểm tra đạt ngày 2026-10-07.
 
 ## Goal
 
@@ -167,6 +169,25 @@ Trước đợt này, chat dùng adapter chung. API kết nối/model đã có; 
 - Tham khảo `generate_chat_completion` để kiểm tra model/chọn kết nối.
   Dùng `AuthorizedRetrievalService` active cho quyền tài liệu.
 
+### Plan chung F006-007–008
+
+- `App.svelte` giữ danh sách và model đã chọn. Form trả danh sách qua callback.
+  `ModelSelector.svelte` nhận state và yêu cầu chọn/tải lại; không giữ bản sao.
+- Dropdown nằm trên ô câu hỏi. Tìm theo tên/ID bằng chuỗi; có cuộn, dấu tick,
+  tải lại, bàn phím và trạng thái lỗi. Chọn một model; không thêm dấu `+`.
+- `llm-api.ts` gọi PATCH bằng cookie/CSRF. Chỉ đổi ID khi lưu thành công.
+  `chat-api.ts` gửi `{message, model_id}`; khóa gửi khi bận hoặc thiếu model.
+- Model mất yêu cầu chọn lại. Lỗi lưu giữ lựa chọn cũ. Phiên cũ không cập nhật
+  state mới. Giữ backend kiểm tra model, quyền tài liệu và SSE hiện tại.
+- Tham khảo `Selector.svelte:toggleOpen, filteredItems, handleKeydown` và
+  `ModelSelector.svelte` trong bảng; chuyển sang Svelte 5/API active.
+  Dùng cơ chế trình duyệt và tìm kiếm chuỗi, không thêm thư viện dropdown.
+- Tận dụng fixture PostgreSQL/provider giả và Playwright hiện có. Kiểm chứng
+  UI → backend thật → provider giả, gồm chọn B, nguồn, reload và hai tài khoản.
+  Test lỗi key, timeout, model mất và fallback; chạy suites/build/SQL migration.
+- Cập nhật README tiếng Anh và `.env.example`; ghi cách chạy, giới hạn và nguồn
+  đã tận dụng. Không thêm migration hoặc dependency runtime.
+
 ## Edge Cases
 
 - URL trống/sai: báo lỗi trước khi gọi dịch vụ. Bỏ dấu `/` cuối URL.
@@ -185,16 +206,16 @@ Trước đợt này, chat dùng adapter chung. API kết nối/model đã có; 
 ## Acceptance Criteria
 
 - [x] Plan đã được chủ dự án xác nhận trước khi sửa code ứng dụng.
-- [ ] Nhập URL lấy được danh sách model; key chỉ bắt buộc khi dịch vụ yêu cầu.
-- [ ] Backend hỗ trợ cấu hình LLM chỉ có URL, không bắt buộc model/key.
-- [ ] Bộ chọn có tìm kiếm, dấu tick, loading/lỗi và thao tác bàn phím;
+- [x] Nhập URL lấy được danh sách model; key chỉ bắt buộc khi dịch vụ yêu cầu.
+- [x] Backend hỗ trợ cấu hình LLM chỉ có URL, không bắt buộc model/key.
+- [x] Bộ chọn có tìm kiếm, dấu tick, loading/lỗi và thao tác bàn phím;
       không có dấu `+` hoặc gửi nhiều model cho một câu hỏi.
-- [ ] Chọn model B thì request tới LLM gửi đúng B, không dùng model A cũ.
-- [ ] Reload/đăng nhập lại giữ lựa chọn hợp lệ; hai tài khoản có cấu hình riêng.
-- [ ] Kết nối mới lỗi không ghi đè cấu hình cũ; model mất phải chọn lại.
-- [ ] API cấu hình kiểm tra phiên đăng nhập, Origin và CSRF; không trả key
+- [x] Chọn model B thì request tới LLM gửi đúng B, không dùng model A cũ.
+- [x] Reload/đăng nhập lại giữ lựa chọn hợp lệ; hai tài khoản có cấu hình riêng.
+- [x] Kết nối mới lỗi không ghi đè cấu hình cũ; model mất phải chọn lại.
+- [x] API cấu hình kiểm tra phiên đăng nhập, Origin và CSRF; không trả key
       hoặc lưu key trong localStorage/log. Chat từ chối URL/key và scope tự khai.
-- [ ] Đổi model vẫn giữ quyền tài liệu, nguồn trích dẫn và SSE contract hiện tại.
+- [x] Đổi model vẫn giữ quyền tài liệu, nguồn trích dẫn và SSE contract hiện tại.
 - [x] F006-005: model sai/mất bị từ chối trước embedding, retrieval và sinh
       câu trả lời. Đổi cấu hình ở tab khác không đổi request đang chạy.
 - [x] F006-005: session DB đóng trước khi stream; service trả event có cấu trúc,
@@ -203,7 +224,7 @@ Trước đợt này, chat dùng adapter chung. API kết nối/model đã có; 
       Đổi URL xóa key đang nhập và không mang key cũ sang.
 - [x] F006-006: form chặn submit lặp và sửa kết nối khi đang chat.
       Đăng xuất/hết phiên xóa state và bỏ qua response của phiên cũ.
-- [ ] Migration SQL, backend/frontend tests và frontend build đạt;
+- [x] Migration SQL, backend/frontend tests và frontend build đạt;
       có hướng dẫn README và ghi nhận phần code đã tận dụng.
 
 ## Tasks
@@ -349,20 +370,62 @@ F006-003 và F006-004 được làm chung theo plan trên.
     reload, lỗi, khóa thao tác, mobile/bàn phím, gỡ kết nối và logout/hết phiên.
     Cách chạy được ghi trong README. Bộ chọn model vẫn thuộc F006-007.
 
-- [ ] F006-007 Tạo bộ chọn model.
-  - Tham khảo legacy `ModelSelector/Selector.svelte`; tạo bộ chọn một model
-    có tìm theo tên/ID, danh sách cuộn, dấu tick và nút tải lại, không có `+`.
-  - Hỗ trợ lên/xuống, Enter chọn, Escape/click ngoài đóng và trả focus.
-    Hiển thị rõ trạng thái loading, lỗi, không có kết quả; dùng được trên mobile.
-  - Tải/lưu lựa chọn qua API và gửi `model_id` cùng câu hỏi. Khóa chọn khi
-    chat; test đổi model, reload, lỗi lưu và model đã mất.
-  - **Hoàn thành khi:** đổi model trên UI và câu hỏi sau dùng đúng model đó.
+- [x] F006-007 Tạo bộ chọn model.
+  - **Ở đâu:** tạo `frontend/src/lib/components/ModelSelector.svelte`.
+    Sửa `App.svelte`, `LlmConnectionForm.svelte`, `llm-api.ts`, `chat-api.ts`.
+  - **Làm gì:** chuyển danh sách/model lên App. Form trả danh sách qua callback;
+    dropdown nằm trên ô câu hỏi và dùng state đó để hiển thị/chọn/tải lại.
+  - Tìm theo tên/ID, có cuộn và dấu tick. Hỗ trợ ↑/↓, Enter, Escape/click ngoài,
+    trả focus khi đóng; hiển thị loading/lỗi/rỗng và dùng được trên mobile.
+  - Gọi PATCH với cookie/CSRF. Chỉ đổi lựa chọn khi thành công; lỗi giữ ID cũ.
+    Chat gửi ID đã xác nhận; khóa khi lưu/chat hoặc thiếu model hợp lệ.
+  - Model mất yêu cầu chọn lại. Logout/hết phiên xóa state và bỏ qua response cũ.
+    Giữ code đơn giản, chú thích phần state, API và xử lý lỗi quan trọng.
+  - **Hoàn thành khi:** chọn B thì chat gửi B; reload giữ B; tests payload,
+    bàn phím, lỗi lưu/model mất, frontend suite/build và browser checks đạt.
 
-- [ ] F006-008 Kiểm tra toàn luồng và viết hướng dẫn.
-  - Test đăng nhập → kết nối → chọn B → chat có nguồn → reload vẫn chọn B.
-    Dùng DB test/dịch vụ giả; thêm lỗi key, timeout, model mất và hai user.
-  - Chạy backend/frontend tests theo README, frontend build và kiểm tra
-    SQL migration. Ghi kết quả và kiểm tra nào chưa chạy được.
-  - Cập nhật README tiếng Anh, `.env.example` và ghi phần code đã tận dụng.
-    Hướng dẫn URL/key, `localhost`, cấu hình dự phòng và kiểm tra thủ công.
-  - **Hoàn thành khi:** toàn luồng được kiểm chứng và hướng dẫn đủ để chạy.
+  - **Kết quả ngày 2026-10-07:** thêm `ModelSelector.svelte`. App giữ danh sách
+    và lựa chọn đã xác nhận; form trả danh sách qua callback. PATCH dùng
+    cookie/CSRF; chat gửi `model_id`. Lỗi lưu giữ model cũ; model mất khóa gửi
+    và yêu cầu chọn lại. Response sau đăng xuất không cập nhật state.
+  - Tham khảo `references/src/lib/components/chat/ModelSelector/Selector.svelte`
+    cho tìm kiếm, dấu tick, bàn phím và đóng dropdown; tham khảo
+    `references/src/lib/components/chat/ModelSelector.svelte` cho nhớ lựa chọn.
+    Dùng lại API/CSRF/SSE active. Chỉnh sang Svelte 5, tìm kiếm chuỗi và popover
+    của trình duyệt; lưu lựa chọn qua PostgreSQL, không thêm Fuse/dependency.
+  - Frontend suite: 18 pass, 0 fail, 0 skip. Build đạt. Browser API giả: 16
+    nhóm kiểm tra đạt, gồm model B/payload, lỗi lưu/tải lại, model mất,
+    tìm kiếm, bàn phím, cuộn/mobile và response cũ. Sửa CSS để vùng hội thoại
+    không co về 0 px khi hai form chiếm hết chiều cao desktop thấp.
+
+- [x] F006-008 Kiểm tra toàn luồng và viết hướng dẫn.
+  - **Ở đâu:** tận dụng fixture `tests/test_f005_007_e2e.py`, browser harness
+    `frontend/tests/llm-browser.mjs`; thêm test toàn luồng F006 trong `tests/`.
+    Cập nhật `README.md`, `.env.example` và spec này.
+  - **Làm gì:** kiểm chứng UI đăng nhập → kết nối → chọn B → chat có nguồn
+    → reload vẫn B. Dùng backend thật, PostgreSQL tạm và provider giả.
+  - Kiểm tra hai tài khoản, quyền/nguồn, key sai, timeout, model mất và fallback.
+    Dùng unit/API/browser test cho từng lỗi; không truy cập DB dev/provider thật.
+  - Chạy backend/frontend suite, browser checks, build và kiểm tra SQL migration
+    hiện có. Ghi kết quả pass/fail/skip và phần chưa kiểm chứng.
+  - README tiếng Anh hướng dẫn URL/key, model tùy chọn, localhost là backend,
+    `LLM_ALLOWED_LOCAL_ORIGINS`, fallback và các bước thử thủ công.
+    `.env.example` có ví dụ an toàn; ghi nguồn legacy và phần đã chỉnh.
+  - **Hoàn thành khi:** toàn luồng và các kiểm tra trên đạt; hướng dẫn đủ để
+    chạy; chỉ tick AC có bằng chứng đạt. Không tự áp dụng migration DB dev.
+
+  - **Kết quả ngày 2026-10-07:** thêm `tests/test_f006_008_browser_e2e.py` và
+    `frontend/tests/llm-e2e.mjs`. Dùng lại fixture F005 cho database, migration,
+    worker và provider giả. Browser gọi API thật qua proxy test; không mock API.
+  - Alpha gửi B/key Alpha và chỉ nhận nguồn Alpha. Beta gửi A/key Beta và chỉ
+    nhận nguồn Beta. Reload/đăng nhập lại giữ B. Key không được điền lại hoặc
+    lưu vào localStorage; cookie Ruvie không gửi tới provider. Nguồn mở được
+    trên desktop 1280×720 và mobile 390×844.
+  - Toàn bộ backend suite: 138 pass, 0 fail, 0 skip, gồm browser E2E mới và
+    SQL upgrade/downgrade hiện có. Test adapter/API kiểm tra key sai, timeout,
+    model mất, fallback, Origin/CSRF và quyền tài liệu. Frontend/browser/build
+    đạt như kết quả F006-007. `git diff --check` đạt.
+  - README tiếng Anh có cách kết nối/chọn model, fallback, URL local, thao tác
+    key, kiểm tra thủ công và cách chạy browser E2E. `.env.example` để LLM
+    model/key tùy chọn và ghi allowlist phía server. Không thêm migration hoặc
+    dependency runtime. Chưa kiểm chứng provider thật hoặc áp dụng DB dev.

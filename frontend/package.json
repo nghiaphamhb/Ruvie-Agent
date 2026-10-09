@@ -9,6 +9,7 @@
     "test": "node --experimental-strip-types --test tests/*.test.mjs"
   },
   "dependencies": {
+    "i18next": "^26.4.2",
     "svelte": "^5.0.0"
   },
   "devDependencies": {

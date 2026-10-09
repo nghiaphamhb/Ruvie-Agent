@@ -32,7 +32,7 @@ await new Promise((resolve) => server.listen(Number(process.env.RUVIE_E2E_FRONTE
 let browser;
 try {
   browser = await chromium.launch({ headless: true, executablePath: process.env.RUVIE_BROWSER_PATH || undefined });
-  const page = await browser.newPage({ viewport: { width: 1280, height: 720 } });
+  const page = await browser.newPage({locale: 'vi-VN', viewport: { width: 1280, height: 720 } });
   const errors = [];
   page.on('pageerror', (error) => errors.push(error.message));
   await page.goto(`http://127.0.0.1:${server.address().port}`);
@@ -44,7 +44,11 @@ try {
     await picker.waitFor();
     await page.waitForFunction(() => !document.querySelector('[aria-label="Chọn model"]').disabled);
   }
+  async function showView(name) {
+    await page.getByRole('navigation', { name: 'Điều hướng chính' }).getByRole('button', { name, exact: true }).click();
+  }
   async function connect(key) {
+    await showView('Kết nối LLM');
     await page.getByLabel('Base URL', { exact: true }).fill(process.env.RUVIE_E2E_PROVIDER_URL);
     await page.getByLabel('API key (tùy chọn)', { exact: true }).fill(key);
     await page.getByRole('button', { name: 'Kết nối', exact: true }).click();
@@ -52,13 +56,14 @@ try {
     assert.equal(await page.getByLabel('API key (tùy chọn)', { exact: true }).inputValue(), '');
   }
   async function chat(title, forbidden) {
+    await showView('Chat');
     await page.getByLabel('Câu hỏi của bạn', { exact: true }).fill('Where do I install the plugin?');
     await page.getByRole('button', { name: 'Gửi câu hỏi', exact: true }).click();
     await page.getByText('Answer from Alpha\'s guide.', { exact: true }).waitFor();
     const sources = page.locator('summary').filter({ hasText: 'nguồn tham khảo' });
     try { await sources.click({ timeout: 3000 }); }
     catch (error) {
-      console.error('Layout:', await page.evaluate(() => ['.chat-layout', '.upload-panel', '.llm-panel', '.conversation', '.composer-area', 'summary'].map((selector) => {
+      console.error('Layout:', await page.evaluate(() => ['.workspace-content', '.chat-view', '.conversation', '.composer-area', 'summary'].map((selector) => {
         const element = document.querySelector(selector);
         return { selector, height: element.getBoundingClientRect().height, scrollHeight: element.scrollHeight };
       })));
@@ -72,6 +77,7 @@ try {
   const logout = () => page.getByRole('button', { name: 'Đăng xuất', exact: true }).click();
   await login('alpha');
   await connect('alpha-provider-key');
+  await showView('Chat');
   await picker.click();
   await page.getByRole('option', { name: /^B b/ }).click();
   await page.getByText('Model: B', { exact: false }).waitFor();
@@ -82,7 +88,7 @@ try {
   await login('beta');
   assert.ok((await picker.innerText()).includes('Model: A'), 'Beta must not inherit Alpha selection');
   await connect('beta-provider-key');
-  await page.setViewportSize({ width: 390, height: 844 });
+  await page.setViewportSize({ width: 1024, height: 600 });
   await chat('Beta guide', 'Alpha guide');
   await logout();
   await login('alpha');

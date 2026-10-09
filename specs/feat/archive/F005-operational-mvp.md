@@ -103,7 +103,7 @@ Không import code từ `references/`; kiểm tra license trước khi chép sou
       revision `pending` và job; non-member bị từ chối và không để lại
       blob/bản ghi. Client không thể chọn `allowed_role_codes`; server đặt ACL
       role theo chính sách mặc định.
-- [ ] Worker chạy bằng lệnh README, xử lý PDF/text thành chunks/vectors đúng
+- [x] Worker chạy bằng lệnh README, xử lý PDF/text thành chunks/vectors đúng
       embedding profile; revision `ready` có thể được chat trích dẫn.
 - [x] Worker restart/retry không tạo chunks trùng; lỗi provider hoặc nội dung
       rỗng trả trạng thái/lỗi an toàn, không retry mãi mãi.

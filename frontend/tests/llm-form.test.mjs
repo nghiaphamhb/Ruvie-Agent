@@ -5,6 +5,9 @@ import { compile } from 'svelte/compiler';
 import { render } from 'svelte/server';
 
 test('connection form labels URL/key and disables editing while chat runs', async () => {
+  const { initI18n, setLocale } = await import('../src/lib/i18n/index.ts');
+  await initI18n();
+  await setLocale('vi-VN');
   const url = new URL('../src/lib/components/LlmConnectionForm.svelte', import.meta.url);
   const source = await readFile(url, 'utf8').catch(() => null);
   assert.ok(source, 'Connection form must exist');
@@ -14,7 +17,7 @@ test('connection form labels URL/key and disables editing while chat runs', asyn
     return `from '${resolved}'`;
   });
   const { default: Form } = await import('data:text/javascript;base64,' + Buffer.from(code).toString('base64'));
-  const { body } = render(Form, { props: { csrfToken: 'csrf', disabled: true, onexpired() {}, onbusychange() {} } });
+  const { body } = render(Form, { props: { csrfToken: 'csrf', disabled: true, onexpired() {}, onbusychange() {}, onmodelschange() {} } });
   assert.match(body, /<fieldset[^>]*disabled/);
   assert.match(body, /type="password"/);
   assert.match(body, /Base URL/);

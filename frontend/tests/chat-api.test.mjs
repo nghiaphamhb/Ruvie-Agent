@@ -91,3 +91,18 @@ test('malformed event is rejected without exposing its payload', async () => {
       error.code === 'protocol_error' && !error.message.includes('secret'));
   });
 });
+
+test('chat sends the confirmed model ID without provider configuration', async () => {
+  const { streamChat } = await loadClient();
+  await withFetch(async (_path, options) => {
+    assert.deepEqual(JSON.parse(options.body), { message: 'Question', model_id: 'b' });
+    return sseResponse('event: delta\ndata: {"text":"Answer"}\n\nevent: completed\ndata: {}\n\n');
+  }, async () => { await streamChat('Question', () => {}, undefined, 'b'); });
+});
+
+test('rejected explicit model tells the UI to reload choices', async () => {
+  const { streamChat } = await loadClient();
+  await withFetch(async () => new Response(null, { status: 422 }), async () => {
+    await assert.rejects(streamChat('Question', () => {}, undefined, 'gone'), (error) => error.code === 'model_unavailable');
+  });
+});
