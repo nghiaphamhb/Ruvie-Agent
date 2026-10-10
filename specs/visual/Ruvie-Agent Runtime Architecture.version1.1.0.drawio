@@ -1,0 +1,343 @@
+<mxfile host="app.diagrams.net" agent="Codex" pages="2">
+  <diagram id="runtime-current" name="01 — Runtime hiện tại">
+    <mxGraphModel dx="813" dy="436" grid="1" gridSize="10" guides="1" tooltips="1" connect="1" arrows="1" fold="1" page="1" pageScale="1" pageWidth="1840" pageHeight="1420" math="0" shadow="0">
+      <root>
+        <mxCell id="0" />
+        <mxCell id="1" parent="0" />
+        <mxCell id="title" parent="1" style="rounded=1;whiteSpace=wrap;html=1;align=left;verticalAlign=middle;spacing=14;fontFamily=Arial;fontColor=#172033;fillColor=none;strokeColor=none;strokeWidth=1.5;rounded=0;spacing=3;align=left;" value="&lt;div style=&quot;font-size:28px;color:#172033;line-height:1.4;overflow-wrap:anywhere&quot;&gt;&lt;b&gt;Ruvie Agent — Kiến trúc runtime&lt;/b&gt;&lt;/div&gt;" vertex="1">
+          <mxGeometry height="44" width="1760" x="40" y="22" as="geometry" />
+        </mxCell>
+        <mxCell id="subtitle" parent="1" style="rounded=1;whiteSpace=wrap;html=1;align=left;verticalAlign=middle;spacing=14;fontFamily=Arial;fontColor=#172033;fillColor=none;strokeColor=none;strokeWidth=1.5;rounded=0;spacing=3;align=left;" value="&lt;div style=&quot;font-size:14px;color:#566377;line-height:1.4;overflow-wrap:anywhere&quot;&gt;v1.1.0 • 2026-10-10 • Mã active đã tích hợp; locale, auth, ingestion, RAG và LLM&lt;/div&gt;" vertex="1">
+          <mxGeometry height="38" width="1760" x="40" y="70" as="geometry" />
+        </mxCell>
+        <mxCell id="user" parent="1" style="rounded=1;whiteSpace=wrap;html=1;align=left;verticalAlign=middle;spacing=14;fontFamily=Arial;fontColor=#172033;fillColor=#f1f5f9;strokeColor=#2563eb;strokeWidth=1.5;" value="&lt;div style=&quot;font-weight:700;font-size:16px;margin-bottom:8px&quot;&gt;Người dùng&lt;/div&gt;&lt;div style=&quot;font-size:14px;line-height:1.5&quot;&gt;Đăng nhập, upload, hỏi đáp và chọn locale&lt;/div&gt;" vertex="1">
+          <mxGeometry height="72" width="340" x="70" y="135" as="geometry" />
+        </mxCell>
+        <mxCell id="frontend" parent="1" style="rounded=1;whiteSpace=wrap;html=1;align=left;verticalAlign=middle;spacing=14;fontFamily=Arial;fontColor=#172033;fillColor=#eff6ff;strokeColor=#2563eb;strokeWidth=1.5;" value="&lt;div style=&quot;font-weight:700;font-size:16px;margin-bottom:8px&quot;&gt;Browser • Svelte 5 / Vite&lt;/div&gt;&lt;div style=&quot;font-size:14px;line-height:1.5&quot;&gt;AppNavigation + 3 panel giữ mounted&lt;br/&gt;Login • Models • Upload/polling • Chat/SSE&lt;br/&gt;&lt;b&gt;Locale:&lt;/b&gt; vi-VN / en-US / ru-RU&lt;br/&gt;i18next + static catalogs + UiMessage&lt;br/&gt;ruvie.ui.locale: chỉ lưu chọn thủ công&lt;br/&gt;Draft/history/file: state của trang&lt;/div&gt;" vertex="1">
+          <mxGeometry height="240" width="340" x="70" y="260" as="geometry" />
+        </mxCell>
+        <mxCell id="api" parent="1" style="rounded=1;whiteSpace=wrap;html=1;align=left;verticalAlign=middle;spacing=14;fontFamily=Arial;fontColor=#172033;fillColor=#eff6ff;strokeColor=#2563eb;strokeWidth=1.5;" value="&lt;div style=&quot;font-weight:700;font-size:16px;margin-bottom:8px&quot;&gt;FastAPI • main.py + api/&lt;/div&gt;&lt;div style=&quot;font-size:14px;line-height:1.5&quot;&gt;Lifecycle DB/HTTP; routers auth, projects,&lt;br/&gt;documents, llm, chat • /health và /ready&lt;br/&gt;Cookie session → trusted user_id&lt;br/&gt;Origin + CSRF cho auth/LLM/upload writes&lt;/div&gt;" vertex="1">
+          <mxGeometry height="150" width="660" x="570" y="260" as="geometry" />
+        </mxCell>
+        <mxCell id="services" parent="1" style="rounded=1;whiteSpace=wrap;html=1;align=left;verticalAlign=middle;spacing=14;fontFamily=Arial;fontColor=#172033;fillColor=#f8fafc;strokeColor=#2563eb;strokeWidth=1.5;" value="" vertex="1">
+          <mxGeometry height="415" width="720" x="540" y="440" as="geometry" />
+        </mxCell>
+        <mxCell id="services-title" parent="1" style="rounded=1;whiteSpace=wrap;html=1;align=left;verticalAlign=middle;spacing=14;fontFamily=Arial;fontColor=#172033;fillColor=none;strokeColor=none;strokeWidth=1.5;rounded=0;spacing=3;align=left;" value="&lt;div style=&quot;font-size:17px;color:#172033;line-height:1.4;overflow-wrap:anywhere&quot;&gt;&lt;b&gt;Services • Quy tắc nghiệp vụ trên server&lt;/b&gt;&lt;/div&gt;" vertex="1">
+          <mxGeometry height="32" width="650" x="565" y="451" as="geometry" />
+        </mxCell>
+        <mxCell id="auth" parent="1" style="rounded=1;whiteSpace=wrap;html=1;align=left;verticalAlign=middle;spacing=14;fontFamily=Arial;fontColor=#172033;fillColor=#ffffff;strokeColor=#2563eb;strokeWidth=1.5;" value="&lt;div style=&quot;font-weight:700;font-size:14px;margin-bottom:8px&quot;&gt;AuthService&lt;/div&gt;&lt;div style=&quot;font-size:12px;line-height:1.5&quot;&gt;Password hash, session/token hash&lt;br/&gt;Expiry + active user&lt;/div&gt;" vertex="1">
+          <mxGeometry height="90" width="310" x="570" y="505" as="geometry" />
+        </mxCell>
+        <mxCell id="llm" parent="1" style="rounded=1;whiteSpace=wrap;html=1;align=left;verticalAlign=middle;spacing=14;fontFamily=Arial;fontColor=#172033;fillColor=#ffffff;strokeColor=#2563eb;strokeWidth=1.5;" value="&lt;div style=&quot;font-weight:700;font-size:14px;margin-bottom:8px&quot;&gt;LlmConnectionService&lt;/div&gt;&lt;div style=&quot;font-size:12px;line-height:1.5&quot;&gt;Personal → server → none&lt;br/&gt;Kiểm tra catalog trước khi lưu&lt;/div&gt;" vertex="1">
+          <mxGeometry height="90" width="310" x="920" y="505" as="geometry" />
+        </mxCell>
+        <mxCell id="docs" parent="1" style="rounded=1;whiteSpace=wrap;html=1;align=left;verticalAlign=middle;spacing=14;fontFamily=Arial;fontColor=#172033;fillColor=#ffffff;strokeColor=#2563eb;strokeWidth=1.5;" value="&lt;div style=&quot;font-weight:700;font-size:14px;margin-bottom:8px&quot;&gt;DocumentUpload/StatusService&lt;/div&gt;&lt;div style=&quot;font-size:12px;line-height:1.5&quot;&gt;Membership → revision/job/audit&lt;br/&gt;Status: uploader hoặc readable ACL&lt;/div&gt;" vertex="1">
+          <mxGeometry height="90" width="310" x="570" y="625" as="geometry" />
+        </mxCell>
+        <mxCell id="chat" parent="1" style="rounded=1;whiteSpace=wrap;html=1;align=left;verticalAlign=middle;spacing=14;fontFamily=Arial;fontColor=#172033;fillColor=#ffffff;strokeColor=#2563eb;strokeWidth=1.5;" value="&lt;div style=&quot;font-weight:700;font-size:14px;margin-bottom:8px&quot;&gt;ChatService&lt;/div&gt;&lt;div style=&quot;font-size:12px;line-height:1.5&quot;&gt;Model check → embed → retrieval&lt;br/&gt;Context → structured stream events&lt;/div&gt;" vertex="1">
+          <mxGeometry height="90" width="310" x="920" y="625" as="geometry" />
+        </mxCell>
+        <mxCell id="projects" parent="1" style="rounded=1;whiteSpace=wrap;html=1;align=left;verticalAlign=middle;spacing=14;fontFamily=Arial;fontColor=#172033;fillColor=#ffffff;strokeColor=#2563eb;strokeWidth=1.5;" value="&lt;div style=&quot;font-weight:700;font-size:14px;margin-bottom:8px&quot;&gt;ProjectListingService&lt;/div&gt;&lt;div style=&quot;font-size:12px;line-height:1.5&quot;&gt;Chỉ project có membership&lt;br/&gt;Identity lấy từ session cookie&lt;/div&gt;" vertex="1">
+          <mxGeometry height="90" width="310" x="570" y="745" as="geometry" />
+        </mxCell>
+        <mxCell id="retrieval" parent="1" style="rounded=1;whiteSpace=wrap;html=1;align=left;verticalAlign=middle;spacing=14;fontFamily=Arial;fontColor=#172033;fillColor=#ffffff;strokeColor=#2563eb;strokeWidth=1.5;" value="&lt;div style=&quot;font-weight:700;font-size:14px;margin-bottom:8px&quot;&gt;AuthorizedRetrievalService&lt;/div&gt;&lt;div style=&quot;font-size:12px;line-height:1.5&quot;&gt;Readable SQL predicate + ready&lt;br/&gt;Cosine top-k → citations + audit&lt;/div&gt;" vertex="1">
+          <mxGeometry height="90" width="310" x="920" y="745" as="geometry" />
+        </mxCell>
+        <mxCell id="postgres" parent="1" style="rounded=1;whiteSpace=wrap;html=1;align=left;verticalAlign=middle;spacing=14;fontFamily=Arial;fontColor=#172033;fillColor=#ecfdf5;strokeColor=#0f766e;strokeWidth=1.5;" value="&lt;div style=&quot;font-weight:700;font-size:15px;margin-bottom:8px&quot;&gt;PostgreSQL + pgvector&lt;/div&gt;&lt;div style=&quot;font-size:13px;line-height:1.5&quot;&gt;System of record • migrations 0001–0008&lt;br/&gt;Users/session, LLM settings, membership/ACL&lt;br/&gt;Document/revision/job/chunks + audit&lt;br/&gt;vector(1024) • cosine HNSW&lt;br/&gt;Revision/chunk content immutable&lt;br/&gt;Audit append-only (DB triggers)&lt;/div&gt;" vertex="1">
+          <mxGeometry height="220" width="350" x="1410" y="440" as="geometry" />
+        </mxCell>
+        <mxCell id="blob" parent="1" style="rounded=1;whiteSpace=wrap;html=1;align=left;verticalAlign=middle;spacing=14;fontFamily=Arial;fontColor=#172033;fillColor=#ecfdf5;strokeColor=#0f766e;strokeWidth=1.5;" value="&lt;div style=&quot;font-weight:700;font-size:15px;margin-bottom:8px&quot;&gt;LocalBlobStore • Private&lt;/div&gt;&lt;div style=&quot;font-size:13px;line-height:1.5&quot;&gt;Original bytes trên filesystem backend&lt;br/&gt;Blob URI không đưa ra browser&lt;br/&gt;Chưa có S3 adapter trong active runtime&lt;/div&gt;" vertex="1">
+          <mxGeometry height="120" width="350" x="1410" y="735" as="geometry" />
+        </mxCell>
+        <mxCell id="worker" parent="1" style="rounded=1;whiteSpace=wrap;html=1;align=left;verticalAlign=middle;spacing=14;fontFamily=Arial;fontColor=#172033;fillColor=#ecfdf5;strokeColor=#0f766e;strokeWidth=1.5;" value="&lt;div style=&quot;font-weight:700;font-size:15px;margin-bottom:8px&quot;&gt;Worker process • worker_cli.py&lt;/div&gt;&lt;div style=&quot;font-size:13px;line-height:1.5&quot;&gt;DocumentIngestionWorker&lt;br/&gt;PostgreSQL queue, SKIP LOCKED&lt;br/&gt;Read blob → extract/chunk → embed&lt;br/&gt;Heartbeat/retry ≤ 3 attempts&lt;br/&gt;Chỉ toàn bộ revision ready mới searchable&lt;/div&gt;" vertex="1">
+          <mxGeometry height="180" width="340" x="70" y="660" as="geometry" />
+        </mxCell>
+        <mxCell id="config" parent="1" style="rounded=1;whiteSpace=wrap;html=1;align=left;verticalAlign=middle;spacing=14;fontFamily=Arial;fontColor=#172033;fillColor=#eef2ff;strokeColor=#6366f1;strokeWidth=1.5;" value="&lt;div style=&quot;font-weight:700;font-size:15px;margin-bottom:8px&quot;&gt;Server Settings • config.py&lt;/div&gt;&lt;div style=&quot;font-size:13px;line-height:1.5&quot;&gt;Pinned embedding profile: 1024 / cosine&lt;br/&gt;LLM server fallback + local-origin allowlist&lt;br/&gt;LLM_PROXY_URL: empty hoặc SOCKS5&lt;br/&gt;Proxy không phải lựa chọn của chat client&lt;/div&gt;" vertex="1">
+          <mxGeometry height="150" width="340" x="70" y="970" as="geometry" />
+        </mxCell>
+        <mxCell id="embed" parent="1" style="rounded=1;whiteSpace=wrap;html=1;align=left;verticalAlign=middle;spacing=14;fontFamily=Arial;fontColor=#172033;fillColor=#ecfdf5;strokeColor=#0f766e;strokeWidth=1.5;" value="&lt;div style=&quot;font-weight:700;font-size:15px;margin-bottom:8px&quot;&gt;Embedding adapter/provider&lt;/div&gt;&lt;div style=&quot;font-size:13px;line-height:1.5&quot;&gt;Query và chunk embedding cùng profile&lt;br/&gt;OpenAI-compatible • POST /embeddings&lt;br/&gt;Không dùng LLM_PROXY_URL cho embed&lt;/div&gt;" vertex="1">
+          <mxGeometry height="125" width="310" x="570" y="1020" as="geometry" />
+        </mxCell>
+        <mxCell id="guard" parent="1" style="rounded=1;whiteSpace=wrap;html=1;align=left;verticalAlign=middle;spacing=14;fontFamily=Arial;fontColor=#172033;fillColor=#ffffff;strokeColor=#2563eb;strokeWidth=1.5;" value="&lt;div style=&quot;font-weight:700;font-size:15px;margin-bottom:8px&quot;&gt;Guarded LLM adapter&lt;/div&gt;&lt;div style=&quot;font-size:13px;line-height:1.5&quot;&gt;OpenAICompatibleLlmAdapter&lt;br/&gt;URL/DNS/IP checks • TLS/SNI • no redirects&lt;br/&gt;Personal URL/key/model do server resolve&lt;br/&gt;GET /models + POST /chat/completions&lt;/div&gt;" vertex="1">
+          <mxGeometry height="155" width="340" x="920" y="965" as="geometry" />
+        </mxCell>
+        <mxCell id="proxy" parent="1" style="rounded=1;whiteSpace=wrap;html=1;align=left;verticalAlign=middle;spacing=14;fontFamily=Arial;fontColor=#172033;fillColor=#eef2ff;strokeColor=#6366f1;strokeWidth=1.5;" value="&lt;div style=&quot;font-weight:700;font-size:15px;margin-bottom:8px&quot;&gt;SOCKS5 proxy • Tùy chọn&lt;/div&gt;&lt;div style=&quot;font-size:13px;line-height:1.5&quot;&gt;Áp dụng chung cho backend LLM&lt;br/&gt;Nhận numeric IP đã kiểm tra&lt;br/&gt;Proxy lỗi: không fallback trực tiếp&lt;/div&gt;" vertex="1">
+          <mxGeometry height="110" width="350" x="1410" y="975" as="geometry" />
+        </mxCell>
+        <mxCell id="provider" parent="1" style="rounded=1;whiteSpace=wrap;html=1;align=left;verticalAlign=middle;spacing=14;fontFamily=Arial;fontColor=#172033;fillColor=#ffffff;strokeColor=#2563eb;strokeWidth=1.5;" value="&lt;div style=&quot;font-weight:700;font-size:15px;margin-bottom:8px&quot;&gt;Nhà cung cấp LLM&lt;/div&gt;&lt;div style=&quot;font-size:13px;line-height:1.5&quot;&gt;Models catalog và streaming completion&lt;br/&gt;TLS/Host giữ hostname gốc của provider&lt;/div&gt;" vertex="1">
+          <mxGeometry height="90" width="350" x="1410" y="1230" as="geometry" />
+        </mxCell>
+        <mxCell id="user-ui" edge="1" parent="1" source="user" style="html=1;rounded=0;endArrow=block;endFill=1;strokeColor=#2563eb;strokeWidth=1.5;dashed=0;exitX=0.5;exitY=1;exitPerimeter=0;entryX=0.5;entryY=0;entryPerimeter=0;" target="frontend" value="">
+          <mxGeometry relative="1" as="geometry">
+            <mxPoint x="240" y="207" as="sourcePoint" />
+            <mxPoint x="240" y="260" as="targetPoint" />
+          </mxGeometry>
+        </mxCell>
+        <mxCell id="ui-api" edge="1" parent="1" source="frontend" style="html=1;rounded=0;endArrow=block;endFill=1;strokeColor=#2563eb;strokeWidth=1.5;dashed=0;exitX=1;exitY=0.5;exitPerimeter=0;entryX=0;entryY=0.5;entryPerimeter=0;" target="api" value="">
+          <mxGeometry relative="1" as="geometry">
+            <mxPoint x="410" y="380" as="sourcePoint" />
+            <mxPoint x="570" y="335" as="targetPoint" />
+          </mxGeometry>
+        </mxCell>
+        <mxCell id="ui-api-label" parent="1" style="rounded=1;whiteSpace=wrap;html=1;align=left;verticalAlign=middle;spacing=14;fontFamily=Arial;fontColor=#172033;fillColor=#ffffff;strokeColor=none;strokeWidth=1.5;rounded=0;spacing=3;align=center;" value="&lt;div style=&quot;font-size:12px;color:#2563eb;line-height:1.4;overflow-wrap:anywhere&quot;&gt;Cookie • JSON/multipart • SSE&lt;/div&gt;" vertex="1">
+          <mxGeometry height="64" width="165" x="405" y="300" as="geometry" />
+        </mxCell>
+        <mxCell id="api-svc" edge="1" parent="1" source="api" style="html=1;rounded=0;endArrow=block;endFill=1;strokeColor=#2563eb;strokeWidth=1.5;dashed=0;exitX=0.5;exitY=1;exitPerimeter=0;entryX=0.5;entryY=0;entryPerimeter=0;" target="services" value="">
+          <mxGeometry relative="1" as="geometry">
+            <mxPoint x="900" y="410" as="sourcePoint" />
+            <mxPoint x="900" y="440" as="targetPoint" />
+          </mxGeometry>
+        </mxCell>
+        <mxCell id="api-svc-label" parent="1" style="rounded=1;whiteSpace=wrap;html=1;align=left;verticalAlign=middle;spacing=14;fontFamily=Arial;fontColor=#172033;fillColor=#ffffff;strokeColor=none;strokeWidth=1.5;rounded=0;spacing=3;align=center;" value="&lt;div style=&quot;font-size:12px;color:#2563eb;line-height:1.4;overflow-wrap:anywhere&quot;&gt;Trusted identity + validated input&lt;/div&gt;" vertex="1">
+          <mxGeometry height="25" width="320" x="745" y="411" as="geometry" />
+        </mxCell>
+        <mxCell id="svc-db" edge="1" parent="1" source="services" style="html=1;rounded=0;endArrow=block;endFill=1;strokeColor=#0f766e;strokeWidth=1.5;dashed=0;exitX=1;exitY=0.5;exitPerimeter=0;entryX=0;entryY=0.5;entryPerimeter=0;" target="postgres" value="">
+          <mxGeometry relative="1" as="geometry">
+            <mxPoint x="1260" y="647.5" as="sourcePoint" />
+            <mxPoint x="1410" y="550" as="targetPoint" />
+          </mxGeometry>
+        </mxCell>
+        <mxCell id="svc-db-label" parent="1" style="rounded=1;whiteSpace=wrap;html=1;align=left;verticalAlign=middle;spacing=14;fontFamily=Arial;fontColor=#172033;fillColor=#ffffff;strokeColor=none;strokeWidth=1.5;rounded=0;spacing=3;align=center;" value="&lt;div style=&quot;font-size:12px;color:#0f766e;line-height:1.4;overflow-wrap:anywhere&quot;&gt;SQLAlchemy: ACL, state, audit&lt;/div&gt;" vertex="1">
+          <mxGeometry height="60" width="135" x="1267" y="555" as="geometry" />
+        </mxCell>
+        <mxCell id="docs-blob" edge="1" parent="1" source="docs" style="html=1;rounded=0;endArrow=block;endFill=1;strokeColor=#0f766e;strokeWidth=1.5;dashed=0;exitX=1;exitY=0.7;exitPerimeter=0;entryX=0;entryY=0.67;entryPerimeter=0;" target="blob" value="">
+          <mxGeometry relative="1" as="geometry">
+            <Array as="points">
+              <mxPoint x="890" y="688" />
+              <mxPoint x="890" y="885" />
+              <mxPoint x="1345" y="885" />
+              <mxPoint x="1345" y="815.4" />
+            </Array>
+            <mxPoint x="880" y="688" as="sourcePoint" />
+            <mxPoint x="1410" y="815.4" as="targetPoint" />
+          </mxGeometry>
+        </mxCell>
+        <mxCell id="docs-blob-label" parent="1" style="rounded=1;whiteSpace=wrap;html=1;align=left;verticalAlign=middle;spacing=14;fontFamily=Arial;fontColor=#172033;fillColor=#ffffff;strokeColor=none;strokeWidth=1.5;rounded=0;spacing=3;align=center;" value="&lt;div style=&quot;font-size:12px;color:#0f766e;line-height:1.4;overflow-wrap:anywhere&quot;&gt;put original bytes&lt;/div&gt;" vertex="1">
+          <mxGeometry height="27" width="175" x="1080" y="873" as="geometry" />
+        </mxCell>
+        <mxCell id="worker-db" edge="1" parent="1" source="worker" style="html=1;rounded=0;endArrow=block;endFill=1;strokeColor=#0f766e;strokeWidth=1.5;dashed=0;exitX=1;exitY=0.75;exitPerimeter=0;entryX=0;entryY=0.9;entryPerimeter=0;" target="postgres" value="">
+          <mxGeometry relative="1" as="geometry">
+            <Array as="points">
+              <mxPoint x="470" y="795" />
+              <mxPoint x="470" y="930" />
+              <mxPoint x="1380" y="930" />
+              <mxPoint x="1380" y="638" />
+            </Array>
+            <mxPoint x="410" y="795" as="sourcePoint" />
+            <mxPoint x="1410" y="638" as="targetPoint" />
+          </mxGeometry>
+        </mxCell>
+        <mxCell id="worker-db-label" parent="1" style="rounded=1;whiteSpace=wrap;html=1;align=left;verticalAlign=middle;spacing=14;fontFamily=Arial;fontColor=#172033;fillColor=#ffffff;strokeColor=none;strokeWidth=1.5;rounded=0;spacing=3;align=center;" value="&lt;div style=&quot;font-size:12px;color:#0f766e;line-height:1.4;overflow-wrap:anywhere&quot;&gt;claim job / chunks + ready&lt;/div&gt;" vertex="1">
+          <mxGeometry height="27" width="250" x="490" y="903" as="geometry" />
+        </mxCell>
+        <mxCell id="worker-blob" edge="1" parent="1" source="worker" style="html=1;rounded=0;endArrow=block;endFill=1;strokeColor=#0f766e;strokeWidth=1.5;dashed=0;exitX=1;exitY=0.3;exitPerimeter=0;entryX=0;entryY=0.5;entryPerimeter=0;" target="blob" value="">
+          <mxGeometry relative="1" as="geometry">
+            <Array as="points">
+              <mxPoint x="470" y="714" />
+              <mxPoint x="470" y="870" />
+              <mxPoint x="1330" y="870" />
+              <mxPoint x="1330" y="795" />
+            </Array>
+            <mxPoint x="410" y="714" as="sourcePoint" />
+            <mxPoint x="1410" y="795" as="targetPoint" />
+          </mxGeometry>
+        </mxCell>
+        <mxCell id="worker-blob-label" parent="1" style="rounded=1;whiteSpace=wrap;html=1;align=left;verticalAlign=middle;spacing=14;fontFamily=Arial;fontColor=#172033;fillColor=#ffffff;strokeColor=none;strokeWidth=1.5;rounded=0;spacing=3;align=center;" value="&lt;div style=&quot;font-size:12px;color:#0f766e;line-height:1.4;overflow-wrap:anywhere&quot;&gt;get private bytes&lt;/div&gt;" vertex="1">
+          <mxGeometry height="27" width="160" x="1130" y="843" as="geometry" />
+        </mxCell>
+        <mxCell id="worker-embed" edge="1" parent="1" source="worker" style="html=1;rounded=0;endArrow=block;endFill=1;strokeColor=#0f766e;strokeWidth=1.5;dashed=0;exitX=0.5;exitY=1;exitPerimeter=0;entryX=0;entryY=0.5;entryPerimeter=0;" target="embed" value="">
+          <mxGeometry relative="1" as="geometry">
+            <Array as="points">
+              <mxPoint x="240" y="900" />
+              <mxPoint x="445" y="900" />
+              <mxPoint x="445" y="1082.5" />
+            </Array>
+            <mxPoint x="240" y="840" as="sourcePoint" />
+            <mxPoint x="570" y="1082.5" as="targetPoint" />
+          </mxGeometry>
+        </mxCell>
+        <mxCell id="worker-embed-label" parent="1" style="rounded=1;whiteSpace=wrap;html=1;align=left;verticalAlign=middle;spacing=14;fontFamily=Arial;fontColor=#172033;fillColor=#ffffff;strokeColor=none;strokeWidth=1.5;rounded=0;spacing=3;align=center;" value="&lt;div style=&quot;font-size:12px;color:#0f766e;line-height:1.4;overflow-wrap:anywhere&quot;&gt;chunk batches&lt;/div&gt;" vertex="1">
+          <mxGeometry height="27" width="130" x="435" y="950" as="geometry" />
+        </mxCell>
+        <mxCell id="chat-embed" edge="1" parent="1" source="chat" style="html=1;rounded=0;endArrow=block;endFill=1;strokeColor=#0f766e;strokeWidth=1.5;dashed=0;exitX=0;exitY=0.5;exitPerimeter=0;entryX=0.5;entryY=0;entryPerimeter=0;" target="embed" value="">
+          <mxGeometry relative="1" as="geometry">
+            <Array as="points">
+              <mxPoint x="900" y="670" />
+              <mxPoint x="900" y="915" />
+              <mxPoint x="725" y="915" />
+            </Array>
+            <mxPoint x="920" y="670" as="sourcePoint" />
+            <mxPoint x="725" y="1020" as="targetPoint" />
+          </mxGeometry>
+        </mxCell>
+        <mxCell id="chat-embed-label" parent="1" style="rounded=1;whiteSpace=wrap;html=1;align=left;verticalAlign=middle;spacing=14;fontFamily=Arial;fontColor=#172033;fillColor=#ffffff;strokeColor=none;strokeWidth=1.5;rounded=0;spacing=3;align=center;" value="&lt;div style=&quot;font-size:12px;color:#0f766e;line-height:1.4;overflow-wrap:anywhere&quot;&gt;embed_query()&lt;/div&gt;" vertex="1">
+          <mxGeometry height="27" width="135" x="730" y="930" as="geometry" />
+        </mxCell>
+        <mxCell id="chat-retrieval" edge="1" parent="1" source="chat" style="html=1;rounded=0;endArrow=block;endFill=1;strokeColor=#2563eb;strokeWidth=1.5;dashed=0;exitX=0.5;exitY=1;exitPerimeter=0;entryX=0.5;entryY=0;entryPerimeter=0;" target="retrieval" value="">
+          <mxGeometry relative="1" as="geometry">
+            <mxPoint x="1075" y="715" as="sourcePoint" />
+            <mxPoint x="1075" y="745" as="targetPoint" />
+          </mxGeometry>
+        </mxCell>
+        <mxCell id="chat-retrieval-label" parent="1" style="rounded=1;whiteSpace=wrap;html=1;align=left;verticalAlign=middle;spacing=14;fontFamily=Arial;fontColor=#172033;fillColor=#ffffff;strokeColor=none;strokeWidth=1.5;rounded=0;spacing=3;align=center;" value="&lt;div style=&quot;font-size:12px;color:#2563eb;line-height:1.4;overflow-wrap:anywhere&quot;&gt;retrieve()&lt;/div&gt;" vertex="1">
+          <mxGeometry height="25" width="160" x="1020" y="718" as="geometry" />
+        </mxCell>
+        <mxCell id="llm-guard" edge="1" parent="1" source="llm" style="html=1;rounded=0;endArrow=block;endFill=1;strokeColor=#2563eb;strokeWidth=1.5;dashed=0;exitX=1;exitY=0.5;exitPerimeter=0;entryX=1;entryY=0.25;entryPerimeter=0;" target="guard" value="">
+          <mxGeometry relative="1" as="geometry">
+            <Array as="points">
+              <mxPoint x="1290" y="550" />
+              <mxPoint x="1290" y="1004" />
+            </Array>
+            <mxPoint x="1230" y="550" as="sourcePoint" />
+            <mxPoint x="1260" y="1003.75" as="targetPoint" />
+          </mxGeometry>
+        </mxCell>
+        <mxCell id="llm-guard-label" parent="1" style="rounded=1;whiteSpace=wrap;html=1;align=left;verticalAlign=middle;spacing=14;fontFamily=Arial;fontColor=#172033;fillColor=#ffffff;strokeColor=none;strokeWidth=1.5;rounded=0;spacing=3;align=center;" value="&lt;div style=&quot;font-size:12px;color:#2563eb;line-height:1.4;overflow-wrap:anywhere&quot;&gt;catalog / adapter&lt;/div&gt;" vertex="1">
+          <mxGeometry height="58" width="120" x="1280" y="680" as="geometry" />
+        </mxCell>
+        <mxCell id="chat-guard" edge="1" parent="1" source="chat" style="html=1;rounded=0;endArrow=block;endFill=1;strokeColor=#2563eb;strokeWidth=1.5;dashed=0;exitX=1;exitY=0.65;exitPerimeter=0;entryX=0.5;entryY=0;entryPerimeter=0;" target="guard" value="">
+          <mxGeometry relative="1" as="geometry">
+            <Array as="points">
+              <mxPoint x="1310" y="683.5" />
+              <mxPoint x="1310" y="950" />
+              <mxPoint x="1090" y="950" />
+            </Array>
+            <mxPoint x="1230" y="683.5" as="sourcePoint" />
+            <mxPoint x="1090" y="965" as="targetPoint" />
+          </mxGeometry>
+        </mxCell>
+        <mxCell id="chat-guard-label" parent="1" style="rounded=1;whiteSpace=wrap;html=1;align=left;verticalAlign=middle;spacing=14;fontFamily=Arial;fontColor=#172033;fillColor=#ffffff;strokeColor=none;strokeWidth=1.5;rounded=0;spacing=3;align=center;" value="&lt;div style=&quot;font-size:12px;color:#2563eb;line-height:1.4;overflow-wrap:anywhere&quot;&gt;messages → delta&lt;/div&gt;" vertex="1">
+          <mxGeometry height="26" width="165" x="1060" y="921" as="geometry" />
+        </mxCell>
+        <mxCell id="config-guard" edge="1" parent="1" source="config" style="html=1;rounded=0;endArrow=block;endFill=1;strokeColor=#6366f1;strokeWidth=1.5;dashed=0;exitX=1;exitY=0.65;exitPerimeter=0;entryX=0;entryY=0.8;entryPerimeter=0;" target="guard" value="">
+          <mxGeometry relative="1" as="geometry">
+            <Array as="points">
+              <mxPoint x="470" y="1067.5" />
+              <mxPoint x="470" y="1180" />
+              <mxPoint x="900" y="1180" />
+              <mxPoint x="900" y="1089" />
+            </Array>
+            <mxPoint x="410" y="1067.5" as="sourcePoint" />
+            <mxPoint x="920" y="1089" as="targetPoint" />
+          </mxGeometry>
+        </mxCell>
+        <mxCell id="config-guard-label" parent="1" style="rounded=1;whiteSpace=wrap;html=1;align=left;verticalAlign=middle;spacing=14;fontFamily=Arial;fontColor=#172033;fillColor=#ffffff;strokeColor=none;strokeWidth=1.5;rounded=0;spacing=3;align=center;" value="&lt;div style=&quot;font-size:12px;color:#6366f1;line-height:1.4;overflow-wrap:anywhere&quot;&gt;server policy&lt;/div&gt;" vertex="1">
+          <mxGeometry height="27" width="160" x="730" y="1151" as="geometry" />
+        </mxCell>
+        <mxCell id="guard-proxy" edge="1" parent="1" source="guard" style="html=1;rounded=0;endArrow=block;endFill=1;strokeColor=#6366f1;strokeWidth=1.5;dashed=0;exitX=1;exitY=0.5;exitPerimeter=0;entryX=0;entryY=0.5;entryPerimeter=0;" target="proxy" value="">
+          <mxGeometry relative="1" as="geometry">
+            <mxPoint x="1260" y="1042.5" as="sourcePoint" />
+            <mxPoint x="1410" y="1030" as="targetPoint" />
+          </mxGeometry>
+        </mxCell>
+        <mxCell id="guard-proxy-label" parent="1" style="rounded=1;whiteSpace=wrap;html=1;align=left;verticalAlign=middle;spacing=14;fontFamily=Arial;fontColor=#172033;fillColor=#ffffff;strokeColor=none;strokeWidth=1.5;rounded=0;spacing=3;align=center;" value="&lt;div style=&quot;font-size:12px;color:#6366f1;line-height:1.4;overflow-wrap:anywhere&quot;&gt;SOCKS5 đã đặt&lt;/div&gt;" vertex="1">
+          <mxGeometry height="27" width="136" x="1268" y="1000" as="geometry" />
+        </mxCell>
+        <mxCell id="proxy-provider" edge="1" parent="1" source="proxy" style="html=1;rounded=0;endArrow=block;endFill=1;strokeColor=#6366f1;strokeWidth=1.5;dashed=0;exitX=0.5;exitY=1;exitPerimeter=0;entryX=0.5;entryY=0;entryPerimeter=0;" target="provider" value="">
+          <mxGeometry relative="1" as="geometry">
+            <mxPoint x="1585" y="1085" as="sourcePoint" />
+            <mxPoint x="1585" y="1230" as="targetPoint" />
+          </mxGeometry>
+        </mxCell>
+        <mxCell id="proxy-provider-label" parent="1" style="rounded=1;whiteSpace=wrap;html=1;align=left;verticalAlign=middle;spacing=14;fontFamily=Arial;fontColor=#172033;fillColor=#ffffff;strokeColor=none;strokeWidth=1.5;rounded=0;spacing=3;align=center;" value="&lt;div style=&quot;font-size:12px;color:#6366f1;line-height:1.4;overflow-wrap:anywhere&quot;&gt;SOCKS5 + TLS&lt;/div&gt;" vertex="1">
+          <mxGeometry height="27" width="175" x="1500" y="1160" as="geometry" />
+        </mxCell>
+        <mxCell id="guard-direct" edge="1" parent="1" source="guard" style="html=1;rounded=0;endArrow=block;endFill=1;strokeColor=#2563eb;strokeWidth=1.5;dashed=0;exitX=0.6;exitY=1;exitPerimeter=0;entryX=0;entryY=0.5;entryPerimeter=0;" target="provider" value="">
+          <mxGeometry relative="1" as="geometry">
+            <Array as="points">
+              <mxPoint x="1124" y="1275" />
+            </Array>
+            <mxPoint x="1124" y="1120" as="sourcePoint" />
+            <mxPoint x="1410" y="1275" as="targetPoint" />
+          </mxGeometry>
+        </mxCell>
+        <mxCell id="guard-direct-label" parent="1" style="rounded=1;whiteSpace=wrap;html=1;align=left;verticalAlign=middle;spacing=14;fontFamily=Arial;fontColor=#172033;fillColor=#ffffff;strokeColor=none;strokeWidth=1.5;rounded=0;spacing=3;align=center;" value="&lt;div style=&quot;font-size:12px;color:#2563eb;line-height:1.4;overflow-wrap:anywhere&quot;&gt;Direct nếu proxy trống&lt;/div&gt;" vertex="1">
+          <mxGeometry height="27" width="230" x="1160" y="1245" as="geometry" />
+        </mxCell>
+        <mxCell id="current-notes" parent="1" style="rounded=1;whiteSpace=wrap;html=1;align=left;verticalAlign=middle;spacing=14;fontFamily=Arial;fontColor=#172033;fillColor=#f8fafc;strokeColor=#64748b;strokeWidth=1.5;" value="&lt;div style=&quot;font-weight:700;font-size:15px;margin-bottom:8px&quot;&gt;Ranh giới hiện tại&lt;/div&gt;&lt;div style=&quot;font-size:13px;line-height:1.5&quot;&gt;Locale không gửi trong chat/retrieval payload; UI locale không chọn ngôn ngữ câu trả lời.&lt;br/&gt;Chat chỉ dùng AuthorizedRetrievalService, không lấy chunks trực tiếp. Không có admin settings API hiện tại.&lt;br/&gt;GET status: uploader hoặc readable document; các /health, /ready hiện không probe DB.&lt;/div&gt;" vertex="1">
+          <mxGeometry height="115" width="1050" x="70" y="1230" as="geometry" />
+        </mxCell>
+      </root>
+    </mxGraphModel>
+  </diagram>
+  <diagram id="runtime-tobe" name="02 — TO-BE quản trị và locale">
+    <mxGraphModel grid="1" gridSize="10" guides="1" tooltips="1" connect="1" arrows="1" fold="1" page="1" pageScale="1" pageWidth="1540" pageHeight="1000" math="0" shadow="0">
+      <root>
+        <mxCell id="0" />
+        <mxCell id="1" parent="0" />
+        <mxCell id="title" value="&lt;div style=&quot;font-size:28px;color:#172033;line-height:1.4;overflow-wrap:anywhere&quot;&gt;&lt;b&gt;Ruvie Agent — TO-BE quản trị và locale&lt;/b&gt;&lt;/div&gt;" parent="1" vertex="1" style="rounded=1;whiteSpace=wrap;html=1;align=left;verticalAlign=middle;spacing=14;fontFamily=Arial;fontColor=#172033;fillColor=none;strokeColor=none;strokeWidth=1.5;rounded=0;spacing=3;align=left;">
+          <mxGeometry x="40" y="22" width="1460" height="44" as="geometry" />
+        </mxCell>
+        <mxCell id="subtitle" value="&lt;div style=&quot;font-size:14px;color:#566377;line-height:1.4;overflow-wrap:anywhere&quot;&gt;ĐỀ XUẤT • Chưa triển khai • Theo backlog ngày 2026-10-10; không phải runtime hiện tại&lt;/div&gt;" parent="1" vertex="1" style="rounded=1;whiteSpace=wrap;html=1;align=left;verticalAlign=middle;spacing=14;fontFamily=Arial;fontColor=#172033;fillColor=none;strokeColor=none;strokeWidth=1.5;rounded=0;spacing=3;align=left;">
+          <mxGeometry x="40" y="70" width="1460" height="38" as="geometry" />
+        </mxCell>
+        <mxCell id="admin" value="&lt;div style=&quot;font-weight:700;font-size:16px;margin-bottom:8px&quot;&gt;Trang quản trị • Dự kiến&lt;/div&gt;&lt;div style=&quot;font-size:14px;line-height:1.5&quot;&gt;Nhóm Proxy: Direct / SOCKS5&lt;br/&gt;Nhóm Giao diện: default locale / clear&lt;br/&gt;Chỉ người có quyền quản trị&lt;/div&gt;" parent="1" vertex="1" style="rounded=1;whiteSpace=wrap;html=1;align=left;verticalAlign=middle;spacing=14;fontFamily=Arial;fontColor=#172033;fillColor=#fff7ed;strokeColor=#b45309;strokeWidth=1.5;dashed=1;">
+          <mxGeometry x="60" y="180" width="360" height="150" as="geometry" />
+        </mxCell>
+        <mxCell id="admin-api" value="&lt;div style=&quot;font-weight:700;font-size:16px;margin-bottom:8px&quot;&gt;Admin settings API • Dự kiến&lt;/div&gt;&lt;div style=&quot;font-size:14px;line-height:1.5&quot;&gt;Trusted identity + admin authorization&lt;br/&gt;Session/Origin/CSRF phù hợp&lt;br/&gt;Validate từng setting trên server&lt;/div&gt;" parent="1" vertex="1" style="rounded=1;whiteSpace=wrap;html=1;align=left;verticalAlign=middle;spacing=14;fontFamily=Arial;fontColor=#172033;fillColor=#fff7ed;strokeColor=#b45309;strokeWidth=1.5;dashed=1;">
+          <mxGeometry x="580" y="180" width="360" height="150" as="geometry" />
+        </mxCell>
+        <mxCell id="settings" value="&lt;div style=&quot;font-weight:700;font-size:16px;margin-bottom:8px&quot;&gt;Nguồn cấu hình • Chưa chốt&lt;/div&gt;&lt;div style=&quot;font-size:14px;line-height:1.5&quot;&gt;Bắt đầu bằng server config nếu phù hợp&lt;br/&gt;Persistent settings: PostgreSQL + Alembic&lt;br/&gt;Không chốt tên bảng/endpoint ở backlog&lt;/div&gt;" parent="1" vertex="1" style="rounded=1;whiteSpace=wrap;html=1;align=left;verticalAlign=middle;spacing=14;fontFamily=Arial;fontColor=#172033;fillColor=#fff7ed;strokeColor=#b45309;strokeWidth=1.5;dashed=1;">
+          <mxGeometry x="1100" y="180" width="360" height="150" as="geometry" />
+        </mxCell>
+        <mxCell id="public-locale" value="&lt;div style=&quot;font-weight:700;font-size:16px;margin-bottom:8px&quot;&gt;Public UI config • Dự kiến&lt;/div&gt;&lt;div style=&quot;font-size:14px;line-height:1.5&quot;&gt;Chỉ default locale an toàn&lt;br/&gt;Dùng được trước đăng nhập&lt;br/&gt;Không trả proxy/key/provider settings&lt;/div&gt;" parent="1" vertex="1" style="rounded=1;whiteSpace=wrap;html=1;align=left;verticalAlign=middle;spacing=14;fontFamily=Arial;fontColor=#172033;fillColor=#fff7ed;strokeColor=#b45309;strokeWidth=1.5;dashed=1;">
+          <mxGeometry x="580" y="450" width="360" height="150" as="geometry" />
+        </mxCell>
+        <mxCell id="startup" value="&lt;div style=&quot;font-weight:700;font-size:16px;margin-bottom:8px&quot;&gt;Frontend startup • Dự kiến&lt;/div&gt;&lt;div style=&quot;font-size:14px;line-height:1.5&quot;&gt;Stored choice → org default → browser → vi-VN&lt;br/&gt;Không ghi detected default vào storage&lt;br/&gt;Chọn thủ công của người dùng luôn giữ quyền ưu tiên&lt;/div&gt;" parent="1" vertex="1" style="rounded=1;whiteSpace=wrap;html=1;align=left;verticalAlign=middle;spacing=14;fontFamily=Arial;fontColor=#172033;fillColor=#fff7ed;strokeColor=#b45309;strokeWidth=1.5;dashed=1;">
+          <mxGeometry x="60" y="450" width="360" height="170" as="geometry" />
+        </mxCell>
+        <mxCell id="network" value="&lt;div style=&quot;font-weight:700;font-size:16px;margin-bottom:8px&quot;&gt;LLM network policy • Dự kiến&lt;/div&gt;&lt;div style=&quot;font-size:14px;line-height:1.5&quot;&gt;Proxy setting server-side, độc lập locale&lt;br/&gt;Không mở rộng ACL hoặc local-origin allowlist&lt;br/&gt;Giữ numeric IP pinning và TLS&lt;/div&gt;" parent="1" vertex="1" style="rounded=1;whiteSpace=wrap;html=1;align=left;verticalAlign=middle;spacing=14;fontFamily=Arial;fontColor=#172033;fillColor=#fff7ed;strokeColor=#b45309;strokeWidth=1.5;dashed=1;">
+          <mxGeometry x="1100" y="450" width="360" height="150" as="geometry" />
+        </mxCell>
+        <mxCell id="admin-write" parent="1" edge="1" value="" style="html=1;rounded=0;endArrow=block;endFill=1;strokeColor=#b45309;strokeWidth=1.5;dashed=1;exitX=1;exitY=0.5;exitPerimeter=0;entryX=0;entryY=0.5;entryPerimeter=0;" source="admin" target="admin-api">
+          <mxGeometry relative="1" as="geometry">
+            <mxPoint x="420" y="255.0" as="sourcePoint" />
+            <mxPoint x="580" y="255.0" as="targetPoint" />
+          </mxGeometry>
+        </mxCell>
+        <mxCell id="admin-write-label" value="&lt;div style=&quot;font-size:12px;color:#b45309;line-height:1.4;overflow-wrap:anywhere&quot;&gt;save / clear&lt;/div&gt;" parent="1" vertex="1" style="rounded=1;whiteSpace=wrap;html=1;align=left;verticalAlign=middle;spacing=14;fontFamily=Arial;fontColor=#172033;fillColor=#ffffff;strokeColor=none;strokeWidth=1.5;rounded=0;spacing=3;align=center;">
+          <mxGeometry x="400.0" y="227.0" width="200" height="26" as="geometry" />
+        </mxCell>
+        <mxCell id="config-write" parent="1" edge="1" value="" style="html=1;rounded=0;endArrow=block;endFill=1;strokeColor=#b45309;strokeWidth=1.5;dashed=1;exitX=1;exitY=0.5;exitPerimeter=0;entryX=0;entryY=0.5;entryPerimeter=0;" source="admin-api" target="settings">
+          <mxGeometry relative="1" as="geometry">
+            <mxPoint x="940" y="255.0" as="sourcePoint" />
+            <mxPoint x="1100" y="255.0" as="targetPoint" />
+          </mxGeometry>
+        </mxCell>
+        <mxCell id="config-write-label" value="&lt;div style=&quot;font-size:12px;color:#b45309;line-height:1.4;overflow-wrap:anywhere&quot;&gt;authorized update&lt;/div&gt;" parent="1" vertex="1" style="rounded=1;whiteSpace=wrap;html=1;align=left;verticalAlign=middle;spacing=14;fontFamily=Arial;fontColor=#172033;fillColor=#ffffff;strokeColor=none;strokeWidth=1.5;rounded=0;spacing=3;align=center;">
+          <mxGeometry x="920.0" y="227.0" width="200" height="26" as="geometry" />
+        </mxCell>
+        <mxCell id="public-read" parent="1" edge="1" value="" style="html=1;rounded=0;endArrow=block;endFill=1;strokeColor=#b45309;strokeWidth=1.5;dashed=1;exitX=1;exitY=0.5;exitPerimeter=0;entryX=0.5;entryY=1;entryPerimeter=0;" source="public-locale" target="settings">
+          <mxGeometry relative="1" as="geometry">
+            <mxPoint x="940" y="525.0" as="sourcePoint" />
+            <mxPoint x="1280.0" y="330" as="targetPoint" />
+          </mxGeometry>
+        </mxCell>
+        <mxCell id="public-read-label" value="&lt;div style=&quot;font-size:12px;color:#b45309;line-height:1.4;overflow-wrap:anywhere&quot;&gt;read locale only&lt;/div&gt;" parent="1" vertex="1" style="rounded=1;whiteSpace=wrap;html=1;align=left;verticalAlign=middle;spacing=14;fontFamily=Arial;fontColor=#172033;fillColor=#ffffff;strokeColor=none;strokeWidth=1.5;rounded=0;spacing=3;align=center;">
+          <mxGeometry x="1010.0" y="399.5" width="200" height="26" as="geometry" />
+        </mxCell>
+        <mxCell id="startup-read" parent="1" edge="1" value="" style="html=1;rounded=0;endArrow=block;endFill=1;strokeColor=#b45309;strokeWidth=1.5;dashed=1;exitX=1;exitY=0.5;exitPerimeter=0;entryX=0;entryY=0.5;entryPerimeter=0;" source="startup" target="public-locale">
+          <mxGeometry relative="1" as="geometry">
+            <mxPoint x="420" y="535.0" as="sourcePoint" />
+            <mxPoint x="580" y="525.0" as="targetPoint" />
+          </mxGeometry>
+        </mxCell>
+        <mxCell id="startup-read-label" value="&lt;div style=&quot;font-size:12px;color:#b45309;line-height:1.4;overflow-wrap:anywhere&quot;&gt;read default&lt;/div&gt;" parent="1" vertex="1" style="rounded=1;whiteSpace=wrap;html=1;align=left;verticalAlign=middle;spacing=14;fontFamily=Arial;fontColor=#172033;fillColor=#ffffff;strokeColor=none;strokeWidth=1.5;rounded=0;spacing=3;align=center;">
+          <mxGeometry x="400.0" y="502.0" width="200" height="26" as="geometry" />
+        </mxCell>
+        <mxCell id="proxy-read" parent="1" edge="1" value="" style="html=1;rounded=0;endArrow=block;endFill=1;strokeColor=#b45309;strokeWidth=1.5;dashed=1;exitX=0.5;exitY=0;exitPerimeter=0;entryX=0.5;entryY=1;entryPerimeter=0;" source="network" target="settings">
+          <mxGeometry relative="1" as="geometry">
+            <mxPoint x="1280.0" y="450" as="sourcePoint" />
+            <mxPoint x="1280.0" y="330" as="targetPoint" />
+          </mxGeometry>
+        </mxCell>
+        <mxCell id="proxy-read-label" value="&lt;div style=&quot;font-size:12px;color:#b45309;line-height:1.4;overflow-wrap:anywhere&quot;&gt;read proxy policy&lt;/div&gt;" parent="1" vertex="1" style="rounded=1;whiteSpace=wrap;html=1;align=left;verticalAlign=middle;spacing=14;fontFamily=Arial;fontColor=#172033;fillColor=#ffffff;strokeColor=none;strokeWidth=1.5;rounded=0;spacing=3;align=center;">
+          <mxGeometry x="1180.0" y="362.0" width="200" height="26" as="geometry" />
+        </mxCell>
+        <mxCell id="future-notes" value="&lt;div style=&quot;font-weight:700;font-size:16px;margin-bottom:8px&quot;&gt;Các đề xuất khác • Triển khai khi có nhu cầu&lt;/div&gt;&lt;div style=&quot;font-size:14px;line-height:1.5&quot;&gt;Intl.DateTimeFormat khi UI có timestamp; timezone là quyết định riêng.&lt;br/&gt;?lang=... tạm thời, không ghi storage; thao tác selector sau đó thắng.&lt;br/&gt;Lazy catalogs + loading/error/retry khi số đo bundle yêu cầu.&lt;br/&gt;Ngôn ngữ trả lời LLM là feature riêng, không nằm trong default UI locale.&lt;/div&gt;" parent="1" vertex="1" style="rounded=1;whiteSpace=wrap;html=1;align=left;verticalAlign=middle;spacing=14;fontFamily=Arial;fontColor=#172033;fillColor=#fff7ed;strokeColor=#b45309;strokeWidth=1.5;dashed=1;">
+          <mxGeometry x="60" y="750" width="1400" height="165" as="geometry" />
+        </mxCell>
+      </root>
+    </mxGraphModel>
+  </diagram>
+</mxfile>

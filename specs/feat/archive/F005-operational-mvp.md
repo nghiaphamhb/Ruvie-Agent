@@ -115,7 +115,7 @@ Không import code từ `references/`; kiểm tra license trước khi chép sou
       status, chunk, citation hoặc nội dung private của Project Beta trong
       prompt và API response. Đã xác minh bằng test F005-007 trên container
       PostgreSQL/pgvector tạm.
-- [ ] Đã thử kiểm tra thủ công với provider thật từ `.env` cục bộ, ghi lại
+- [x] Đã thử kiểm tra thủ công với provider thật từ `.env` cục bộ, ghi lại
       kết quả upload → xử lý → chat và lỗi nếu có; không in hoặc lưu API key.
 - [x] Backend/frontend tests, migration SQL và README đạt; AC cũ ở F001–F004
       chỉ tick nếu có bằng chứng trực tiếp.
