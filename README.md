@@ -359,8 +359,7 @@ Components subscribe to the `i18n` store. Persistent errors/notices use
 messages translate again. API clients keep status/error codes and safe keys;
 they do not read the DOM or expose raw server/provider text.
 
-`frontend/src/lib/i18n/message-inventory.md` records the original UI locations,
-key mapping and legacy sources. The languageChanged/store pattern and selected
+The languageChanged/store pattern and selected
 translations were adapted from `references/src/lib/i18n/`; no legacy detector,
 dynamic resource backend, parser, SvelteKit routing or runtime imports were ported.
 
@@ -369,3 +368,10 @@ fake-API harness also runs `i18n-browser.mjs`: all three languages, detection/
 storage failures, keyboard selection, retained inputs, delayed requests, errors,
 SSE/upload/polling and nine locale/viewport combinations. Existing regressions
 explicitly use `vi-VN`; catalog/plural/format checks are included in `npm test`.
+
+
+## Visual specifications
+
+See [Visual specifications](specs/visual/README.md) for the current runtime
+architecture, PostgreSQL ER diagram and six sequence diagrams. Current behavior
+and proposed admin/organization locale settings are labeled separately.

@@ -16,5 +16,5 @@ export function resolveInitialLocale(saved: unknown, preferred: readonly string[
       if (match) return match.code as Locale;
     } catch { /* Invalid browser tags cannot select an arbitrary resource. */ }
   }
-  return 'vi-VN';
+  return 'vi-VN'; // fallback 
 }

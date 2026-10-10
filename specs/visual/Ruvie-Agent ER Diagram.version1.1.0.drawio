@@ -1,0 +1,173 @@
+<?xml version='1.0' encoding='utf-8'?>
+<mxfile host="app.diagrams.net" agent="Codex" modified="2026-10-10T00:00:00.000Z" version="1.1.0">
+  <diagram id="erd-current" name="Schema active 0001–0008">
+    <mxGraphModel grid="1" gridSize="10" guides="1" tooltips="1" connect="1" arrows="1" fold="1" page="1" pageScale="1" pageWidth="2600" pageHeight="1780" math="0" shadow="0">
+      <root>
+        <mxCell id="0" />
+        <mxCell id="1" parent="0" />
+        <mxCell id="title" value="&lt;div style=&quot;font-size:28px;color:#172033;line-height:1.4;overflow-wrap:anywhere&quot;&gt;&lt;b&gt;Ruvie Agent — Entity Relationship Diagram&lt;/b&gt;&lt;/div&gt;" parent="1" vertex="1" style="rounded=1;whiteSpace=wrap;html=1;align=left;verticalAlign=middle;spacing=14;fontFamily=Arial;fontColor=#172033;fillColor=none;strokeColor=none;strokeWidth=1.5;rounded=0;spacing=3;align=left;">
+          <mxGeometry x="40" y="22" width="2520" height="44" as="geometry" />
+        </mxCell>
+        <mxCell id="subtitle" value="&lt;div style=&quot;font-size:14px;color:#566377;line-height:1.4;overflow-wrap:anywhere&quot;&gt;v1.1.0 • 2026-10-10 • PostgreSQL / pgvector • 12 bảng active • migrations 0001–0008&lt;/div&gt;" parent="1" vertex="1" style="rounded=1;whiteSpace=wrap;html=1;align=left;verticalAlign=middle;spacing=14;fontFamily=Arial;fontColor=#172033;fillColor=none;strokeColor=none;strokeWidth=1.5;rounded=0;spacing=3;align=left;">
+          <mxGeometry x="40" y="70" width="2520" height="38" as="geometry" />
+        </mxCell>
+        <mxCell id="users" value="&lt;div style=&quot;font-weight:700;font-size:15px;margin-bottom:8px&quot;&gt;users&lt;/div&gt;&lt;div style=&quot;font-size:13px;line-height:1.5&quot;&gt;&lt;b&gt;PK&lt;/b&gt; id: varchar(36)&lt;br/&gt;&lt;b&gt;UQ&lt;/b&gt; email: varchar(320)&lt;br/&gt;display_name: varchar(255)&lt;br/&gt;password_hash: varchar(255) [NULL] [PRIVATE]&lt;br/&gt;is_active: boolean&lt;br/&gt;created_at: timestamptz&lt;br/&gt;updated_at: timestamptz&lt;hr/&gt;UQ(email)&lt;/div&gt;" parent="1" vertex="1" style="rounded=1;whiteSpace=wrap;html=1;align=left;verticalAlign=middle;spacing=14;fontFamily=Arial;fontColor=#172033;fillColor=#ffffff;strokeColor=#2563eb;strokeWidth=1.5;verticalAlign=top;">
+          <mxGeometry x="60" y="170" width="350" height="270" as="geometry" />
+        </mxCell>
+        <mxCell id="auth_sessions" value="&lt;div style=&quot;font-weight:700;font-size:15px;margin-bottom:8px&quot;&gt;auth_sessions&lt;/div&gt;&lt;div style=&quot;font-size:13px;line-height:1.5&quot;&gt;&lt;b&gt;PK&lt;/b&gt; id: varchar(36)&lt;br/&gt;&lt;b&gt;FK&lt;/b&gt; user_id: varchar(36)&lt;br/&gt;&lt;b&gt;UQ&lt;/b&gt; token_hash: varchar(64) [PRIVATE]&lt;br/&gt;csrf_token: varchar(64) [PRIVATE]&lt;br/&gt;expires_at: timestamptz&lt;br/&gt;created_at: timestamptz&lt;hr/&gt;UQ(token_hash)&lt;/div&gt;" parent="1" vertex="1" style="rounded=1;whiteSpace=wrap;html=1;align=left;verticalAlign=middle;spacing=14;fontFamily=Arial;fontColor=#172033;fillColor=#ffffff;strokeColor=#2563eb;strokeWidth=1.5;verticalAlign=top;">
+          <mxGeometry x="450" y="170" width="350" height="246" as="geometry" />
+        </mxCell>
+        <mxCell id="user_llm_settings" value="&lt;div style=&quot;font-weight:700;font-size:15px;margin-bottom:8px&quot;&gt;user_llm_settings&lt;/div&gt;&lt;div style=&quot;font-size:13px;line-height:1.5&quot;&gt;&lt;b&gt;PK / FK&lt;/b&gt; user_id: varchar(36)&lt;br/&gt;base_url: text [NULL]&lt;br/&gt;api_key: text [NULL] [PRIVATE]&lt;br/&gt;models: json&lt;br/&gt;selected_model_id: text [NULL]&lt;br/&gt;created_at: timestamptz&lt;br/&gt;updated_at: timestamptz&lt;hr/&gt;CHECK: key chỉ có khi base_url khác NULL&lt;/div&gt;" parent="1" vertex="1" style="rounded=1;whiteSpace=wrap;html=1;align=left;verticalAlign=middle;spacing=14;fontFamily=Arial;fontColor=#172033;fillColor=#ffffff;strokeColor=#2563eb;strokeWidth=1.5;verticalAlign=top;">
+          <mxGeometry x="840" y="170" width="350" height="270" as="geometry" />
+        </mxCell>
+        <mxCell id="roles" value="&lt;div style=&quot;font-weight:700;font-size:15px;margin-bottom:8px&quot;&gt;roles&lt;/div&gt;&lt;div style=&quot;font-size:13px;line-height:1.5&quot;&gt;&lt;b&gt;PK&lt;/b&gt; id: varchar(36)&lt;br/&gt;&lt;b&gt;UQ&lt;/b&gt; code: role_code&lt;hr/&gt;UQ(code)&lt;/div&gt;" parent="1" vertex="1" style="rounded=1;whiteSpace=wrap;html=1;align=left;verticalAlign=middle;spacing=14;fontFamily=Arial;fontColor=#172033;fillColor=#ffffff;strokeColor=#2563eb;strokeWidth=1.5;verticalAlign=top;">
+          <mxGeometry x="60" y="540" width="350" height="150" as="geometry" />
+        </mxCell>
+        <mxCell id="memberships" value="&lt;div style=&quot;font-weight:700;font-size:15px;margin-bottom:8px&quot;&gt;memberships&lt;/div&gt;&lt;div style=&quot;font-size:13px;line-height:1.5&quot;&gt;&lt;b&gt;PK&lt;/b&gt; id: varchar(36)&lt;br/&gt;&lt;b&gt;FK&lt;/b&gt; user_id: varchar(36)&lt;br/&gt;&lt;b&gt;FK&lt;/b&gt; project_id: varchar(36)&lt;br/&gt;&lt;b&gt;FK&lt;/b&gt; role_id: varchar(36)&lt;br/&gt;created_at: timestamptz&lt;hr/&gt;UQ(user_id, project_id, role_id)&lt;/div&gt;" parent="1" vertex="1" style="rounded=1;whiteSpace=wrap;html=1;align=left;verticalAlign=middle;spacing=14;fontFamily=Arial;fontColor=#172033;fillColor=#ffffff;strokeColor=#2563eb;strokeWidth=1.5;verticalAlign=top;">
+          <mxGeometry x="450" y="550" width="350" height="222" as="geometry" />
+        </mxCell>
+        <mxCell id="projects" value="&lt;div style=&quot;font-weight:700;font-size:15px;margin-bottom:8px&quot;&gt;projects&lt;/div&gt;&lt;div style=&quot;font-size:13px;line-height:1.5&quot;&gt;&lt;b&gt;PK&lt;/b&gt; id: varchar(36)&lt;br/&gt;&lt;b&gt;UQ&lt;/b&gt; code: varchar(100)&lt;br/&gt;&lt;b&gt;UQ&lt;/b&gt; name: varchar(255)&lt;br/&gt;created_at: timestamptz&lt;br/&gt;updated_at: timestamptz&lt;hr/&gt;UQ(code)&lt;br/&gt;UQ(name)&lt;/div&gt;" parent="1" vertex="1" style="rounded=1;whiteSpace=wrap;html=1;align=left;verticalAlign=middle;spacing=14;fontFamily=Arial;fontColor=#172033;fillColor=#ffffff;strokeColor=#2563eb;strokeWidth=1.5;verticalAlign=top;">
+          <mxGeometry x="840" y="550" width="350" height="250" as="geometry" />
+        </mxCell>
+        <mxCell id="access_grants" value="&lt;div style=&quot;font-weight:700;font-size:15px;margin-bottom:8px&quot;&gt;access_grants&lt;/div&gt;&lt;div style=&quot;font-size:13px;line-height:1.5&quot;&gt;&lt;b&gt;PK&lt;/b&gt; id: varchar(36)&lt;br/&gt;resource_type: varchar(50)&lt;br/&gt;&lt;b&gt;FK&lt;/b&gt; resource_id: varchar(36)&lt;br/&gt;principal_type: varchar(50)&lt;br/&gt;&lt;b&gt;FK&lt;/b&gt; principal_id: varchar(36)&lt;br/&gt;permission: varchar(50)&lt;br/&gt;expires_at: timestamptz [NULL]&lt;br/&gt;created_at: timestamptz&lt;hr/&gt;UQ(resource_type, resource_id, principal_type, principal_id, permission)&lt;br/&gt;CHECK: document / user / read&lt;/div&gt;" parent="1" vertex="1" style="rounded=1;whiteSpace=wrap;html=1;align=left;verticalAlign=middle;spacing=14;fontFamily=Arial;fontColor=#172033;fillColor=#ffffff;strokeColor=#7c3aed;strokeWidth=1.5;verticalAlign=top;">
+          <mxGeometry x="60" y="880" width="350" height="322" as="geometry" />
+        </mxCell>
+        <mxCell id="documents" value="&lt;div style=&quot;font-weight:700;font-size:15px;margin-bottom:8px&quot;&gt;documents&lt;/div&gt;&lt;div style=&quot;font-size:13px;line-height:1.5&quot;&gt;&lt;b&gt;PK&lt;/b&gt; id: varchar(36)&lt;br/&gt;&lt;b&gt;FK&lt;/b&gt; project_id: varchar(36)&lt;br/&gt;title: varchar(500)&lt;br/&gt;document_type: varchar(100)&lt;br/&gt;status: varchar(50)&lt;br/&gt;allowed_role_codes: json&lt;br/&gt;created_at: timestamptz&lt;br/&gt;updated_at: timestamptz&lt;hr/&gt;UQ(id, project_id)&lt;/div&gt;" parent="1" vertex="1" style="rounded=1;whiteSpace=wrap;html=1;align=left;verticalAlign=middle;spacing=14;fontFamily=Arial;fontColor=#172033;fillColor=#ffffff;strokeColor=#0f766e;strokeWidth=1.5;verticalAlign=top;">
+          <mxGeometry x="1260" y="550" width="350" height="294" as="geometry" />
+        </mxCell>
+        <mxCell id="audit_events" value="&lt;div style=&quot;font-weight:700;font-size:15px;margin-bottom:8px&quot;&gt;audit_events&lt;/div&gt;&lt;div style=&quot;font-size:13px;line-height:1.5&quot;&gt;&lt;b&gt;PK&lt;/b&gt; id: varchar(36)&lt;br/&gt;&lt;b&gt;FK&lt;/b&gt; actor_user_id: varchar(36)&lt;br/&gt;action: varchar(100)&lt;br/&gt;resource_type: varchar(50)&lt;br/&gt;resource_id: varchar(36)&lt;br/&gt;&lt;b&gt;FK&lt;/b&gt; project_id: varchar(36) [NULL]&lt;br/&gt;outcome: varchar(10)&lt;br/&gt;reason: text&lt;br/&gt;created_at: timestamptz&lt;hr/&gt;Trigger: UPDATE / DELETE / TRUNCATE bị chặn&lt;br/&gt;resource_id đa hình; không có FK&lt;/div&gt;" parent="1" vertex="1" style="rounded=1;whiteSpace=wrap;html=1;align=left;verticalAlign=middle;spacing=14;fontFamily=Arial;fontColor=#172033;fillColor=#ffffff;strokeColor=#7c3aed;strokeWidth=1.5;verticalAlign=top;">
+          <mxGeometry x="840" y="1110" width="350" height="346" as="geometry" />
+        </mxCell>
+        <mxCell id="document_revisions" value="&lt;div style=&quot;font-weight:700;font-size:15px;margin-bottom:8px&quot;&gt;document_revisions&lt;/div&gt;&lt;div style=&quot;font-size:13px;line-height:1.5&quot;&gt;&lt;b&gt;PK&lt;/b&gt; id: varchar(36)&lt;br/&gt;&lt;b&gt;FK&lt;/b&gt; document_id: varchar(36)&lt;br/&gt;&lt;b&gt;FK&lt;/b&gt; project_id: varchar(36)&lt;br/&gt;&lt;b&gt;FK&lt;/b&gt; uploaded_by_user_id: varchar(36) [NULL]&lt;br/&gt;revision_number: integer&lt;br/&gt;content_hash: varchar(64)&lt;br/&gt;blob_uri: varchar(2048) [PRIVATE]&lt;br/&gt;mime_type: varchar(255)&lt;br/&gt;size_bytes: integer&lt;br/&gt;software: varchar(255)&lt;br/&gt;software_version: varchar(255)&lt;br/&gt;ingestion_state: revision_ingestion_state&lt;br/&gt;embedding_model_id: varchar(255)&lt;br/&gt;embedding_dimension: integer&lt;br/&gt;embedding_distance_metric: varchar(32)&lt;br/&gt;created_at: timestamptz&lt;hr/&gt;UQ(id, document_id, project_id)&lt;br/&gt;UQ(document_id, revision_number)&lt;br/&gt;FK(document_id, project_id) → documents&lt;/div&gt;" parent="1" vertex="1" style="rounded=1;whiteSpace=wrap;html=1;align=left;verticalAlign=middle;spacing=14;fontFamily=Arial;fontColor=#172033;fillColor=#ffffff;strokeColor=#0f766e;strokeWidth=1.5;verticalAlign=top;">
+          <mxGeometry x="1660" y="170" width="390" height="554" as="geometry" />
+        </mxCell>
+        <mxCell id="ingestion_jobs" value="&lt;div style=&quot;font-weight:700;font-size:15px;margin-bottom:8px&quot;&gt;ingestion_jobs&lt;/div&gt;&lt;div style=&quot;font-size:13px;line-height:1.5&quot;&gt;&lt;b&gt;PK&lt;/b&gt; id: varchar(36)&lt;br/&gt;&lt;b&gt;FK&lt;/b&gt; document_revision_id: varchar(36)&lt;br/&gt;state: ingestion_job_state&lt;br/&gt;attempt_count: integer&lt;br/&gt;error_code: varchar(100) [NULL]&lt;br/&gt;created_at: timestamptz&lt;br/&gt;updated_at: timestamptz&lt;hr/&gt;UQ(document_revision_id)&lt;/div&gt;" parent="1" vertex="1" style="rounded=1;whiteSpace=wrap;html=1;align=left;verticalAlign=middle;spacing=14;fontFamily=Arial;fontColor=#172033;fillColor=#ffffff;strokeColor=#b45309;strokeWidth=1.5;verticalAlign=top;">
+          <mxGeometry x="2140" y="170" width="350" height="270" as="geometry" />
+        </mxCell>
+        <mxCell id="document_chunks" value="&lt;div style=&quot;font-weight:700;font-size:15px;margin-bottom:8px&quot;&gt;document_chunks&lt;/div&gt;&lt;div style=&quot;font-size:13px;line-height:1.5&quot;&gt;&lt;b&gt;PK&lt;/b&gt; id: varchar(36)&lt;br/&gt;&lt;b&gt;FK&lt;/b&gt; document_revision_id: varchar(36)&lt;br/&gt;&lt;b&gt;FK&lt;/b&gt; document_id: varchar(36)&lt;br/&gt;&lt;b&gt;FK&lt;/b&gt; project_id: varchar(36)&lt;br/&gt;ordinal: integer&lt;br/&gt;text: text&lt;br/&gt;content_hash: varchar(64)&lt;br/&gt;start_offset: integer&lt;br/&gt;end_offset: integer&lt;br/&gt;software: varchar(255)&lt;br/&gt;software_version: varchar(255)&lt;br/&gt;embedding: vector(1024)&lt;br/&gt;created_at: timestamptz&lt;hr/&gt;UQ(document_revision_id, ordinal)&lt;br/&gt;FK(revision, document, project) → revisions&lt;br/&gt;HNSW: vector_cosine_ops&lt;/div&gt;" parent="1" vertex="1" style="rounded=1;whiteSpace=wrap;html=1;align=left;verticalAlign=middle;spacing=14;fontFamily=Arial;fontColor=#172033;fillColor=#ffffff;strokeColor=#0f766e;strokeWidth=1.5;verticalAlign=top;">
+          <mxGeometry x="2140" y="720" width="350" height="470" as="geometry" />
+        </mxCell>
+        <mxCell id="fk-0" parent="1" edge="1" value="" style="html=1;rounded=0;endArrow=block;endFill=1;strokeColor=#64748b;strokeWidth=1.5;dashed=0;startArrow=ERone;startFill=0;endArrow=ERzeroToMany;endFill=0;exitX=1;exitY=0.25;exitPerimeter=0;entryX=0;entryY=0.2;entryPerimeter=0;" source="users" target="auth_sessions">
+          <mxGeometry relative="1" as="geometry">
+            <mxPoint x="410" y="237.5" as="sourcePoint" />
+            <mxPoint x="450" y="219.2" as="targetPoint" />
+          </mxGeometry>
+        </mxCell>
+        <mxCell id="fk-1" parent="1" edge="1" value="" style="html=1;rounded=0;endArrow=block;endFill=1;strokeColor=#64748b;strokeWidth=1.5;dashed=0;startArrow=ERone;startFill=0;endArrow=ERzeroToOne;endFill=0;exitX=1;exitY=0.06;exitPerimeter=0;entryX=0.5;entryY=0;entryPerimeter=0;" source="users" target="user_llm_settings">
+          <mxGeometry relative="1" as="geometry">
+            <mxPoint x="410" y="186.2" as="sourcePoint" />
+            <mxPoint x="1015.0" y="170" as="targetPoint" />
+            <Array as="points">
+              <mxPoint x="420" y="150" />
+              <mxPoint x="1015" y="150" />
+            </Array>
+          </mxGeometry>
+        </mxCell>
+        <mxCell id="fk-2" parent="1" edge="1" value="" style="html=1;rounded=0;endArrow=block;endFill=1;strokeColor=#64748b;strokeWidth=1.5;dashed=0;startArrow=ERone;startFill=0;endArrow=ERzeroToMany;endFill=0;exitX=1;exitY=0.8;exitPerimeter=0;entryX=0;entryY=0.2;entryPerimeter=0;" source="users" target="memberships">
+          <mxGeometry relative="1" as="geometry">
+            <mxPoint x="410" y="386.0" as="sourcePoint" />
+            <mxPoint x="450" y="594.4" as="targetPoint" />
+            <Array as="points">
+              <mxPoint x="430" y="391" />
+              <mxPoint x="430" y="612" />
+            </Array>
+          </mxGeometry>
+        </mxCell>
+        <mxCell id="fk-3" parent="1" edge="1" value="" style="html=1;rounded=0;endArrow=block;endFill=1;strokeColor=#64748b;strokeWidth=1.5;dashed=0;startArrow=ERone;startFill=0;endArrow=ERzeroToMany;endFill=0;exitX=1;exitY=0.5;exitPerimeter=0;entryX=0;entryY=0.65;entryPerimeter=0;" source="roles" target="memberships">
+          <mxGeometry relative="1" as="geometry">
+            <mxPoint x="410" y="615.0" as="sourcePoint" />
+            <mxPoint x="450" y="694.3" as="targetPoint" />
+          </mxGeometry>
+        </mxCell>
+        <mxCell id="fk-4" parent="1" edge="1" value="" style="html=1;rounded=0;endArrow=block;endFill=1;strokeColor=#64748b;strokeWidth=1.5;dashed=0;startArrow=ERone;startFill=0;endArrow=ERzeroToMany;endFill=0;exitX=0;exitY=0.5;exitPerimeter=0;entryX=1;entryY=0.45;entryPerimeter=0;" source="projects" target="memberships">
+          <mxGeometry relative="1" as="geometry">
+            <mxPoint x="840" y="675.0" as="sourcePoint" />
+            <mxPoint x="800" y="649.9" as="targetPoint" />
+          </mxGeometry>
+        </mxCell>
+        <mxCell id="fk-5" parent="1" edge="1" value="" style="html=1;rounded=0;endArrow=block;endFill=1;strokeColor=#64748b;strokeWidth=1.5;dashed=0;startArrow=ERone;startFill=0;endArrow=ERzeroToMany;endFill=0;exitX=1;exitY=0.2;exitPerimeter=0;entryX=0;entryY=0.2;entryPerimeter=0;" source="projects" target="documents">
+          <mxGeometry relative="1" as="geometry">
+            <mxPoint x="1190" y="600.0" as="sourcePoint" />
+            <mxPoint x="1260" y="608.8" as="targetPoint" />
+          </mxGeometry>
+        </mxCell>
+        <mxCell id="fk-6" parent="1" edge="1" value="" style="html=1;rounded=0;endArrow=block;endFill=1;strokeColor=#64748b;strokeWidth=1.5;dashed=0;startArrow=ERone;startFill=0;endArrow=ERzeroToMany;endFill=0;exitX=1;exitY=0.2;exitPerimeter=0;entryX=0;entryY=0.8;entryPerimeter=0;" source="documents" target="document_revisions">
+          <mxGeometry relative="1" as="geometry">
+            <mxPoint x="1610" y="608.8" as="sourcePoint" />
+            <mxPoint x="1660" y="613.2" as="targetPoint" />
+            <Array as="points">
+              <mxPoint x="1630" y="615" />
+            </Array>
+          </mxGeometry>
+        </mxCell>
+        <mxCell id="fk-7" parent="1" edge="1" value="" style="html=1;rounded=0;endArrow=block;endFill=1;strokeColor=#64748b;strokeWidth=1.5;dashed=0;startArrow=ERzeroToOne;startFill=0;endArrow=ERzeroToMany;endFill=0;exitX=0.5;exitY=0;exitPerimeter=0;entryX=0.35;entryY=0;entryPerimeter=0;" source="users" target="document_revisions">
+          <mxGeometry relative="1" as="geometry">
+            <mxPoint x="235.0" y="170" as="sourcePoint" />
+            <mxPoint x="1796.5" y="170" as="targetPoint" />
+            <Array as="points">
+              <mxPoint x="235" y="130" />
+              <mxPoint x="1796.5" y="130" />
+            </Array>
+          </mxGeometry>
+        </mxCell>
+        <mxCell id="fk-8" parent="1" edge="1" value="" style="html=1;rounded=0;endArrow=block;endFill=1;strokeColor=#64748b;strokeWidth=1.5;dashed=0;startArrow=ERone;startFill=0;endArrow=ERzeroToOne;endFill=0;exitX=1;exitY=0.2;exitPerimeter=0;entryX=0;entryY=0.2;entryPerimeter=0;" source="document_revisions" target="ingestion_jobs">
+          <mxGeometry relative="1" as="geometry">
+            <mxPoint x="2050" y="280.8" as="sourcePoint" />
+            <mxPoint x="2140" y="224.0" as="targetPoint" />
+          </mxGeometry>
+        </mxCell>
+        <mxCell id="fk-9" parent="1" edge="1" value="" style="html=1;rounded=0;endArrow=block;endFill=1;strokeColor=#64748b;strokeWidth=1.5;dashed=0;startArrow=ERone;startFill=0;endArrow=ERzeroToMany;endFill=0;exitX=1;exitY=0.8;exitPerimeter=0;entryX=0;entryY=0.2;entryPerimeter=0;" source="document_revisions" target="document_chunks">
+          <mxGeometry relative="1" as="geometry">
+            <mxPoint x="2050" y="613.2" as="sourcePoint" />
+            <mxPoint x="2140" y="814.0" as="targetPoint" />
+            <Array as="points">
+              <mxPoint x="2090" y="625" />
+              <mxPoint x="2090" y="825" />
+            </Array>
+          </mxGeometry>
+        </mxCell>
+        <mxCell id="fk-10" parent="1" edge="1" value="" style="html=1;rounded=0;endArrow=block;endFill=1;strokeColor=#64748b;strokeWidth=1.5;dashed=0;startArrow=ERone;startFill=0;endArrow=ERzeroToMany;endFill=0;exitX=0;exitY=0.8;exitPerimeter=0;entryX=0;entryY=0.3;entryPerimeter=0;" source="users" target="access_grants">
+          <mxGeometry relative="1" as="geometry">
+            <mxPoint x="60" y="386.0" as="sourcePoint" />
+            <mxPoint x="60" y="976.6" as="targetPoint" />
+            <Array as="points">
+              <mxPoint x="30" y="382.8" />
+              <mxPoint x="30" y="983.8" />
+            </Array>
+          </mxGeometry>
+        </mxCell>
+        <mxCell id="fk-11" parent="1" edge="1" value="" style="html=1;rounded=0;endArrow=block;endFill=1;strokeColor=#64748b;strokeWidth=1.5;dashed=0;startArrow=ERone;startFill=0;endArrow=ERzeroToMany;endFill=0;exitX=0.5;exitY=1;exitPerimeter=0;entryX=1;entryY=0.1;entryPerimeter=0;" source="documents" target="access_grants">
+          <mxGeometry relative="1" as="geometry">
+            <mxPoint x="1435.0" y="844" as="sourcePoint" />
+            <mxPoint x="410" y="912.2" as="targetPoint" />
+            <Array as="points">
+              <mxPoint x="1435" y="1030" />
+              <mxPoint x="415" y="1030" />
+              <mxPoint x="415" y="923" />
+            </Array>
+          </mxGeometry>
+        </mxCell>
+        <mxCell id="fk-12" parent="1" edge="1" value="" style="html=1;rounded=0;endArrow=block;endFill=1;strokeColor=#64748b;strokeWidth=1.5;dashed=0;startArrow=ERone;startFill=0;endArrow=ERzeroToMany;endFill=0;exitX=0.85;exitY=1;exitPerimeter=0;entryX=0;entryY=0.2;entryPerimeter=0;" source="users" target="audit_events">
+          <mxGeometry relative="1" as="geometry">
+            <mxPoint x="357.5" y="440" as="sourcePoint" />
+            <mxPoint x="840" y="1179.2" as="targetPoint" />
+            <Array as="points">
+              <mxPoint x="423" y="471" />
+              <mxPoint x="423" y="1350" />
+              <mxPoint x="825" y="1350" />
+            </Array>
+          </mxGeometry>
+        </mxCell>
+        <mxCell id="fk-13" parent="1" edge="1" value="" style="html=1;rounded=0;endArrow=block;endFill=1;strokeColor=#64748b;strokeWidth=1.5;dashed=0;startArrow=ERzeroToOne;startFill=0;endArrow=ERzeroToMany;endFill=0;exitX=0.5;exitY=1;exitPerimeter=0;entryX=0.5;entryY=0;entryPerimeter=0;" source="projects" target="audit_events">
+          <mxGeometry relative="1" as="geometry">
+            <mxPoint x="1015.0" y="800" as="sourcePoint" />
+            <mxPoint x="1015.0" y="1110" as="targetPoint" />
+          </mxGeometry>
+        </mxCell>
+        <mxCell id="legend" value="&lt;div style=&quot;font-weight:700;font-size:16px;margin-bottom:8px&quot;&gt;Quy ước và giới hạn&lt;/div&gt;&lt;div style=&quot;font-size:14px;line-height:1.5&quot;&gt;PK: primary key • FK: foreign key • UQ: unique • [NULL]: nullable&lt;br/&gt;Crow’s foot: cardinality theo constraint DB; 1 → 0..1 cho user settings/job.&lt;br/&gt;Revision ownership và chunk ownership dùng composite FK.&lt;br/&gt;Revision/chunk content bất biến; chỉ ingestion state/lifecycle thay đổi.&lt;br/&gt;Không có bảng locale, org settings hoặc chat history trong schema hiện tại.&lt;/div&gt;" parent="1" vertex="1" style="rounded=1;whiteSpace=wrap;html=1;align=left;verticalAlign=middle;spacing=14;fontFamily=Arial;fontColor=#172033;fillColor=#f8fafc;strokeColor=#64748b;strokeWidth=1.5;">
+          <mxGeometry x="60" y="1500" width="2470" height="175" as="geometry" />
+        </mxCell>
+      </root>
+    </mxGraphModel>
+  </diagram>
+</mxfile>
