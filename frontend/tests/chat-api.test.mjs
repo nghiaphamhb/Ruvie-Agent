@@ -2,7 +2,7 @@ import assert from 'node:assert/strict';
 import test from 'node:test';
 
 async function loadClient() {
-  const client = await import('../src/lib/chat-api.ts').catch(() => null);
+  const client = await import('../src/lib/features/chat/chat-api.ts').catch(() => null);
   assert.ok(client, 'chat API client must exist');
   return client;
 }

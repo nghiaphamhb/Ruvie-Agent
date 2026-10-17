@@ -10,7 +10,9 @@
   },
   "dependencies": {
     "i18next": "^26.4.2",
-    "svelte": "^5.0.0"
+    "marked": "18.1.1",
+    "svelte": "^5.0.0",
+    "svelte-sonner": "1.2.1"
   },
   "devDependencies": {
     "@sveltejs/vite-plugin-svelte": "^5.0.0",

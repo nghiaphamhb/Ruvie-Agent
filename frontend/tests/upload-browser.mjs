@@ -1,3 +1,4 @@
+import {showWorkspaceView,openSettings,closeSettings,openAccountMenu,logoutFromMenu,ensureSidebar} from './workspace-actions.mjs';
 /** F007 upload checks use a separate session and browser clock, never app data. */
 import assert from 'node:assert/strict';
 
@@ -48,7 +49,7 @@ export async function runUploadChecks(browser, origin) {
     return route.continue();
   });
   const nav = page.getByRole('navigation',{name:'Điều hướng chính'});
-  const show = name => nav.getByRole('button',{name,exact:true}).click();
+  const show = name => showWorkspaceView(page,name);
   const title = page.getByLabel('Tên tài liệu',{exact:true});
   const file = page.getByLabel('File',{exact:true});
   const submit = page.locator('.upload-submit');
@@ -139,7 +140,7 @@ export async function runUploadChecks(browser, origin) {
     await fill('Private old title');
     await submit.click();
     await page.waitForFunction(()=>document.querySelector('.upload-submit').disabled);
-    await page.getByRole('button',{name:'Đăng xuất',exact:true}).click();
+    await logoutFromMenu(page);
     await page.getByRole('heading',{name:'Đăng nhập',exact:true}).waitFor();
     account='beta';
     await login();
@@ -155,7 +156,7 @@ export async function runUploadChecks(browser, origin) {
     await page.clock.runFor(50);
     assert.equal(await submit.isDisabled(),true,'old finally cannot unlock a new upload');
     assert.equal(await title.inputValue(),'New title');
-    await page.getByRole('button',{name:'Đăng xuất',exact:true}).click();
+    await logoutFromMenu(page);
     await page.getByRole('heading',{name:'Đăng nhập',exact:true}).waitFor();
     const loggedOutReads=reads.length;
     await page.clock.fastForward(10000);
@@ -169,7 +170,7 @@ export async function runUploadChecks(browser, origin) {
     const oldPoll = revision;
     holdStatus=true; statusHttp=401;
     await page.clock.fastForward(2000);
-    await page.getByRole('button',{name:'Đăng xuất',exact:true}).click();
+    await logoutFromMenu(page);
     await page.getByRole('heading',{name:'Đăng nhập',exact:true}).waitFor();
     account='gamma'; statusHttp=200;
     await login(); await fill('New poll');
@@ -192,7 +193,7 @@ export async function runUploadChecks(browser, origin) {
     await refresh.click();
     assert.equal(await refresh.isDisabled(),true);
     assert.equal(await submit.isDisabled(),true,'manual refresh locks upload submit');
-    await page.getByRole('button',{name:'Đăng xuất',exact:true}).click();
+    await logoutFromMenu(page);
     await page.getByRole('heading',{name:'Đăng nhập',exact:true}).waitFor();
     account='delta'; statuses=['pending'];
     await login(); await fill('After refresh');
@@ -225,11 +226,11 @@ export async function runUploadChecks(browser, origin) {
     statusHttp=200;
     await login();
     logoutHttp=503;
-    await page.getByRole('button',{name:'Đăng xuất',exact:true}).click();
+    await logoutFromMenu(page);
     await page.getByRole('alert').filter({hasText:'Không thể đăng xuất. Hãy thử lại.'}).waitFor();
     assert.equal(await nav.isVisible(),true,'failed logout keeps current session');
     logoutHttp=401;
-    await page.getByRole('button',{name:'Đăng xuất',exact:true}).click();
+    await logoutFromMenu(page);
     await page.getByRole('heading',{name:'Đăng nhập',exact:true}).waitFor();
     checks++;
     assert.deepEqual(errors,[]);

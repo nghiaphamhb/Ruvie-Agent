@@ -33,19 +33,19 @@ test('binary file sizes retain boundaries and locale decimals',async()=>{
  const {formatFileSize}=await core();assert.equal(formatFileSize(1023,'en-US'),'1,023 B');assert.equal(formatFileSize(1024,'en-US'),'1.0 KiB');assert.equal(formatFileSize(1536,'en-US'),'1.5 KiB');assert.equal(formatFileSize(1536,'ru-RU'),'1,5 KiB');assert.equal(formatFileSize(1048576,'en-US'),'1.0 MiB');
 });
 test('API failures carry safe message keys instead of frozen translated strings',async()=>{
- const {LlmApiError}=await import('../src/lib/llm-api.ts');
+ const {LlmApiError}=await import('../src/lib/features/llm/llm-api.ts');
  assert.deepEqual(new LlmApiError(502).uiMessage,{key:'llm.errors.providerUnavailable'});
- const {DocumentsApiError}=await import('../src/lib/documents-api.ts');
+ const {DocumentsApiError}=await import('../src/lib/features/documents/documents-api.ts');
  assert.deepEqual(new DocumentsApiError(401).uiMessage,{key:'common.errors.session'});
- const {ChatApiError}=await import('../src/lib/chat-api.ts');
+ const {ChatApiError}=await import('../src/lib/features/chat/chat-api.ts');
  assert.deepEqual(new ChatApiError('interrupted').uiMessage,{key:'chat.errors.interrupted'});
 });
 
 test('safe error keys translate in all locales without depending on the DOM', async () => {
   const { initI18n, setLocale, i18n } = await core();
-  const { LlmApiError } = await import('../src/lib/llm-api.ts');
-  const { DocumentsApiError } = await import('../src/lib/documents-api.ts');
-  const { ChatApiError } = await import('../src/lib/chat-api.ts');
+  const { LlmApiError } = await import('../src/lib/features/llm/llm-api.ts');
+  const { DocumentsApiError } = await import('../src/lib/features/documents/documents-api.ts');
+  const { ChatApiError } = await import('../src/lib/features/chat/chat-api.ts');
   const { message } = await import('../src/lib/i18n/messages.ts');
   const errors = [message('auth.errors.credentials'), message('common.errors.network'),
     ...[401,403,422,502,503].map(status => new LlmApiError(status).uiMessage),
@@ -67,9 +67,19 @@ test('safe error keys translate in all locales without depending on the DOM', as
 test('English covers every literal UI key used by components', async () => {
   const { readdir } = await import('node:fs/promises');
   const [, english] = await catalogs();
-  const componentDir = new URL('../src/lib/components/', import.meta.url);
-  const files = [new URL('../src/App.svelte', import.meta.url),
-    ...(await readdir(componentDir)).filter(name => name.endsWith('.svelte')).map(name => new URL(name, componentDir))];
+  const sourceDir = new URL('../src/', import.meta.url);
+  async function components(dir){
+    const entries=await readdir(dir,{withFileTypes:true});
+    const result=[];
+    for(const entry of entries){
+      if(entry.name.toLowerCase()==='archive')continue;
+      const url=new URL(entry.name+(entry.isDirectory()?'/':''),dir);
+      if(entry.isDirectory())result.push(...await components(url));
+      else if(entry.name.endsWith('.svelte'))result.push(url);
+    }
+    return result;
+  }
+  const files = await components(sourceDir);
   for (const file of files) {
     const source = await readFile(file, 'utf8');
     for (const [,key] of source.matchAll(/(?:\$i18n\.t|uiMessage)\('([^']+)'/g)) {

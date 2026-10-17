@@ -2,7 +2,7 @@ import assert from 'node:assert/strict';
 import test from 'node:test';
 
 async function loadClient() {
-  const client = await import('../src/lib/documents-api.ts').catch(() => null);
+  const client = await import('../src/lib/features/documents/documents-api.ts').catch(() => null);
   assert.ok(client, 'documents API client must exist');
   return client;
 }
