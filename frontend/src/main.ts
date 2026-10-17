@@ -1,6 +1,7 @@
 import { mount } from 'svelte';
 import App from './App.svelte';
-import './app.css';
+import './styles/base.css';
+import './styles/workspace.css';
 import { initI18n } from './lib/i18n/index.ts';
 
 // Resolve the locale before the first visible UI or auth request.

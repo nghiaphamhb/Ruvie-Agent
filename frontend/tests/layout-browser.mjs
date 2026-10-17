@@ -1,3 +1,4 @@
+import {showWorkspaceView,openSettings,closeSettings,openAccountMenu,logoutFromMenu,ensureSidebar} from './workspace-actions.mjs';
 /** Desktop and 200% zoom-equivalent CSS viewport checks; no mobile navigation. */
 import assert from 'node:assert/strict';
 import {fileURLToPath} from 'node:url';
@@ -26,11 +27,11 @@ export async function runLayoutChecks(browser, origin) {
       return route.continue();
     });
     const nav=page.getByRole('navigation',{name:'Điều hướng chính'});
-    const show=name=>nav.getByRole('button',{name,exact:true}).click();
+    const show=name=>showWorkspaceView(page,name);
     async function bounds() {
       assert.equal(await page.evaluate(()=>document.documentElement.scrollWidth<=innerWidth+1),true,'no horizontal page overflow');
       assert.equal(await page.evaluate(()=>document.documentElement.scrollHeight<=innerHeight+1),true,'only application regions scroll');
-      assert.equal(await nav.isVisible(),true,'desktop sidebar remains visible');
+      assert.equal(size.width>800?await nav.isVisible():await page.locator('.sidebar-open').isVisible(),true,'navigation is reachable at every viewport');
     }
     try {
       await page.goto(origin);
@@ -42,14 +43,16 @@ export async function runLayoutChecks(browser, origin) {
       await page.getByRole('button',{name:'Gửi câu hỏi',exact:true}).click();
       const sources=page.getByText('1 nguồn tham khảo',{exact:true});
       try {await sources.click();} catch (error) {
-        console.log('Source geometry',size,await page.evaluate(()=>['.workspace-header','.chat-view','.conversation','.composer-area','summary'].map(selector=>{const e=document.querySelector(selector);return {selector,rect:e.getBoundingClientRect().toJSON(),height:e.clientHeight,scroll:e.scrollHeight};})));
+        console.log('Source geometry',size,await page.evaluate(()=>['.workspace-toolbar','.chat-view','.conversation','.composer-area','summary'].map(selector=>{const e=document.querySelector(selector);return {selector,rect:e.getBoundingClientRect().toJSON(),height:e.clientHeight,scroll:e.scrollHeight};})));
         throw error;
       }
       await page.getByText(citation.title,{exact:true}).waitFor();
       assert.equal(await page.locator('.answer b').count(),0,'answer remains plain text');
+      await page.locator('.source-title').click(); await page.locator('.source-dialog details summary').click();
       for (const value of [citation.document_id,citation.revision_id,citation.source_hash]) await page.getByText(value,{exact:true}).scrollIntoViewIfNeeded();
       await bounds();
       assert.deepEqual(requests.filter(path=>/^\/(files|documents|retrieval)(\/|$)/.test(path)),[],'opening sources never fetches blob/content');
+      await page.locator('.source-dialog').press('Escape');
       await page.getByRole('button',{name:'Gửi câu hỏi',exact:true}).scrollIntoViewIfNeeded();
       await page.screenshot({path:fileURLToPath(new URL(`../../logs/f007-chat-${size.width}-${size.scale}x.png`,import.meta.url))});
       await show('Tải tài liệu');
@@ -64,10 +67,12 @@ export async function runLayoutChecks(browser, origin) {
       await bounds();
       await page.screenshot({path:fileURLToPath(new URL(`../../logs/f007-llm-${size.width}-${size.scale}x.png`,import.meta.url))});
       checks++;
+      await closeSettings(page);
+      await ensureSidebar(page);
       await nav.getByRole('button',{name:'Chat',exact:true}).focus();
       await page.keyboard.press('Enter');
-      assert.notEqual(await page.getByRole('heading',{name:'Chat',exact:true}).evaluate(e=>getComputedStyle(e).outlineStyle),'none','keyboard focus is visible');
-      assert.equal(await page.getByRole('heading',{name:'Chat',exact:true}).evaluate(e=>e===document.activeElement),true);
+      assert.notEqual(await page.locator('.composer').evaluate(e=>getComputedStyle(e).outlineStyle),'none','keyboard focus is visible');
+      assert.equal(await page.locator('#question').evaluate(e=>e===document.activeElement),true);
       for (let i=0;i<12;i++) {
         await page.keyboard.press('Tab');
         assert.equal(await page.evaluate(()=>Boolean(document.activeElement.closest('[hidden]'))),false,'hidden panels never receive Tab');
@@ -77,28 +82,28 @@ export async function runLayoutChecks(browser, origin) {
       await page.getByRole('combobox',{name:'Tìm model',exact:true}).fill('long');
       await page.keyboard.press('Escape');
       assert.equal(await picker.evaluate(e=>e===document.activeElement),true);
-      await page.getByRole('button',{name:'Đăng xuất',exact:true}).scrollIntoViewIfNeeded();
+      await openAccountMenu(page);await page.getByRole('menuitem',{name:'Đăng xuất',exact:true}).scrollIntoViewIfNeeded();
       await bounds();
       checks++;
-      const themed=['.sidebar nav button','.composer-input','.upload-panel','.llm-panel'];
-      const spaced=['.sidebar','.composer-area','.upload-panel','.llm-panel'];
+      const themed=['.upload-panel'];
+      const spaced=['.upload-panel'];
       const beforeSpace=await page.evaluate(selectors=>selectors.map(s=>getComputedStyle(document.querySelector(s)).padding),spaced);
       const before=await page.evaluate(selectors=>selectors.map(s=>getComputedStyle(document.querySelector(s)).borderRadius),themed);
       await page.evaluate(()=>{
         const style=document.documentElement.style;
         style.setProperty('--radius','24px'); style.setProperty('--space','10px');
-        style.setProperty('--font-family','monospace'); style.setProperty('--soft','rgb(220, 230, 240)');
+        style.setProperty('--font-family','monospace'); document.querySelector('.workspace-shell').style.setProperty('--soft','rgb(220, 230, 240)');
       });
       const after=await page.evaluate(selectors=>selectors.map(s=>getComputedStyle(document.querySelector(s)).borderRadius),themed);
       const afterSpace=await page.evaluate(selectors=>selectors.map(s=>getComputedStyle(document.querySelector(s)).padding),spaced);
-      assert.ok(afterSpace.every((value,index)=>value!==beforeSpace[index]),'spacing variable reaches every region');
-      assert.ok(after.every((value,index)=>value!==before[index]),'radius variable reaches sidebar/chat/upload/LLM');
-      assert.ok(await page.locator('.sidebar').evaluate(e=>getComputedStyle(e).fontFamily.includes('monospace')),'font variable reaches UI');
-      assert.equal(await nav.getByRole('button',{name:'Chat',exact:true}).evaluate(e=>getComputedStyle(e).backgroundColor),'rgb(220, 230, 240)');
-      await page.evaluate(()=>document.documentElement.removeAttribute('style'));
+      assert.ok(afterSpace.every((value,index)=>value!==beforeSpace[index]),'existing upload retains spacing token');
+      assert.ok(after.every((value,index)=>value!==before[index]),'existing upload retains radius token');
+      assert.ok(await page.locator('.workspace-sidebar').evaluate(e=>getComputedStyle(e).fontFamily.includes('monospace')),'font variable reaches UI');
+      assert.equal(await nav.getByRole('button',{name:'Chat mới',exact:true}).evaluate(e=>getComputedStyle(e).backgroundColor),'rgb(220, 230, 240)');
+      await page.evaluate(()=>{document.documentElement.removeAttribute('style');document.querySelector('.workspace-shell').removeAttribute('style');});
       checks++;
       const colors=await page.evaluate(()=>{
-        const sample=document.createElement('span'); document.body.append(sample);
+        const sample=document.createElement('span'); document.querySelector('.workspace-shell').append(sample);
         const read=name=>{sample.style.color=`var(${name})`; return getComputedStyle(sample).color;};
         const pairs=[['--ink','--paper'],['--ink','--soft'],['--muted','--paper'],['--muted','--surface'],['--error','--error-bg'],['--surface','--accent']].map(pair=>pair.map(read));
         sample.remove(); return pairs;

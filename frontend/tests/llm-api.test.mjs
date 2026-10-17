@@ -1,7 +1,7 @@
 import assert from 'node:assert/strict';
 import test from 'node:test';
 async function client() {
-  const api = await import('../src/lib/llm-api.ts').catch(() => null);
+  const api = await import('../src/lib/features/llm/llm-api.ts').catch(() => null);
   assert.ok(api, 'LLM connection client must exist');
   return api;
 }

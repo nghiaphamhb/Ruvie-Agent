@@ -1,3 +1,4 @@
+import {showWorkspaceView,openSettings,closeSettings,openAccountMenu,logoutFromMenu,ensureSidebar} from './workspace-actions.mjs';
 /** Called by the Python E2E fixture. Proxy real APIs; never mock browser requests. */
 import assert from 'node:assert/strict';
 import { createServer, request as proxyRequest } from 'node:http';
@@ -45,7 +46,7 @@ try {
     await page.waitForFunction(() => !document.querySelector('[aria-label="Chọn model"]').disabled);
   }
   async function showView(name) {
-    await page.getByRole('navigation', { name: 'Điều hướng chính' }).getByRole('button', { name, exact: true }).click();
+    await showWorkspaceView(page,name);
   }
   async function connect(key) {
     await showView('Kết nối LLM');
@@ -74,7 +75,7 @@ try {
     await page.getByText(title, { exact: true }).waitFor();
     assert.equal(await page.getByText(forbidden, { exact: true }).count(), 0);
   }
-  const logout = () => page.getByRole('button', { name: 'Đăng xuất', exact: true }).click();
+  const logout = () => logoutFromMenu(page);
   await login('alpha');
   await connect('alpha-provider-key');
   await showView('Chat');

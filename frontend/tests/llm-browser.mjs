@@ -1,3 +1,4 @@
+import {showWorkspaceView,openSettings,closeSettings,openAccountMenu,logoutFromMenu,ensureSidebar} from './workspace-actions.mjs';
 /** Browser check against the built app and fake APIs; no dev database/provider is used.
  * Run after npm run build. RUVIE_PLAYWRIGHT_PATH/RUVIE_BROWSER_PATH may point to bundled tools.
  */
@@ -131,8 +132,8 @@ try {
   await page.getByLabel('Email',{exact:true}).fill('alpha@test.com');
   await page.getByLabel('Mật khẩu',{exact:true}).fill('wrong-password');
   await page.getByRole('button',{name:'Đăng nhập',exact:true}).click();
-  await page.getByRole('alert').filter({hasText:'Email hoặc mật khẩu không đúng.'}).waitFor();
-  assert.equal((await page.getByRole('alert').innerText()).includes('unsafe-login-detail'),false);
+  await page.locator('[data-sonner-toast][data-type="error"]').filter({hasText:'Email hoặc mật khẩu không đúng.'}).waitFor();
+  assert.equal((await page.locator('[data-sonner-toast][data-type="error"]').innerText()).includes('unsafe-login-detail'),false);
   loginStatus=200; slowLogin=true;
   await page.getByLabel('Mật khẩu',{exact:true}).fill('test-password');
   await page.getByRole('button',{name:'Đăng nhập',exact:true}).click();
@@ -145,24 +146,24 @@ try {
   const navigation = page.getByRole('navigation', { name: 'Điều hướng chính' });
   assert.equal(await navigation.count(), 1, 'desktop has a persistent navigation sidebar');
   async function showView(name) {
-    await navigation.getByRole('button', { name, exact: true }).click();
+    await showWorkspaceView(page,name);
   }
-  assert.equal(await navigation.getByRole('button', { name: 'Chat', exact: true }).getAttribute('aria-current'), 'page');
+  assert.equal(await navigation.getByRole('button', { name: 'Chat mới', exact: true }).getAttribute('aria-current'), 'page');
   assert.equal(await page.getByLabel('Base URL', { exact: true }).isVisible(), false);
   await page.getByLabel('Câu hỏi của bạn', { exact: true }).fill('Keep draft');
   const readsBeforeNavigation = modelReads;
   await showView('Kết nối LLM');
   assert.equal(await page.getByLabel('Base URL', { exact: true }).isVisible(), true);
-  assert.equal(await page.getByLabel('Câu hỏi của bạn', { exact: true }).isVisible(), false);
+  assert.equal(await page.locator('.settings-dialog').isVisible(),true,'LLM settings use a modal');
   await showView('Tải tài liệu');
-  await page.getByText('Bạn chưa tham gia project nào.', { exact: true }).waitFor();
+  await page.locator('.upload-panel').getByText('Bạn chưa tham gia project nào.', { exact: true }).waitFor();
   await showView('Chat');
   assert.equal(await page.getByLabel('Câu hỏi của bạn', { exact: true }).inputValue(), 'Keep draft');
   assert.equal(modelReads, readsBeforeNavigation, 'navigation does not reload the catalog');
-  assert.equal(await page.getByRole('heading', { name: 'Chat', exact: true }).evaluate((element) => element === document.activeElement), true);
+  assert.equal(await page.locator('.chat-welcome h1').evaluate((element) => element === document.activeElement), true);
   await page.getByLabel('Câu hỏi của bạn', { exact: true }).fill('');
-  await navigation.getByRole('button',{name:'Kết nối LLM',exact:true}).focus();
-  await page.keyboard.press('Space');
+  await openAccountMenu(page);await page.locator('.account-settings').focus();
+  await page.keyboard.press('Space');await page.locator('#settings-tab-llm').click();
   assert.equal(await page.getByLabel('Base URL',{exact:true}).isVisible(),true,'sidebar supports keyboard activation');
   await showView('Chat');
   checks++;
@@ -224,7 +225,7 @@ try {
   assert.equal(await page.getByRole('listbox').count(), 0);
   await showView('Chat');
   await picker.click();
-  await page.getByRole('heading', { name: 'Chat', exact: true }).click();
+  await page.locator('.chat-welcome h1').click();
   assert.equal(await page.getByRole('listbox').count(), 0);
   checks++;
   await page.getByLabel('Câu hỏi của bạn', { exact: true }).fill('Use B');
@@ -237,10 +238,10 @@ try {
   await page.keyboard.press('Enter');
   await page.getByText(citation.title, {exact:true}).waitFor();
   assert.equal(await page.locator('.sources li').count(),1);
-  assert.equal(await page.locator('.sources').getByText('c1',{exact:true}).count(),1,'citation identity is readable');
+  await page.locator('.source-title').click(); await page.locator('.source-dialog details summary').click(); assert.equal(await page.locator('.source-dialog').getByText('c1',{exact:true}).count(),1,'citation identity is readable in technical details');
   assert.equal(await page.locator('.source-number').innerText(),'1');
-  for (const value of ['c1','doc1','rev1','chunk1 · #2','10–30','hash1','Ruvie 1']) assert.ok((await page.locator('.sources').innerText()).includes(value));
-  assert.equal(await page.locator('.sources script').count(),0,'citation title stays plain text');
+  for (const value of ['c1','doc1','rev1','chunk1 · #2','10–30','hash1','Ruvie 1']) assert.ok((await page.locator('.source-dialog').innerText()).includes(value));
+  assert.equal(await page.locator('.source-dialog script').count(),0,'citation title stays escaped'); await page.locator('.source-dialog').press('Escape');
   await sources.focus();
   await page.keyboard.press('Enter');
   assert.equal(await page.getByText(citation.title,{exact:true}).isVisible(),false);
@@ -257,7 +258,7 @@ try {
   await question.fill('Keyboard submit');
   await page.waitForTimeout(50); // Existing IME guard is 40 ms.
   await page.keyboard.press('Enter');
-  await page.waitForFunction(() => !document.querySelector('[aria-label="Gửi câu hỏi"]').disabled || document.querySelector('#question').value === '');
+  await page.waitForFunction(() => document.querySelector('#question').value === '' || document.querySelector('.stop-button'));
   await page.getByText('Answer',{exact:true}).last().waitFor();
   assert.equal(chatBodies.length,beforeIme+1,'Enter submits once');
   checks++;
@@ -418,7 +419,7 @@ try {
   checks++;
   slowModels = true;
   await page.getByRole('button', { name: 'Tải lại', exact: true }).click();
-  await page.getByRole('button', { name: 'Đăng xuất', exact: true }).click();
+  await logoutFromMenu(page);
   await page.getByRole('heading', { name: 'Đăng nhập', exact: true }).waitFor();
   await wait(900);
   assert.equal(await page.getByRole('heading', { name: 'Kết nối LLM', exact: true }).count(), 0);
@@ -432,19 +433,19 @@ try {
   delayedProjects = true;
   await showView('Tải tài liệu');
   await page.getByRole('button', { name: 'Thử lại', exact: true }).click();
-  await page.getByRole('button', { name: 'Đăng xuất', exact: true }).click();
+  await logoutFromMenu(page);
   await page.getByRole('heading', { name: 'Đăng nhập', exact: true }).waitFor();
   await login();
   await wait(1200);
   await showView('Tải tài liệu');
   assert.equal(await page.getByRole('option', { name: 'Private old project', exact: false }).count(), 0);
-  await page.getByText('Bạn chưa tham gia project nào.', { exact: true }).waitFor();
+  await page.locator('.upload-panel').getByText('Bạn chưa tham gia project nào.', { exact: true }).waitFor();
   checks++;
   slowSelection = true;
   await showView('Chat');
   await picker.click();
   await page.getByRole('option', { name: /Model B/ }).click();
-  await page.getByRole('button', { name: 'Đăng xuất', exact: true }).click();
+  await logoutFromMenu(page);
   await page.getByRole('heading', { name: 'Đăng nhập', exact: true }).waitFor();
   await wait(700);
   assert.equal(await picker.count(), 0, 'late PATCH cannot restore logged-out state');
