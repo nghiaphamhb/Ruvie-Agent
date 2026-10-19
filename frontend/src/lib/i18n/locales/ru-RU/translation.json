@@ -203,5 +203,7 @@
   "chat.modelNotSelected": "Модель не выбрана",
   "chat.modelsLoading": "Модели загружаются. Повторите попытку чуть позже.",
   "chat.modelsLoadingLabel": "Загрузка моделей…",
-  "chat.configureModel": "Настройте и выберите модель перед отправкой."
+  "chat.configureModel": "Настройте и выберите модель перед отправкой.",
+  "model.current": "Текущая модель",
+  "model.all": "Все модели"
 }

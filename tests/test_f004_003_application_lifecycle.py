@@ -48,7 +48,7 @@ class ApplicationLifecycleTests(unittest.TestCase):
                 self.assertIs(app.state.settings, TEST_SETTINGS)
 
         create_engine.assert_called_once_with(TEST_SETTINGS.database_url)
-        create_http_client.assert_called_once_with()
+        create_http_client.assert_called_once_with(proxy=None, trust_env=False)
         http_client.close.assert_called_once_with()
         engine.dispose.assert_called_once_with()
 

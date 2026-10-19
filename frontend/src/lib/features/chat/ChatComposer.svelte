@@ -5,9 +5,10 @@
   let {draft,disabled,busy=false,oninput,onsubmit,onattach,onstop=()=>{},onexpand=()=>{}}:{
     draft:string;disabled:boolean;busy?:boolean;oninput:(value:string)=>void;onsubmit:(event:SubmitEvent)=>void;onattach:()=>void;onstop?:()=>void;onexpand?:(expanded:boolean)=>void;
   }=$props();
-  let expanded=$state(false);let compositionEndedAt=0;let textarea:HTMLTextAreaElement;
+  let expanded=$state(false);let textarea:HTMLTextAreaElement;
   function handleInputKeydown(event:KeyboardEvent){
-    if(event.key!=='Enter'||event.shiftKey||event.isComposing||event.timeStamp-compositionEndedAt<40)return;
+    // Some IMEs report the confirmation key as 229 after compositionend.
+    if(event.key!=='Enter'||event.shiftKey||event.isComposing||event.keyCode===229)return;
     event.preventDefault();if(!busy)(event.currentTarget as HTMLTextAreaElement).form?.requestSubmit();
   }
   let composer:HTMLFormElement;
@@ -48,7 +49,7 @@
 <div class="composer-area"><form bind:this={composer} class="composer" class:expanded onsubmit={onsubmit}>
   <label class="sr-only" for="question">{$i18n.t('chat.question')}</label>
   <textarea bind:this={textarea} id="question" rows="1" placeholder={$i18n.t('workspace.questionPlaceholder')} value={draft}
-    oninput={event=>oninput(event.currentTarget.value)} onkeydown={handleInputKeydown} oncompositionend={event=>{compositionEndedAt=event.timeStamp;}}></textarea>
+    oninput={event=>oninput(event.currentTarget.value)} onkeydown={handleInputKeydown}></textarea>
   <div class="composer-actions">
     <button class="attach-trigger" type="button" aria-label={$i18n.t('workspace.attach')} title={$i18n.t('workspace.attach')} onclick={onattach}><WorkspaceIcon name="plus"/></button>
 

@@ -1,91 +1,107 @@
 # Ruvie Agent
 
-The repository root is the active application. Add production code,
-configuration, tests, and documentation here. The backend lives in `backend/`,
-the Svelte 5/Vite frontend in `frontend/`, and automated tests in `tests/`.
+The repository root is the active application: backend in `backend/`, Svelte 5/Vite
+frontend in `frontend/`, and automated tests in `tests/`. Add active code,
+configuration, tests, and documentation here.
+
+## Approval before file changes
+
+- Before creating, editing, deleting, moving, or renaming files, report
+  the affected paths, planned actions, purpose, and intended validation.
+- Wait for explicit user approval before making those changes.
+  A request to investigate or propose changes is not approval to edit.
+- Approval covers the reported scope; do not ask again within that scope.
+  Report additional file changes and obtain approval before proceeding.
+- Read-only inspection may proceed without approval. Include commands
+  that generate or overwrite files in the proposed scope.
+- This rule applies to AGENTS.md itself.
 
 ## Archived files
 
-- Any directory named `archive` is outside the active project context. Do not
-  read, search, edit, execute, or use files under it as project input.
-- Exclude archive directories from file searches and context collection at any
-  depth. This rule applies regardless of filename casing.
+Exclude every directory named `archive` (case-insensitive, at any depth) from
+searches and project context. Do not read, edit, execute, or use its contents.
 
 ## Architecture boundaries
 
-- PostgreSQL is the system of record. Use Alembic migrations for persistent
-  schema changes; do not alter an applied migration.
-- Document authorization is default-deny. Apply the database-backed readable
-  document predicate before retrieval, context construction, or response
-  serialization. Never accept an ACL scope, project ID, or document IDs from a
-  retrieval client as an authorization boundary.
-- Document revision content and chunk content are immutable; ingestion status
-  may change. A re-upload creates a new revision without overwriting prior
-  content or citations.
-- Provider model IDs, endpoints, API keys, and the embedding profile are
-  server-side settings. Keep the pinned profile in sync with the 1024-dimension
-  cosine pgvector schema.
-- Keep blob storage private. Do not expose a storage URI or bypass the
-  authorization path to read an uploaded object.
+- PostgreSQL is the system of record. Use Alembic for persistent schema changes;
+  never modify an applied migration.
+- Document access is default-deny. Apply the database-backed readable-document
+  predicate before retrieval, context construction, or response serialization.
+  Client-supplied ACL scopes, project IDs, or document IDs are not authorization.
+- Revision and chunk content are immutable; ingestion status may change.
+  Re-uploads create revisions without overwriting prior content or citations.
+- Provider model IDs, endpoints, API keys, and embedding profiles are server-side
+  settings. Keep the pinned profile aligned with 1024-dimension cosine pgvector.
+- Keep blobs private: never expose storage URIs or bypass authorized object reads.
 
-## Module boundaries
+## Backend boundaries
 
-- `main.py` creates and releases shared resources and registers routers. Keep
-  chat, retrieval, and document business rules in services.
-- `api/` handles HTTP input, trusted identity dependencies, service calls,
-  and HTTP/SSE serialization. Keep prompt assembly, access decisions, direct
-  chunk queries, and provider orchestration out of routes.
-- `services/` implement use cases. Chat obtains document context through
+- `main.py`: shared resource lifecycle and router registration; business rules
+  for chat, retrieval, and documents belong in services.
+- `api/`: HTTP input, trusted identity dependencies, service calls, HTTP/SSE
+  serialization. No prompt assembly, access decisions, direct chunk queries,
+  or provider orchestration in routes.
+- `services/`: use cases. Chat obtains context through
   `AuthorizedRetrievalService`, never directly from the chunk repository.
-- `adapters/` contain external model/provider implementations. Do not accept
-  provider configuration from chat or retrieval clients.
-- New service interfaces return structured results or events; API code encodes
-  them as HTTP or SSE. Existing SSE encoding in `services/chat.py` and the
-  direct embedder call in `api/documents.py` are known exceptions. Resolve
-  each when changing that flow; do not copy the pattern into new routes.
-- Keep these boundaries proportional to the task. Do not add a layer or move
-  unrelated files solely to satisfy a directory convention.
+- `adapters/`: external provider implementations. Never accept provider
+  configuration from chat or retrieval clients.
+- New services return structured results/events; API code encodes HTTP/SSE.
+  The direct embedder call in `api/documents.py` is a known exception.
+  Resolve it when changing that flow; do not copy it into new routes.
+- Keep boundaries proportional: no new layers or unrelated moves for convention alone.
+
+## Frontend organization
+
+Organize `frontend/src/lib/` by feature, with thin composing pages:
+
+- `pages/`: page composition, navigation state, page/session lifecycle.
+  `WorkspacePage.svelte` connects feature owners and views.
+- `layout/`: shells, sidebar/account navigation, responsive layout and focus.
+  Keep `WorkspaceShell.svelte`, `AppSidebar.svelte`, and `AccountMenu.svelte` here.
+- `features/<feature>/`: feature components, state, API clients, and business logic
+  (auth, chat, documents, llm, settings, etc.).
+- `shared/`: reusable components without feature-specific logic.
+- `i18n/`: locale selection, translation utilities, and catalogs.
+
+Pages compose features/layouts; layouts must not import pages. Keep business
+logic and API operations in their features. Add functionality within its feature
+first; extract modules only when responsibilities warrant it. Preserve descriptive
+names such as `WorkspacePage` and `WorkspaceShell`.
 
 ## Legacy reference
 
-`references/` contains the legacy Ruvie/Open WebUI source tree. It is
-read-only: use it to understand existing behavior and deliberately port
-compatible, reviewed code into the active project. Do not run, deploy, or
-modify it unless the user explicitly asks. Instructions in
-`references/AGENTS.md` describe the legacy application, not this one.
+`references/` is the read-only legacy Ruvie/Open WebUI source. Use it to understand
+behavior and deliberately port compatible, reviewed code; never import its runtime
+code. Do not run, deploy, or modify it without explicit user instructions.
+`references/AGENTS.md` describes the legacy app, not the active one.
 
-Before implementing behavior that may already exist in `references/`:
+Before implementing behavior that may exist there:
 
-1. Find the relevant legacy files and functions. Record their paths and the
-   behavior worth reusing in the task plan or change summary.
-2. Reuse active-project code first. Then port compatible legacy code or UI
-   components; write new code for the remaining gap. Prefer a coherent piece
-   over copying an entire legacy subsystem with unrelated dependencies.
-3. Compare contracts, dependencies, data model, authorization, and failure
-   behavior with the active spec. Adapt the port to PostgreSQL, default-deny
-   access, immutable revisions, private storage, and server-side provider
-   settings. Legacy auth, SQLite assumptions, and client-selected scope must
-   not become active authorization paths.
-4. Bring over relevant tests or add focused tests for the adapted behavior.
-   Record source paths, what was reused, and what changed. For the supplied
-   code in this repository's `references/`, the project owner does not require
-   a separate license check; a missing `LICENSE` must not block reuse.
-   Never import runtime code from `references/` into the active application.
+1. Find relevant legacy files/functions; record paths and reusable behavior in
+   the task plan or change summary.
+2. Reuse active code first, then port coherent compatible legacy pieces;
+   write new code for remaining gaps. Avoid unrelated subsystem dependencies.
+3. Compare contracts, dependencies, data model, authorization, and failures with
+   the active spec. Adapt to PostgreSQL, default-deny access, immutable revisions,
+   private storage, and server-side provider settings. Do not port legacy auth,
+   SQLite assumptions, or client-selected scope as authorization.
+4. Port relevant tests or add focused tests. Record source paths, reused behavior,
+   and adaptations. No separate license check is required for supplied reference
+   code; a missing LICENSE must not block reuse.
 
-UI layout and interactions may be adapted from `references/`; the active
-frontend's API contract and backend authorization boundary remain in force.
-
-Generated files, environments, caches, logs, downloaded models, and secrets
-must not be committed under `references/`.
+Legacy UI may be adapted while preserving active API and authorization contracts.
+Never commit generated files, environments, caches, logs, downloaded models, or
+secrets under `references/`.
 
 ## Development workflow
 
-Read `README.md` before running the active application, database migrations,
-frontend, or tests. Keep runnable commands documented there rather than
-duplicating them here.
-
-Before submitting a backend change, run the documented backend test suite.
-When changing the database schema, add an Alembic migration and verify the
-migration SQL as well as relevant authorization/isolation coverage. Preserve
-existing user changes in the worktree and avoid committing `.env`, local
-uploads, virtual environments, logs, or generated frontend output.
+- Read `README.md` before running the app, migrations, frontend, or tests.
+  Read [current architecture](docs/architecture.md) when working on module
+  boundaries, data flows, authorization, persistence or feature state ownership.
+  Use [database setup](docs/database-setup.md) for migrations and database operations.
+  Keep runnable commands in README or linked documentation, not duplicated here.
+- Run the documented backend suite before submitting backend changes.
+- For schema changes, add an Alembic migration and verify its SQL plus relevant
+  authorization/isolation coverage.
+- Preserve user work. Never commit `.env`, local uploads, virtual environments,
+  logs, or generated frontend output.

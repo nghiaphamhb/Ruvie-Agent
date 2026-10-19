@@ -7,6 +7,9 @@ from uuid import uuid4
 
 from sqlalchemy import func, select
 from sqlalchemy.orm import Session
+from sqlalchemy.exc import IntegrityError
+
+from ruvie.contracts.auth import RegisterRequest
 
 from ruvie.models import AuthSession, User
 
@@ -50,6 +53,19 @@ class ResolvedSession:
     csrf_token: str
 
 
+@dataclass(frozen=True)
+class RegisteredAccount:
+    """Committed user and session secrets; HTTP serialization belongs to the route."""
+    user: User
+    created_session: CreatedSession
+
+
+class EmailTaken(ValueError):
+    """An existing account owns the normalized email; never overwrite its password."""
+    def __init__(self):
+        super().__init__("email_taken")
+
+
 class AuthService:
     def __init__(self, session: Session):
         self.session = session
@@ -70,8 +86,40 @@ class AuthService:
         self.session.commit()
         return True
 
+    def register(self, display_name: str, email: str, password: str) -> RegisteredAccount:
+        """Create the account and session in one transaction, with no access grants."""
+        body = RegisterRequest(display_name=display_name, email=email, password=password)
+        try:
+            existing = self.session.scalar(select(User.id).where(func.lower(User.email) == body.email))
+            if existing is not None:
+                raise EmailTaken()
+            user = User(id=str(uuid4()), display_name=body.display_name, email=body.email,
+                        password_hash=hash_password(body.password), is_active=True)
+            self.session.add(user)
+            # Flush the parent row before its FK-dependent session; neither write is committed yet.
+            self.session.flush()
+            created = self._stage_session(user.id)
+            self.session.commit()
+            return RegisteredAccount(user=user, created_session=created)
+        except IntegrityError as error:
+            self.session.rollback()
+            constraint = getattr(getattr(error.orig, "diag", None), "constraint_name", None)
+            # Only email constraints are conflicts; other integrity failures must stay failures.
+            if constraint in ("uq_users_email_lower", "users_email_key"):
+                raise EmailTaken() from None
+            raise
+        except Exception:
+            self.session.rollback()
+            raise
+
     def create_session(self, user_id: str) -> CreatedSession:
-        """Generate cookie/CSRF secrets, store the token hash, and return the new session."""
+        """Commit a session for an existing user, preserving the login contract."""
+        created = self._stage_session(user_id)
+        self.session.commit()
+        return created
+
+    def _stage_session(self, user_id: str) -> CreatedSession:
+        """Add a session without committing; registration owns the shared transaction."""
         token = secrets.token_urlsafe(32)
         csrf = secrets.token_urlsafe(32)
         expires = datetime.now(timezone.utc) + timedelta(hours=SESSION_HOURS)
@@ -79,7 +127,6 @@ class AuthService:
             id=str(uuid4()), user_id=user_id, token_hash=hashlib.sha256(token.encode()).hexdigest(),
             csrf_token=csrf, expires_at=expires,
         ))
-        self.session.commit()
         return CreatedSession(token, csrf, expires)
 
     def resolve_session(self, token: str) -> ResolvedSession | None:

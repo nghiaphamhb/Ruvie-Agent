@@ -32,7 +32,7 @@ def main() -> int:
     logging.basicConfig(level=logging.INFO, format="%(asctime)s %(levelname)s %(message)s")
     settings = load_settings()
     engine = create_database_engine(settings.database_url)
-    client = httpx.Client()
+    client = httpx.Client(proxy=settings.embedding_proxy_url, trust_env=False)
     # The signal handler sets this event; waiting workers wake up and stop cleanly.
     stop_event = threading.Event()
     previous_handlers = {}
