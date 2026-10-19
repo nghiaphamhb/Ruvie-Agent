@@ -46,8 +46,122 @@ await mkdir(fileURLToPath(new URL('../../logs/', import.meta.url)), { recursive:
 let browser;
 const wait = (ms) => new Promise((resolve) => setTimeout(resolve, ms));
 let checks = 0;
+async function runEnterChecks(browser) {
+  const page = await browser.newPage({locale:'vi-VN'});
+  let sent = 0;
+  let connected = true;
+  let holdChat = false;
+  let releaseChat;
+  const catalog={models:[{id:"one",name:"One"},{id:"two",name:"Two"},...Array.from({length:40},(_,index)=>({id:`provider/model-${index}`,name:`Provider: Model ${index}`}))],selected_model_id:"one",selection_required:false};
+  const errors = [];
+  page.on('pageerror', error => errors.push(error.message));
+  await page.route('**/*', async route => {
+    const api = new URL(route.request().url()).pathname;
+    const json = data => route.fulfill({contentType:'application/json',body:JSON.stringify(data)});
+    if(api==='/auth/session')return json({user:{id:'keyboard',display_name:'Keyboard'},csrf_token:'csrf'});
+    if(api==='/projects')return json({items:[]});
+    if(api==='/models')return json(catalog);
+    if(api==='/llm/connection/model'){catalog.selected_model_id=route.request().postDataJSON().model_id;return json({selected_model_id:catalog.selected_model_id});}
+    if(api==='/llm/connection')return json({source:connected?'server':'none',base_url:connected?'https://example.test/v1':null,has_api_key:connected,selected_model_id:connected?catalog.selected_model_id:null});
+    if(api==='/chat'){
+      sent++;
+      assert.equal(route.request().postDataJSON().model_id,catalog.selected_model_id,'chat uses the confirmed model');
+      if(holdChat)await new Promise(resolve=>{releaseChat=resolve;});
+      return route.fulfill({contentType:'text/event-stream',body:'event: delta\ndata: {"text":"OK"}\n\nevent: completed\ndata: {}\n\n'});
+    }
+    return route.continue();
+  });
+  await page.goto(origin);
+  const question=page.locator('#question');
+  await page.getByText('One',{exact:true}).first().waitFor();
+  const modelTrigger=page.locator('.workspace-toolbar [aria-haspopup="listbox"]');
+  assert.equal(await modelTrigger.count(),1,'connected toolbar offers a model dropdown');
+  await question.fill('Retain draft');
+  await page.setViewportSize({width:1100,height:360});
+  await modelTrigger.click();
+  assert.equal(await page.getByRole('option',{name:'One one',exact:true}).getAttribute('aria-selected'),'true');
+  const desktopMenu=page.locator('.menu:popover-open');
+  assert.ok((await desktopMenu.boundingBox()).width<=360,'model dropdown is compact');
+  const scrolling=await desktopMenu.evaluate(element=>[element,...element.querySelectorAll('*')].filter(node=>['auto','scroll'].includes(getComputedStyle(node).overflowY)&&node.scrollHeight>node.clientHeight+1).length);
+  assert.equal(scrolling,1,'only the model list scrolls');
+  const searchTop=await page.getByRole('combobox',{name:'Tìm model',exact:true}).evaluate(element=>element.getBoundingClientRect().top);
+  await desktopMenu.locator('.options').evaluate(element=>{element.scrollTop=element.scrollHeight;});
+  assert.equal(await page.getByRole('combobox',{name:'Tìm model',exact:true}).evaluate(element=>element.getBoundingClientRect().top),searchTop,'search stays fixed while models scroll');
+  await desktopMenu.locator('.options').evaluate(element=>{element.scrollTop=0;});
+  await page.screenshot({path:fileURLToPath(new URL('../../logs/model-picker-desktop.png',import.meta.url))});
+  await page.getByRole('option',{name:'Two two',exact:true}).click();
+  await page.waitForFunction(()=>document.querySelector('.workspace-toolbar [aria-haspopup="listbox"]')?.textContent.includes('Two'));
+  assert.equal(await question.inputValue(),'Retain draft','model change preserves draft');
+  assert.equal(sent,0,'model change does not send chat');
+  await modelTrigger.click();
+  const search=page.getByRole('combobox',{name:'Tìm model',exact:true});
+  await search.fill('One');await search.press('ArrowDown');await search.press('Enter');
+  await page.waitForFunction(()=>document.querySelector('.workspace-toolbar [aria-haspopup="listbox"]')?.textContent.includes('One'));
+  await modelTrigger.click();
+  const arrow=modelTrigger.locator('.chevron');
+  await page.waitForFunction(()=>getComputedStyle(document.querySelector('.workspace-toolbar .chevron')).transform==='matrix(-1, 0, 0, -1, 0, 0)');
+  assert.equal(await modelTrigger.getAttribute('aria-expanded'),'true');
+  await page.getByRole('combobox',{name:'Tìm model',exact:true}).press('Escape');
+  await page.waitForFunction(()=>getComputedStyle(document.querySelector('.workspace-toolbar .chevron')).transform==='matrix(1, 0, 0, 1, 0, 0)');
+  await page.emulateMedia({reducedMotion:'reduce'});
+  assert.ok(await arrow.evaluate(element=>parseFloat(getComputedStyle(element).transitionDuration)<=0.001),'reduced motion makes arrow change immediate');
+  await modelTrigger.click();
+  await page.getByRole('combobox',{name:'Tìm model',exact:true}).press('Escape');
+  await page.emulateMedia({reducedMotion:'no-preference'});
+  assert.equal(await modelTrigger.evaluate(e=>e===document.activeElement),true,'Escape returns focus');
+  await page.setViewportSize({width:375,height:812});
+  await modelTrigger.click();
+  const menu=page.locator('.menu:popover-open');
+  const bounds=await menu.boundingBox();
+  assert.ok(bounds.x>=0&&bounds.x+bounds.width<=375,'dropdown stays inside mobile viewport');
+  await page.screenshot({path:fileURLToPath(new URL('../../logs/model-toolbar-mobile.png',import.meta.url))});
+  await page.getByRole('combobox',{name:'Tìm model',exact:true}).press('Escape');
+  await page.setViewportSize({width:1100,height:900});
+  assert.equal(await page.evaluate(()=>{const ids=[...document.querySelectorAll('[id]')].map(e=>e.id);return new Set(ids).size===ids.length;}),true,'toolbar and Settings have unique IDs');
+  await question.fill('One line');
+  await page.waitForFunction(()=>!document.querySelector('.send-button')?.disabled);
+  await question.press('Enter');
+  await page.waitForFunction(()=>document.querySelector('.answer')?.textContent.includes('OK'));
+  assert.equal(sent,1,'one Enter sends a single-line question once');
+  await question.fill('Tiếng Việt');
+  await question.dispatchEvent('keydown',{key:'Enter',isComposing:true});
+  await question.dispatchEvent('compositionend');
+  await question.dispatchEvent('keydown',{key:'Enter',keyCode:229});
+  assert.equal(await question.inputValue(),'Tiếng Việt','IME confirmation retains draft');
+  assert.equal(sent,1,'IME confirmation does not submit');
+  // Dispatch in one browser task: no artificial 40ms wait after compositionend.
+  await question.evaluate(element=>{
+    element.dispatchEvent(new CompositionEvent('compositionend',{bubbles:true}));
+    element.dispatchEvent(new KeyboardEvent('keydown',{key:'Enter',bubbles:true,cancelable:true}));
+  });
+  await page.waitForFunction(()=>document.querySelectorAll('.answer').length===2&&!document.querySelector('.stop-button'));
+  assert.equal(await question.inputValue(),'','successful Enter clears the draft');
+  assert.equal(sent,2,'committed text sends on the first Enter without a delay');
+  await page.waitForFunction(()=>!document.querySelector('.stop-button'));
+  await question.fill('Line one');
+  await question.press('Shift+Enter');
+  assert.equal(await question.inputValue(),'Line one\n','Shift+Enter inserts a newline');
+  assert.equal(sent,2,'Shift+Enter never submits');
+  holdChat=true;
+  await question.fill('Busy check');await question.press('Enter');
+  await page.locator('.stop-button').waitFor();
+  assert.equal(await modelTrigger.isDisabled(),true,'model changes are locked during chat');
+  releaseChat();
+  await page.waitForFunction(()=>!document.querySelector('.stop-button'));
+  connected=false;await page.reload();
+  await page.locator('.chat-model-shortcut').click();
+  await page.getByRole('dialog',{name:'Cài đặt',exact:true}).waitFor();
+  assert.equal(await page.locator('#settings-tab-llm').getAttribute('aria-selected'),'true','unconnected shortcut opens LLM settings');
+  assert.deepEqual(errors,[]);
+  await page.close();
+  return 16;
+}
 try {
   browser = await chromium.launch({ headless: true, executablePath: process.env.RUVIE_BROWSER_PATH || undefined });
+  checks += await runEnterChecks(browser);
+  if(process.env.RUVIE_ENTER_ONLY){
+    console.log(`Toolbar/Enter browser: ${checks} checks passed`);
+  }else{
   checks += await runLocaleChecks(browser, origin, { plan(value) { streamPlan=value; }, delta() { releaseDelta(); }, finish() { releaseFinish(); }, clear() { streamPlan=null; } });
   const page = await browser.newPage({locale: 'vi-VN', viewport: { width: 1100, height: 900 } });
   const errors = [];
@@ -250,13 +364,12 @@ try {
   await question.fill('IME');
   await question.dispatchEvent('keydown',{key:'Enter',isComposing:true});
   await question.dispatchEvent('compositionend');
-  await question.dispatchEvent('keydown',{key:'Enter'});
+  await question.dispatchEvent('keydown',{key:'Enter',keyCode:229});
   assert.equal(chatBodies.length,beforeIme,'IME confirmation never submits');
   await question.focus();
   await page.keyboard.press('Shift+Enter');
   assert.ok((await question.inputValue()).includes('\n'));
   await question.fill('Keyboard submit');
-  await page.waitForTimeout(50); // Existing IME guard is 40 ms.
   await page.keyboard.press('Enter');
   await page.waitForFunction(() => document.querySelector('#question').value === '' || document.querySelector('.stop-button'));
   await page.getByText('Answer',{exact:true}).last().waitFor();
@@ -463,6 +576,7 @@ try {
   checks += await runLayoutChecks(browser, origin);
   assert.deepEqual(errors, []);
   console.log(`Browser: ${checks} checks passed (loading, key semantics, reload, errors, locks, desktop navigation/keyboard, logout/expiry).`);
+  }
 } finally {
   releaseDelta?.();
   releaseFinish?.();

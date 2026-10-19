@@ -1,6 +1,6 @@
 from datetime import datetime
 
-from sqlalchemy import Boolean, DateTime, ForeignKey, Index, String, func
+from sqlalchemy import Boolean, DateTime, ForeignKey, Index, String, column, func
 from sqlalchemy.orm import Mapped, mapped_column
 
 from .base import Base
@@ -10,6 +10,7 @@ from .base import Base
 class User(Base):
     """Domain account; authentication uses password_hash and is_active."""
     __tablename__ = "users"
+    __table_args__ = (Index("uq_users_email_lower", func.lower(column("email")), unique=True),)
 
     id: Mapped[str] = mapped_column(String(36), primary_key=True)
     email: Mapped[str] = mapped_column(String(320), unique=True, nullable=False)

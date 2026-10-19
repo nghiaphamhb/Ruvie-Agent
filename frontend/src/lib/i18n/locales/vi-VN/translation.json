@@ -200,5 +200,7 @@
   "chat.modelNotSelected": "Chưa chọn model",
   "chat.modelsLoading": "Đang tải model, vui lòng thử lại sau.",
   "chat.modelsLoadingLabel": "Đang tải model…",
-  "chat.configureModel": "Vui lòng cấu hình và chọn model trước khi gửi."
+  "chat.configureModel": "Vui lòng cấu hình và chọn model trước khi gửi.",
+  "model.current": "Model đang dùng",
+  "model.all": "Tất cả model"
 }

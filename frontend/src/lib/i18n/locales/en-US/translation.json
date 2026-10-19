@@ -201,5 +201,7 @@
   "chat.modelNotSelected": "No model selected",
   "chat.modelsLoading": "Models are loading. Please try again shortly.",
   "chat.modelsLoadingLabel": "Loading models…",
-  "chat.configureModel": "Please configure and select a model before sending."
+  "chat.configureModel": "Please configure and select a model before sending.",
+  "model.current": "Current model",
+  "model.all": "All models"
 }

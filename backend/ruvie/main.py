@@ -20,7 +20,7 @@ async def lifespan(app: FastAPI):
     engine = create_database_engine(settings.database_url)
     http_client: httpx.Client | None = None
     try:
-        http_client = httpx.Client()
+        http_client = httpx.Client(proxy=settings.embedding_proxy_url, trust_env=False)
         app.state.settings = settings
         app.state.engine = engine
         # Share the embedding client/factory; chat creates its own guarded provider adapter.

@@ -152,3 +152,12 @@ against that target before restarting the application.
   when the volume was first initialized. Editing container environment
   variables does not reset an existing database password.
 
+
+### Email uniqueness (F009)
+
+Migration `0009_users_email_lower_unique` adds a unique index on `lower(users.email)`.
+It does not rewrite, delete or merge existing accounts.
+If existing emails differ only by letter case, PostgreSQL rejects the index and rolls back the migration.
+Review and resolve conflicting accounts before retrying the documented upgrade command.
+Downgrade removes only this new index. Registration must not run without its migration.
+

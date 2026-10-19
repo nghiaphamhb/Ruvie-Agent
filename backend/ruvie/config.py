@@ -61,23 +61,26 @@ class Settings:
     auth_allowed_origins: tuple[str, ...] = ("http://localhost:5173", "http://127.0.0.1:5173")
     llm_allowed_local_origins: tuple[str, ...] = ()
     llm_proxy_url: str | None = None
+    embedding_proxy_url: str | None = None
 
     def __post_init__(self) -> None:
         """Accept only an explicit server-owned SOCKS5 endpoint, without API paths."""
-        if self.llm_proxy_url is None:
-            return
-        try:
-            parts = urlsplit(self.llm_proxy_url)
-            valid = (
-                parts.scheme == "socks5" and parts.hostname and parts.port
-                and parts.path in ("", "/") and not parts.query and not parts.fragment
-                and not any(char in self.llm_proxy_url for char in ("@", "\\", "?", "#"))
-            )
-        except ValueError:
-            valid = False
-        if not valid:
-            # Never echo a misconfigured URL that might contain credentials.
-            raise RuntimeError("LLM_PROXY_URL must be socks5://host:port without credentials or an API path")
+        for name, value in (("LLM_PROXY_URL", self.llm_proxy_url),
+                            ("EMBEDDING_PROXY_URL", self.embedding_proxy_url)):
+            if value is None:
+                continue
+            try:
+                parts = urlsplit(value)
+                valid = (
+                    parts.scheme == "socks5" and parts.hostname and parts.port
+                    and parts.path in ("", "/") and not parts.query and not parts.fragment
+                    and not any(char in value for char in ("@", "\\", "?", "#"))
+                )
+            except ValueError:
+                valid = False
+            if not valid:
+                # Never echo a misconfigured URL that might contain credentials.
+                raise RuntimeError(f"{name} must be socks5://host:port without credentials or an API path")
 
 
 def load_settings() -> Settings:
@@ -127,4 +130,5 @@ def load_settings() -> Settings:
         origins,
         local_origins,
         os.getenv("LLM_PROXY_URL", "").strip() or None,
+        os.getenv("EMBEDDING_PROXY_URL", "").strip() or None,
     )

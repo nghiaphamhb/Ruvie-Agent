@@ -78,10 +78,16 @@
 <WorkspaceShell collapsed={sidebarCollapsed} mobileOpen={sidebarMobileOpen} ontoggle={toggleSidebar} onclose={()=>{sidebarMobileOpen=false;}} oncontrols={()=>{controlsOpen=!controlsOpen;}}>
   {#snippet toolbar()}
     {#if activeView==='chat'}
+      {#if llm.catalog?.models.length}
+        <div class="chat-model-shortcut">
+          <ModelSelector toolbar id="chat-model" catalog={llm.catalog} loading={llm.loading||llm.modelBusy} disabled={chat.busy||authBusy} error={llm.modelError} onselect={llm.chooseModel} onreload={llm.reloadModels}/>
+        </div>
+      {:else}
       <button class="chat-model-shortcut" type="button" onclick={()=>openSettings('llm')} title={selectedModel?.name??$i18n.t('chat.modelNotSelected')} aria-label={$i18n.t('chat.configureModelLabel',{model:selectedModel?.name??$i18n.t('chat.modelNotSelected')})}>
         <span>{llm.loading||llm.modelBusy?$i18n.t('chat.modelsLoadingLabel'):selectedModel?.name??$i18n.t('chat.modelNotSelected')}</span>
         {#if !selectedModel}<span aria-hidden="true">+</span>{/if}
       </button>
+      {/if}
     {/if}
   {/snippet}
   {#snippet sidebar()}<AppSidebar {activeView} accountName={authUser.display_name} busy={authBusy} collapsed={sidebarCollapsed&&!sidebarMobileOpen}

@@ -32,7 +32,6 @@ try{
   browser=await chromium.launch({headless:true,executablePath:process.env.RUVIE_BROWSER_PATH||undefined});
   const page=await browser.newPage({viewport:{width:1366,height:768},locale:'vi-VN'});
   page.setDefaultTimeout(5000);
-  await mkdir(fileURLToPath(new URL('../../logs/f010/',import.meta.url)),{recursive:true});
   const snap=name=>page.screenshot({path:fileURLToPath(new URL('../../logs/f010/'+name+'.png',import.meta.url))});
   const errors=[];page.on('pageerror',e=>errors.push(e.message));
   const calls=[];let saveRelease;let projectMode='empty';let releaseProjects;let expired=false;
@@ -60,9 +59,48 @@ try{
     return json({},404);
   });
   await page.goto(origin);
-  await page.getByRole('button',{name:'Chọn model',exact:true}).waitFor();
+  await page.locator('.chat-welcome').waitFor();
   assert.equal(await page.getByRole('heading',{name:'Xin chào, Nguyễn An',exact:true}).count(),1,'welcome uses the session name');checks++;
   assert.equal(await page.locator('.chat-welcome img[alt="Ruvie"]').count(),1,'welcome shows the complete brand');checks++;
+  // Draft changes must not recenter the empty-chat welcome or composer.
+  for(const viewport of [{width:1366,height:768},{width:375,height:812}]){
+    await page.setViewportSize(viewport);
+    for(const reducedMotion of ['no-preference','reduce']){
+      await page.emulateMedia({reducedMotion});
+      await page.locator('#question').fill('');
+      await page.evaluate(()=>document.fonts.ready);
+      const welcome=await page.locator('.chat-welcome').boundingBox();
+      const composer=await page.locator('.composer').boundingBox();
+      const suggestions=await page.locator('.chat-suggestions').boundingBox();
+      for(const draft of ['f','First line\nSecond line\nThird line','']){
+        await page.locator('#question').fill(draft);
+        await page.waitForFunction(()=>!document.querySelector('.composer').getAnimations().some(a=>a.playState==='running'));
+        const nextWelcome=await page.locator('.chat-welcome').boundingBox();
+        const nextComposer=await page.locator('.composer').boundingBox();
+        assert.ok(Math.abs(nextWelcome.y-welcome.y)<1,'typing keeps welcome position');
+        assert.ok(Math.abs(nextWelcome.height-welcome.height)<1,'typing keeps welcome size');
+        assert.ok(Math.abs(nextComposer.y-composer.y)<1,'composer grows downward');
+        if(draft){
+          assert.ok(await page.locator('.chat-suggestions').boundingBox(),'hidden suggestions reserve layout space');
+          assert.equal(await page.getByRole('button',{name:'Tìm nguyên nhân lỗi',exact:true}).count(),0,'hidden suggestions leave accessibility tree');
+          assert.equal(await page.locator('.chat-suggestions').evaluate(e=>e.inert),true);
+          await page.locator('.send-button').focus();await page.keyboard.press('Tab');
+          assert.equal(await page.locator('.chat-suggestions').evaluate(e=>e.contains(document.activeElement)),false,'Tab skips hidden suggestions');
+        }else{
+          assert.equal(await page.locator('.chat-suggestions').isVisible(),true);
+          assert.ok(Math.abs((await page.locator('.chat-suggestions').boundingBox()).y-suggestions.y)<1,'clearing restores suggestions in place');
+        }
+      }
+      checks++;
+    }
+  }
+  await page.setViewportSize({width:1366,height:768});
+  await page.emulateMedia({reducedMotion:'no-preference'});
+  if(process.env.RUVIE_LAYOUT_ONLY){
+    console.log(`Draft layout: ${checks} checks passed`);
+    assert.deepEqual(errors,[]);
+  }else{
+  await mkdir(fileURLToPath(new URL('../../logs/f010/',import.meta.url)),{recursive:true});
   const nav=page.getByRole('navigation',{name:'Điều hướng chính'});
   for(const name of ['Chat mới','Tìm kiếm','Ghi chú','Workspace','Dự án','Tài liệu'])assert.equal(await nav.getByRole('button',{name,exact:true}).count(),1);checks++;
   assert.equal(await page.locator('.composer [aria-label="Chọn model"]').count(),1,'model selector belongs to composer');
@@ -174,4 +212,5 @@ try{
   await page.getByRole('heading',{name:'Đăng nhập',exact:true}).waitFor();
   assert.equal(await page.locator('.workspace-shell,.settings-dialog,.account-menu,.chat-controls-panel').count(),0,'401 unmounts all account surfaces');checks++;
   assert.deepEqual(errors,[]);console.log(`Workspace browser: ${checks} checks passed`);
+  }
 }finally{for(const s of streams)s.finish();if(browser)await browser.close();server.closeAllConnections();await new Promise(resolve=>server.close(resolve));}
