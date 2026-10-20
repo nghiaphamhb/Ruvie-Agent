@@ -1,4 +1,4 @@
-import {writable} from 'svelte/store';
+import { writable } from 'svelte/store';
 
 export type ThemePreference = 'system' | 'light' | 'dark';
 export type ResolvedTheme = 'light' | 'dark';
@@ -16,14 +16,27 @@ export function createThemeState(userId: string) {
   try {
     const saved = browser?.localStorage.getItem(key);
     if (isPreference(saved)) preference = saved;
-  } catch { /* Storage can be blocked; keep the in-session choice usable. */ }
-  const snapshot = () => ({preference, resolved: (preference === 'system' ? systemDark ? 'dark' : 'light' : preference) as ResolvedTheme});
+  } catch {
+    /* Storage can be blocked; keep the in-session choice usable. */
+  }
+  const snapshot = () => ({
+    preference,
+    resolved: (preference === 'system'
+      ? systemDark
+        ? 'dark'
+        : 'light'
+      : preference) as ResolvedTheme,
+  });
   const store = writable(snapshot());
   function select(value: unknown) {
     if (disposed || !isPreference(value)) return;
     preference = value;
     store.set(snapshot());
-    try { browser?.localStorage.setItem(key, preference); } catch { /* The current session still changes theme. */ }
+    try {
+      browser?.localStorage.setItem(key, preference);
+    } catch {
+      /* The current session still changes theme. */
+    }
   }
   function systemChanged(event: MediaQueryListEvent) {
     systemDark = event.matches;
@@ -37,11 +50,12 @@ export function createThemeState(userId: string) {
   media?.addEventListener('change', systemChanged);
   browser?.addEventListener('storage', storageChanged);
   return {
-    subscribe: store.subscribe, select,
+    subscribe: store.subscribe,
+    select,
     dispose() {
       disposed = true;
       media?.removeEventListener('change', systemChanged);
       browser?.removeEventListener('storage', storageChanged);
-    }
+    },
   };
 }

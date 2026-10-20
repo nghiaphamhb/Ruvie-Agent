@@ -6,7 +6,11 @@
   "scripts": {
     "dev": "vite",
     "build": "vite build",
-    "test": "node --experimental-strip-types --test tests/*.test.mjs"
+    "test": "node --experimental-strip-types --test tests/*.test.mjs",
+    "format": "prettier --write .",
+    "format:check": "prettier --check .",
+    "lint": "eslint .",
+    "prepare": "cd .. && husky frontend/.husky"
   },
   "dependencies": {
     "i18next": "^26.4.2",
@@ -15,7 +19,18 @@
     "svelte-sonner": "1.2.1"
   },
   "devDependencies": {
+    "@eslint/js": "10.0.1",
     "@sveltejs/vite-plugin-svelte": "^5.0.0",
+    "eslint": "10.13.0",
+    "eslint-config-prettier": "10.1.8",
+    "eslint-plugin-svelte": "3.23.1",
+    "globals": "17.13.0",
+    "husky": "9.1.7",
+    "lint-staged": "16.4.0",
+    "prettier": "3.9.10",
+    "prettier-plugin-svelte": "4.1.1",
+    "typescript": "5.9.3",
+    "typescript-eslint": "8.72.0",
     "vite": "^6.0.0"
   }
 }

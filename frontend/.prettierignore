@@ -1,0 +1,9 @@
+references/
+**/references/**
+node_modules/
+dist/
+build/
+.svelte-kit/
+.husky/_/
+package-lock.json
+**/[aA][rR][cC][hH][iI][vV][eE]/**

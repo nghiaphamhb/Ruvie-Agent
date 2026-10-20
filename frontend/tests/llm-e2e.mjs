@@ -1,4 +1,4 @@
-import {showWorkspaceView,openSettings,closeSettings,openAccountMenu,logoutFromMenu,ensureSidebar} from './workspace-actions.mjs';
+import { showWorkspaceView, logoutFromMenu } from './workspace-actions.mjs';
 /** Called by the Python E2E fixture. Proxy real APIs; never mock browser requests. */
 import assert from 'node:assert/strict';
 import { createServer, request as proxyRequest } from 'node:http';
@@ -12,28 +12,52 @@ const root = path.resolve(fileURLToPath(new URL('../dist/', import.meta.url)));
 const server = createServer(async (request, response) => {
   const pathname = new URL(request.url, 'http://localhost').pathname;
   if (/^\/(auth|projects|documents|llm|models|chat)(\/|$)/.test(pathname)) {
-    const upstream = proxyRequest(new URL(request.url, process.env.RUVIE_E2E_BACKEND_URL), {
-      method: request.method, headers: request.headers
-    }, (received) => {
-      response.writeHead(received.statusCode, received.headers);
-      received.pipe(response);
+    const upstream = proxyRequest(
+      new URL(request.url, process.env.RUVIE_E2E_BACKEND_URL),
+      {
+        method: request.method,
+        headers: request.headers,
+      },
+      (received) => {
+        response.writeHead(received.statusCode, received.headers);
+        received.pipe(response);
+      },
+    );
+    upstream.on('error', () => {
+      response.writeHead(502).end();
     });
-    upstream.on('error', () => { response.writeHead(502).end(); });
     request.pipe(upstream);
     return;
   }
   const target = path.resolve(root, '.' + pathname.replace(/\/$/, '/index.html'));
-  if (!target.startsWith(root + path.sep)) { response.writeHead(403).end(); return; }
+  if (!target.startsWith(root + path.sep)) {
+    response.writeHead(403).end();
+    return;
+  }
   try {
-    response.setHeader('Content-Type', target.endsWith('.js') ? 'text/javascript' : target.endsWith('.css') ? 'text/css' : 'text/html');
+    response.setHeader(
+      'Content-Type',
+      target.endsWith('.js')
+        ? 'text/javascript'
+        : target.endsWith('.css')
+          ? 'text/css'
+          : 'text/html',
+    );
     response.end(await readFile(target));
-  } catch { response.writeHead(404).end(); }
+  } catch {
+    response.writeHead(404).end();
+  }
 });
-await new Promise((resolve) => server.listen(Number(process.env.RUVIE_E2E_FRONTEND_PORT), '127.0.0.1', resolve));
+await new Promise((resolve) =>
+  server.listen(Number(process.env.RUVIE_E2E_FRONTEND_PORT), '127.0.0.1', resolve),
+);
 let browser;
 try {
-  browser = await chromium.launch({ headless: true, executablePath: process.env.RUVIE_BROWSER_PATH || undefined });
-  const page = await browser.newPage({locale: 'vi-VN', viewport: { width: 1280, height: 720 } });
+  browser = await chromium.launch({
+    headless: true,
+    executablePath: process.env.RUVIE_BROWSER_PATH || undefined,
+  });
+  const page = await browser.newPage({ locale: 'vi-VN', viewport: { width: 1280, height: 720 } });
   const errors = [];
   page.on('pageerror', (error) => errors.push(error.message));
   await page.goto(`http://127.0.0.1:${server.address().port}`);
@@ -46,7 +70,7 @@ try {
     await page.waitForFunction(() => !document.querySelector('[aria-label="Chọn model"]').disabled);
   }
   async function showView(name) {
-    await showWorkspaceView(page,name);
+    await showWorkspaceView(page, name);
   }
   async function connect(key) {
     await showView('Kết nối LLM');
@@ -58,18 +82,35 @@ try {
   }
   async function chat(title, forbidden) {
     await showView('Chat');
-    await page.getByLabel('Câu hỏi của bạn', { exact: true }).fill('Where do I install the plugin?');
+    await page
+      .getByLabel('Câu hỏi của bạn', { exact: true })
+      .fill('Where do I install the plugin?');
     await page.getByRole('button', { name: 'Gửi câu hỏi', exact: true }).click();
-    await page.getByText('Answer from Alpha\'s guide.', { exact: true }).waitFor();
+    await page.getByText("Answer from Alpha's guide.", { exact: true }).waitFor();
     const sources = page.locator('summary').filter({ hasText: 'nguồn tham khảo' });
-    try { await sources.click({ timeout: 3000 }); }
-    catch (error) {
-      console.error('Layout:', await page.evaluate(() => ['.workspace-content', '.chat-view', '.conversation', '.composer-area', 'summary'].map((selector) => {
-        const element = document.querySelector(selector);
-        return { selector, height: element.getBoundingClientRect().height, scrollHeight: element.scrollHeight };
-      })));
+    try {
+      await sources.click({ timeout: 3000 });
+    } catch (error) {
+      console.error(
+        'Layout:',
+        await page.evaluate(() =>
+          ['.workspace-content', '.chat-view', '.conversation', '.composer-area', 'summary'].map(
+            (selector) => {
+              const element = document.querySelector(selector);
+              return {
+                selector,
+                height: element.getBoundingClientRect().height,
+                scrollHeight: element.scrollHeight,
+              };
+            },
+          ),
+        ),
+      );
       await mkdir(fileURLToPath(new URL('../../logs/', import.meta.url)), { recursive: true });
-      await page.screenshot({ path: fileURLToPath(new URL('../../logs/f006-e2e-layout.png', import.meta.url)), fullPage: true });
+      await page.screenshot({
+        path: fileURLToPath(new URL('../../logs/f006-e2e-layout.png', import.meta.url)),
+        fullPage: true,
+      });
       throw error;
     }
     await page.getByText(title, { exact: true }).waitFor();
@@ -87,7 +128,10 @@ try {
   await page.getByText('Model: B', { exact: false }).waitFor();
   await logout();
   await login('beta');
-  assert.ok((await picker.innerText()).includes('Model: A'), 'Beta must not inherit Alpha selection');
+  assert.ok(
+    (await picker.innerText()).includes('Model: A'),
+    'Beta must not inherit Alpha selection',
+  );
   await connect('beta-provider-key');
   await page.setViewportSize({ width: 1024, height: 600 });
   await chat('Beta guide', 'Alpha guide');

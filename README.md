@@ -51,6 +51,19 @@ npm install
 Set-Location ..
 ~~~
 
+### Frontend code checks
+
+`npm install` in `frontend/` installs the pre-commit hook. It formats and lints
+staged frontend files only; fix reported lint errors before committing.
+
+From the repository root:
+
+~~~powershell
+npm --prefix frontend run format        # Reformat frontend files
+npm --prefix frontend run format:check  # Check formatting without changes
+npm --prefix frontend run lint
+~~~
+
 ### Configuration
 
 Copy [`.env.example`](.env.example) to `.env` and replace its placeholders with

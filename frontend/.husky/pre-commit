@@ -1,0 +1,2 @@
+cd frontend || exit 1
+npm exec --no -- lint-staged --config lint-staged.config.js

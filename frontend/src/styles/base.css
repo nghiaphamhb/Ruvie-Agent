@@ -1,7 +1,7 @@
 /* Light paper background adapted from references/src/app.css.
    Active components use system fonts and local CSS, without legacy assets/runtime. */
 :root {
-  --font-family: Inter, ui-sans-serif, system-ui, -apple-system, "Segoe UI", sans-serif;
+  --font-family: Inter, ui-sans-serif, system-ui, -apple-system, 'Segoe UI', sans-serif;
   --font-size: 15px;
   --paper: #f6f1e8;
   --surface: #fff;
@@ -19,7 +19,10 @@
   --sidebar-width: 240px;
   --content-width: 880px;
   --form-width: 720px;
-  --paper-gradient: radial-gradient(circle at top left, rgba(59,130,246,.12), transparent 28%), radial-gradient(circle at 82% 18%, rgba(14,165,233,.1), transparent 22%), linear-gradient(180deg,#faf7f0 0%,#efe5d7 100%);
+  --paper-gradient:
+    radial-gradient(circle at top left, rgba(59, 130, 246, 0.12), transparent 28%),
+    radial-gradient(circle at 82% 18%, rgba(14, 165, 233, 0.1), transparent 22%),
+    linear-gradient(180deg, #faf7f0 0%, #efe5d7 100%);
   font-family: var(--font-family);
   font-size: var(--font-size);
   color: var(--ink);
@@ -29,29 +32,90 @@
   -webkit-font-smoothing: antialiased;
 }
 
-
-* { box-sizing: border-box; }
-body { margin:0; background-image:var(--paper-gradient); }
-button, textarea, input, select { font:inherit; }
-button { cursor: pointer; }
-button:disabled { cursor: not-allowed; }
+* {
+  box-sizing: border-box;
+}
+body {
+  margin: 0;
+  background-image: var(--paper-gradient);
+}
+button,
+textarea,
+input,
+select {
+  font: inherit;
+}
+button {
+  cursor: pointer;
+}
+button:disabled {
+  cursor: not-allowed;
+}
 :is(button, textarea, input, select, summary):focus-visible {
   outline: 2px solid var(--accent);
   outline-offset: 3px;
 }
 
-.app-shell { min-height: 100vh; height: 100dvh; display: flex; flex-direction: column; background:transparent; }
-.assistant-mark { display: grid; place-items: center; background: var(--accent); color: var(--surface); font-weight: 700; }
-.auth-error { padding: 10px 12px; border: 1px solid var(--error-border); border-radius:var(--radius); background: var(--error-bg); color: var(--error); font-size: 13px; }
-.eyebrow { margin: 0 0 9px; color: var(--accent); font-size: 11px; font-weight: 700; letter-spacing: .18em; }
-.assistant-mark { flex: none; width: 30px; height: 30px; border-radius:var(--radius); font-size: 14px; }
-.status-dot { width: 7px; height: 7px; border-radius: 50%; background: var(--accent); animation: breathe 1.4s ease-in-out infinite; }
-
-@keyframes breathe { 50% { opacity: .35; transform: scale(.8); } }
-
-@media (prefers-reduced-motion: reduce) {
-  *, *::before, *::after { animation-duration: .01ms !important; transition-duration: .01ms !important; }
+.app-shell {
+  min-height: 100vh;
+  height: 100dvh;
+  display: flex;
+  flex-direction: column;
+  background: transparent;
+}
+.assistant-mark {
+  display: grid;
+  place-items: center;
+  background: var(--accent);
+  color: var(--surface);
+  font-weight: 700;
+}
+.auth-error {
+  padding: 10px 12px;
+  border: 1px solid var(--error-border);
+  border-radius: var(--radius);
+  background: var(--error-bg);
+  color: var(--error);
+  font-size: 13px;
+}
+.eyebrow {
+  margin: 0 0 9px;
+  color: var(--accent);
+  font-size: 11px;
+  font-weight: 700;
+  letter-spacing: 0.18em;
+}
+.assistant-mark {
+  flex: none;
+  width: 30px;
+  height: 30px;
+  border-radius: var(--radius);
+  font-size: 14px;
+}
+.status-dot {
+  width: 7px;
+  height: 7px;
+  border-radius: 50%;
+  background: var(--accent);
+  animation: breathe 1.4s ease-in-out infinite;
 }
 
+@keyframes breathe {
+  50% {
+    opacity: 0.35;
+    transform: scale(0.8);
+  }
+}
 
-[hidden] { display: none !important; }
+@media (prefers-reduced-motion: reduce) {
+  *,
+  *::before,
+  *::after {
+    animation-duration: 0.01ms !important;
+    transition-duration: 0.01ms !important;
+  }
+}
+
+[hidden] {
+  display: none !important;
+}
