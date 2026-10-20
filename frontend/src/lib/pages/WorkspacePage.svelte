@@ -18,13 +18,14 @@
   import AppSidebar,{type WorkspaceView} from '../layout/AppSidebar.svelte';
   import WorkspaceShell from '../layout/WorkspaceShell.svelte';
   import SettingsModal from '../features/settings/SettingsModal.svelte';
+  import {createThemeState} from '../features/settings/theme.ts';
   import ChatControlsPanel from '../features/chat/ChatControlsPanel.svelte';
   import ChatPage from '../features/chat/ChatPage.svelte';
   let {authUser,csrfToken,authBusy,authError,onlogout,onexpired}:{
     authUser:AuthUser;csrfToken:string;authBusy:boolean;authError:UiMessage|null;onlogout:()=>void;onexpired:()=>void;
   }=$props();
   let activeView=$state<WorkspaceView>('chat'),sidebarCollapsed=$state(false),sidebarMobileOpen=$state(false);
-  let settingsOpen=$state(false),settingsTab=$state<'general'|'llm'>('general'),controlsOpen=$state(false),uploadOpen=$state(false);
+  let settingsOpen=$state(false),settingsTab=$state<'general'|'llm'|'appearance'>('general'),controlsOpen=$state(false),uploadOpen=$state(false);
   let uploadInline=$state<HTMLDivElement>();
   const viewLabels={chat:'nav.chat',search:'workspace.search',notes:'workspace.notes',workspace:'workspace.library',projects:'workspace.projects',documents:'nav.documents',folders:'workspace.folders',history:'workspace.conversations'} as const;
   let chatNotice=$state<{key:'chat.configureModel'|'chat.modelsLoading';id:number}|null>(null);
@@ -45,11 +46,12 @@
   let selectedModel=$derived(llm.catalog?.selection_required?undefined:llm.catalog?.models.find(model=>model.id===llm.catalog?.selected_model_id));
   let expired=false;
   const sessionCsrf=untrack(()=>csrfToken);
+  const theme=createThemeState(untrack(()=>authUser.id));
   const llm=createLlmState({csrfToken:sessionCsrf,onexpired:clearSession,isLocked:()=>chat.busy||authBusy});
   const chat=createChatState({onexpired:clearSession,getCatalog:()=>llm.catalog,isLocked:()=>llm.loading||llm.modelBusy||authBusy,onMissingModel:()=>showChatNotice('chat.configureModel'),onModelUnavailable:()=>{void llm.reloadModels();}});
   const documents=createDocumentsState({csrfToken:sessionCsrf,onexpired:clearSession});
   /** Invalidate all request owners before App removes this account's workspace. */
-  function dispose(){chat.dispose();documents.dispose();llm.dispose();}
+  function dispose(){chat.dispose();documents.dispose();llm.dispose();theme.dispose();}
   function clearSession(){if(expired)return;expired=true;dispose();onexpired();}
   onMount(()=>{void documents.loadProjects();void llm.initialize();});
   onDestroy(dispose);
@@ -75,7 +77,7 @@
   }
 </script>
 <svelte:window onresize={resizeWorkspace}/>
-<WorkspaceShell collapsed={sidebarCollapsed} mobileOpen={sidebarMobileOpen} ontoggle={toggleSidebar} onclose={()=>{sidebarMobileOpen=false;}} oncontrols={()=>{controlsOpen=!controlsOpen;}}>
+<WorkspaceShell theme={$theme.resolved} collapsed={sidebarCollapsed} mobileOpen={sidebarMobileOpen} ontoggle={toggleSidebar} onclose={()=>{sidebarMobileOpen=false;}} oncontrols={()=>{controlsOpen=!controlsOpen;}}>
   {#snippet toolbar()}
     {#if activeView==='chat'}
       {#if llm.catalog?.models.length}
@@ -111,7 +113,7 @@
       statusRefreshing={documents.statusRefreshing} onsubmit={documents.submitUpload} onrefresh={documents.refreshUploadStatus} onprojectsreload={documents.loadProjects}/>
   </UploadSurface>
   <ChatControlsPanel open={controlsOpen} modelName={llm.catalog?.models.find(item=>item.id===llm.catalog?.selected_model_id)?.name??''} onclose={closeControls}/>
-  <SettingsModal open={settingsOpen} bind:tab={settingsTab} onclose={()=>{void closeSettings();}}>
+  <SettingsModal {theme} open={settingsOpen} bind:tab={settingsTab} onclose={()=>{void closeSettings();}}>
     <LlmConnectionForm state={llm} disabled={chat.busy||authBusy}/>
     <ModelSelector catalog={llm.catalog} loading={llm.loading||llm.modelBusy} disabled={chat.busy||authBusy} error={llm.modelError} onselect={llm.chooseModel} onreload={llm.reloadModels}/>
   </SettingsModal>

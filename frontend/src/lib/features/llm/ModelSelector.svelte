@@ -137,7 +137,7 @@
   .selected-name { min-width: 0; display: -webkit-box; -webkit-line-clamp: 2; -webkit-box-orient: vertical; overflow: hidden; }
   :is(button, input):focus-visible { outline: 2px solid var(--accent); outline-offset: 2px; }
   button:disabled { opacity: .65; }
-  .menu { position:fixed;inset:auto;margin:0;padding:0;box-sizing:border-box;display:none;flex-direction:column;border:1px solid var(--border);border-radius:12px;background:var(--surface);color:var(--ink);box-shadow:0 12px 32px #0005;overflow:hidden;color-scheme:dark; }
+  .menu { position:fixed;inset:auto;margin:0;padding:0;box-sizing:border-box;display:none;flex-direction:column;border:1px solid var(--border);border-radius:12px;background:var(--surface);color:var(--ink);box-shadow:0 12px 32px #0005;overflow:hidden;color-scheme:var(--control-color-scheme,dark); }
   .menu:popover-open{display:flex;}
   .search-bar{position:relative;flex:none;margin:14px 14px 0;padding-bottom:14px;border-bottom:1px solid var(--border);}
   .search-bar>svg{position:absolute;left:12px;top:13px;color:var(--muted);pointer-events:none;}
