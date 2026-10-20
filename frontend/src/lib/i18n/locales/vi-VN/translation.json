@@ -202,5 +202,10 @@
   "chat.modelsLoadingLabel": "Đang tải model…",
   "chat.configureModel": "Vui lòng cấu hình và chọn model trước khi gửi.",
   "model.current": "Model đang dùng",
-  "model.all": "Tất cả model"
+  "model.all": "Tất cả model",
+  "theme.display": "Hiển thị",
+  "theme.background": "Màu nền",
+  "theme.system": "Hệ thống",
+  "theme.light": "Sáng",
+  "theme.dark": "Tối"
 }

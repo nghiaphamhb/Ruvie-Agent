@@ -203,5 +203,10 @@
   "chat.modelsLoadingLabel": "Loading models…",
   "chat.configureModel": "Please configure and select a model before sending.",
   "model.current": "Current model",
-  "model.all": "All models"
+  "model.all": "All models",
+  "theme.display": "Display",
+  "theme.background": "Background",
+  "theme.system": "System",
+  "theme.light": "Light",
+  "theme.dark": "Dark"
 }

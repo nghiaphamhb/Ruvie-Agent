@@ -37,7 +37,7 @@
   .sidebar-nav{display:flex;flex-direction:column;height:100%;padding:12px;gap:16px;}
   .sidebar-heading{display:flex;align-items:center;justify-content:space-between;gap:6px;min-height:48px;}
   .sidebar-brand{min-width:0;padding:8px;border:0;background:transparent;}
-  .sidebar-brand img{width:144px;max-width:100%;height:auto;filter:brightness(0) invert(1);}
+  .sidebar-brand img{width:144px;max-width:100%;height:auto;filter:var(--brand-filter,brightness(0) invert(1));}
   .sidebar-collapse{flex:none;display:grid;place-items:center;width:44px;height:44px;padding:8px;border:0;background:transparent;color:var(--ink);border-radius:10px;}
   .sidebar-links{display:grid;gap:4px;}
   .sidebar-links button{display:flex;align-items:center;gap:14px;min-height:48px;width:100%;padding:12px 14px;border:0;border-radius:8px;background:transparent;color:var(--ink);text-align:left;font-size:15px;}

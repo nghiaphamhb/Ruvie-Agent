@@ -2,7 +2,7 @@
   import {tick,type Snippet} from 'svelte';
   import {i18n} from '../i18n/index.ts';
   import WorkspaceIcon from '../shared/WorkspaceIcon.svelte';
-  let {collapsed,mobileOpen,ontoggle,onclose,oncontrols,sidebar,children,toolbar}: {collapsed:boolean;mobileOpen:boolean;ontoggle:()=>void;onclose:()=>void;oncontrols:()=>void;sidebar:Snippet;children:Snippet;toolbar?:Snippet}=$props();
+  let {theme='dark',collapsed,mobileOpen,ontoggle,onclose,oncontrols,sidebar,children,toolbar}: {theme?:'light'|'dark';collapsed:boolean;mobileOpen:boolean;ontoggle:()=>void;onclose:()=>void;oncontrols:()=>void;sidebar:Snippet;children:Snippet;toolbar?:Snippet}=$props();
   let drawer:HTMLElement;let toggle:HTMLButtonElement;
   $effect(()=>{if(mobileOpen)void tick().then(()=>{if(mobileOpen)drawer?.querySelector<HTMLButtonElement>('button')?.focus();});});
   async function close(){onclose();await tick();toggle?.focus();}
@@ -18,7 +18,7 @@
     }
   }
 </script>
-<div class="workspace workspace-shell" class:collapsed class:mobile-open={mobileOpen}>
+<div class="workspace workspace-shell" data-theme={theme} class:collapsed class:mobile-open={mobileOpen}>
   <a class="skip-link" href="#workspace-main">{$i18n.t('workspace.skip')}</a>
   <button class="sidebar-backdrop" class:backdrop-open={mobileOpen} disabled={!mobileOpen} tabindex="-1" type="button" aria-label={$i18n.t('workspace.closeSidebar')} onclick={close}></button>
   <aside class="workspace-sidebar" bind:this={drawer} role={mobileOpen?'dialog':undefined} aria-modal={mobileOpen?'true':undefined} aria-label={$i18n.t('workspace.sidebar')} onkeydown={drawerKey}>{@render sidebar()}</aside>

@@ -203,3 +203,17 @@ directory named `archive` is excluded from active context. Broader proposals in
 specs must not be mistaken for implemented components. Existing diagrams are
 linked from [Visual specifications](../specs/visual/README.md); compare them with
 the active source when changing a flow.
+
+### Workspace theme preference
+
+Settings > Display > Background offers System, Light and Dark. The settings
+feature owns this browser-only preference in `ruvie.ui.theme.<encoded-user-id>`;
+it is separate for each signed-in account and is not sent to the backend.
+The default System mode follows `prefers-color-scheme` changes without persisting
+the detected color. Explicit choices apply immediately, survive reload, and do
+not remount chat or trigger business requests. Storage failures retain a usable
+in-session choice. Workspace disposal removes media/storage listeners. Light
+and dark workspace tokens also style Settings and model popovers; auth retains
+its existing styling. The legacy `chat/Settings/General.svelte::applyTheme` is a
+behavior reference only; active code uses Svelte state and scoped tokens, not
+legacy theme classes or runtime imports.

@@ -205,5 +205,10 @@
   "chat.modelsLoadingLabel": "Загрузка моделей…",
   "chat.configureModel": "Настройте и выберите модель перед отправкой.",
   "model.current": "Текущая модель",
-  "model.all": "Все модели"
+  "model.all": "Все модели",
+  "theme.display": "Внешний вид",
+  "theme.background": "Цвет фона",
+  "theme.system": "Системная",
+  "theme.light": "Светлая",
+  "theme.dark": "Тёмная"
 }
