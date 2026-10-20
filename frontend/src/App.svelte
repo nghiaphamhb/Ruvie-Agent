@@ -1,26 +1,42 @@
 <script lang="ts">
-  import {onMount} from 'svelte';
-  import {i18n} from './lib/i18n/index.ts';
-  import {message as uiMessage,type UiMessage} from './lib/i18n/messages.ts';
+  import { onMount } from 'svelte';
+  import { i18n } from './lib/i18n/index.ts';
+  import { message as uiMessage, type UiMessage } from './lib/i18n/messages.ts';
   import AuthPage from './lib/features/auth/AuthPage.svelte';
-  import AuthToastLayer,{type AuthNotice} from './lib/features/auth/AuthToastLayer.svelte';
-  import type {AuthFieldErrors} from './lib/features/auth/auth-form.ts';
-  import {AuthApiError,getAuthSession,login,register,logout,type AuthSession,type AuthUser} from './lib/features/auth/auth-api.ts';
+  import AuthToastLayer, { type AuthNotice } from './lib/features/auth/AuthToastLayer.svelte';
+  import type { AuthFieldErrors } from './lib/features/auth/auth-form.ts';
+  import {
+    AuthApiError,
+    getAuthSession,
+    login,
+    register,
+    logout,
+    type AuthSession,
+    type AuthUser,
+  } from './lib/features/auth/auth-api.ts';
   import WorkspacePage from './lib/pages/WorkspacePage.svelte';
   let authLoading = $state(true);
   let authBusy = $state(false);
   let authUser = $state<AuthUser | null>(null);
   let csrfToken = $state('');
   let authError = $state<UiMessage | null>(null);
-  let authNotice = $state<AuthNotice|null>(null);
+  let authNotice = $state<AuthNotice | null>(null);
   let nextAuthNoticeId = 1;
 
   /** Publish only trusted message keys; retain the toast across the auth-to-workspace transition. */
-  function notifyAuth(type:'success'|'error',message:UiMessage) {
-    authNotice={id:nextAuthNoticeId++,type,message,
-      retry:type==='error' && (message.key==='common.errors.network' || message.key==='auth.errors.session')};
+  function notifyAuth(type: 'success' | 'error', message: UiMessage) {
+    authNotice = {
+      id: nextAuthNoticeId++,
+      type,
+      message,
+      retry:
+        type === 'error' &&
+        (message.key === 'common.errors.network' || message.key === 'auth.errors.session'),
+    };
   }
-  function dismissAuthNotice(id:number) {if(authNotice?.id===id)authNotice=null;}
+  function dismissAuthNotice(id: number) {
+    if (authNotice?.id === id) authNotice = null;
+  }
   let authFieldErrors = $state<AuthFieldErrors>({});
   function clearAuthErrors() {
     authError = null;
@@ -45,13 +61,16 @@
       csrfToken = current?.csrf_token ?? '';
       if (current) await acceptSession(current);
     } catch (error) {
-      authError = error instanceof AuthApiError ? error.uiMessage : uiMessage('auth.errors.session');
-      notifyAuth('error',authError);
+      authError =
+        error instanceof AuthApiError ? error.uiMessage : uiMessage('auth.errors.session');
+      notifyAuth('error', authError);
     } finally {
       authLoading = false;
     }
   }
-  onMount(() => { void checkSession(); });
+  onMount(() => {
+    void checkSession();
+  });
 
   /** Authenticate supplied credentials; cookie/CSRF stay in the active API contract. */
   async function submitLogin(email: string, password: string): Promise<boolean> {
@@ -60,11 +79,11 @@
     clearAuthErrors();
     try {
       await acceptSession(await login(email.trim(), password));
-      notifyAuth('success',uiMessage('auth.signedIn'));
+      notifyAuth('success', uiMessage('auth.signedIn'));
       return Boolean(authUser);
     } catch (error) {
       authError = error instanceof AuthApiError ? error.uiMessage : uiMessage('auth.errors.login');
-      notifyAuth('error',authError);
+      notifyAuth('error', authError);
       return false;
     } finally {
       authBusy = false;
@@ -78,12 +97,15 @@
     clearAuthErrors();
     try {
       await acceptSession(await register(name, email, password));
-      notifyAuth('success',uiMessage('auth.registered'));
+      notifyAuth('success', uiMessage('auth.registered'));
       return Boolean(authUser);
     } catch (error) {
-      authError = error instanceof AuthApiError ? error.uiMessage : uiMessage('auth.errors.registrationFailed');
+      authError =
+        error instanceof AuthApiError
+          ? error.uiMessage
+          : uiMessage('auth.errors.registrationFailed');
       authFieldErrors = error instanceof AuthApiError ? error.fieldErrors : {};
-      notifyAuth('error',Object.values(authFieldErrors)[0] ?? authError);
+      notifyAuth('error', Object.values(authFieldErrors)[0] ?? authError);
       return false;
     } finally {
       authBusy = false;
@@ -92,12 +114,12 @@
 
   /** Unmount the keyed workspace so no account's requests, files or key drafts survive logout. */
   function clearSession() {
-    authUser=null;
-    csrfToken='';
-    authFieldErrors={};
-    const url=new URL(window.location.href);
-    url.searchParams.set('form','login');
-    history.replaceState({},'',url);
+    authUser = null;
+    csrfToken = '';
+    authFieldErrors = {};
+    const url = new URL(window.location.href);
+    url.searchParams.set('form', 'login');
+    history.replaceState({}, '', url);
   }
 
   /** End the cookie session; a protected 401 also discards local account data. */
@@ -108,13 +130,15 @@
       await logout(csrfToken);
       clearSession();
     } catch (error) {
-      if (error instanceof AuthApiError && error.status === 401) {clearSession(); return;}
+      if (error instanceof AuthApiError && error.status === 401) {
+        clearSession();
+        return;
+      }
       authError = error instanceof AuthApiError ? error.uiMessage : uiMessage('auth.errors.logout');
     } finally {
       authBusy = false;
     }
   }
-
 </script>
 
 <svelte:head>
@@ -123,12 +147,31 @@
 </svelte:head>
 <div class="app-shell">
   {#if authLoading || !authUser}
-    <AuthPage busy={authBusy} checking={authLoading} fieldErrors={authFieldErrors}
-      onlogin={submitLogin} onregister={submitRegister} onerrorclear={clearAuthErrors}/>
+    <AuthPage
+      busy={authBusy}
+      checking={authLoading}
+      fieldErrors={authFieldErrors}
+      onlogin={submitLogin}
+      onregister={submitRegister}
+      onerrorclear={clearAuthErrors}
+    />
   {:else}
-    {#key authUser.id+csrfToken}
-      <WorkspacePage {authUser} {csrfToken} {authBusy} {authError} onlogout={signOut} onexpired={clearSession}/>
+    {#key authUser.id + csrfToken}
+      <WorkspacePage
+        {authUser}
+        {csrfToken}
+        {authBusy}
+        {authError}
+        onlogout={signOut}
+        onexpired={clearSession}
+      />
     {/key}
   {/if}
 </div>
-<AuthToastLayer notice={authNotice} ondismiss={dismissAuthNotice} onretry={()=>{void checkSession();}}/>
+<AuthToastLayer
+  notice={authNotice}
+  ondismiss={dismissAuthNotice}
+  onretry={() => {
+    void checkSession();
+  }}
+/>

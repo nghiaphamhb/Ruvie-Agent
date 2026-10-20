@@ -27,8 +27,11 @@ export class LlmApiError extends Error {
 /** Use the login cookie; never display raw provider errors that may contain secrets. */
 async function request(path: string, init?: RequestInit): Promise<Response> {
   let response: Response;
-  try { response = await fetch(path, { ...init, credentials: 'same-origin' }); }
-  catch { throw new LlmApiError(); }
+  try {
+    response = await fetch(path, { ...init, credentials: 'same-origin' });
+  } catch {
+    throw new LlmApiError();
+  }
   if (!response.ok) throw new LlmApiError(response.status);
   return response;
 }
@@ -42,12 +45,17 @@ export async function getModels(): Promise<ModelsResult> {
 }
 
 /** PUT {base_url, api_key?}: omitted key keeps the personal key; empty key deletes it. */
-export async function saveLlmConnection(csrfToken: string, input: ConnectionInput): Promise<ModelsResult> {
-  return (await request('/llm/connection', {
-    method: 'PUT',
-    headers: { 'Content-Type': 'application/json', 'X-CSRF-Token': csrfToken },
-    body: JSON.stringify(input)
-  })).json();
+export async function saveLlmConnection(
+  csrfToken: string,
+  input: ConnectionInput,
+): Promise<ModelsResult> {
+  return (
+    await request('/llm/connection', {
+      method: 'PUT',
+      headers: { 'Content-Type': 'application/json', 'X-CSRF-Token': csrfToken },
+      body: JSON.stringify(input),
+    })
+  ).json();
 }
 
 /** DELETE personal settings, then the caller reloads the server fallback. */
@@ -56,10 +64,15 @@ export async function deleteLlmConnection(csrfToken: string): Promise<void> {
 }
 
 /** PATCH {model_id}: verify/save one preference; keep the previous UI ID until this succeeds. */
-export async function selectLlmModel(csrfToken: string, modelId: string): Promise<{ selected_model_id: string }> {
-  return (await request('/llm/connection/model', {
-    method: 'PATCH',
-    headers: { 'Content-Type': 'application/json', 'X-CSRF-Token': csrfToken },
-    body: JSON.stringify({ model_id: modelId })
-  })).json();
+export async function selectLlmModel(
+  csrfToken: string,
+  modelId: string,
+): Promise<{ selected_model_id: string }> {
+  return (
+    await request('/llm/connection/model', {
+      method: 'PATCH',
+      headers: { 'Content-Type': 'application/json', 'X-CSRF-Token': csrfToken },
+      body: JSON.stringify({ model_id: modelId }),
+    })
+  ).json();
 }

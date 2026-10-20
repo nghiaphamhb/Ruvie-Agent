@@ -47,15 +47,33 @@ function isRecord(value: unknown): value is Record<string, unknown> {
 
 export function isCitation(value: unknown): value is Citation {
   if (!isRecord(value)) return false;
-  return ['citation_id', 'document_id', 'revision_id', 'chunk_id', 'title', 'source_hash', 'software', 'software_version']
-    .every((field) => typeof value[field] === 'string')
-    && ['ordinal', 'start_offset', 'end_offset'].every((field) => typeof value[field] === 'number');
+  return (
+    [
+      'citation_id',
+      'document_id',
+      'revision_id',
+      'chunk_id',
+      'title',
+      'source_hash',
+      'software',
+      'software_version',
+    ].every((field) => typeof value[field] === 'string') &&
+    ['ordinal', 'start_offset', 'end_offset'].every((field) => typeof value[field] === 'number')
+  );
 }
 
-function parseFrame(frame: string): ChatEvent | { type: 'error'; code: 'provider_unavailable' | 'generation_failed' } {
+function parseFrame(
+  frame: string,
+): ChatEvent | { type: 'error'; code: 'provider_unavailable' | 'generation_failed' } {
   const lines = frame.split('\n');
-  const name = lines.find((line) => line.startsWith('event:'))?.slice(6).trim();
-  const rawData = lines.filter((line) => line.startsWith('data:')).map((line) => line.slice(5).trimStart()).join('\n');
+  const name = lines
+    .find((line) => line.startsWith('event:'))
+    ?.slice(6)
+    .trim();
+  const rawData = lines
+    .filter((line) => line.startsWith('data:'))
+    .map((line) => line.slice(5).trimStart())
+    .join('\n');
   let data: unknown;
   try {
     data = JSON.parse(rawData);
@@ -69,7 +87,10 @@ function parseFrame(frame: string): ChatEvent | { type: 'error'; code: 'provider
     return { type: 'citations', citations: data.citations };
   }
   if (name === 'completed') return { type: 'completed' };
-  if (name === 'error' && (data.code === 'provider_unavailable' || data.code === 'generation_failed')) {
+  if (
+    name === 'error' &&
+    (data.code === 'provider_unavailable' || data.code === 'generation_failed')
+  ) {
     return { type: 'error', code: data.code };
   }
   throw new ChatApiError('protocol_error');
@@ -80,7 +101,7 @@ export async function streamChat(
   message: string,
   onEvent: (event: ChatEvent) => void,
   signal?: AbortSignal,
-  modelId?: string
+  modelId?: string,
 ): Promise<void> {
   if (!message.trim()) throw new ChatApiError('invalid_request');
 
@@ -91,7 +112,7 @@ export async function streamChat(
       headers: { 'Content-Type': 'application/json' },
       body: JSON.stringify({ message, ...(modelId === undefined ? {} : { model_id: modelId }) }),
       credentials: 'same-origin',
-      signal
+      signal,
     });
   } catch {
     if (signal?.aborted) throw new ChatApiError('interrupted');
@@ -99,7 +120,8 @@ export async function streamChat(
   }
 
   if (response.status === 401) throw new ChatApiError('auth_required');
-  if (response.status === 422) throw new ChatApiError(modelId === undefined ? 'invalid_request' : 'model_unavailable');
+  if (response.status === 422)
+    throw new ChatApiError(modelId === undefined ? 'invalid_request' : 'model_unavailable');
   if (!response.ok) throw new ChatApiError('network_error');
   if (!response.headers.get('content-type')?.startsWith('text/event-stream') || !response.body) {
     throw new ChatApiError('protocol_error');

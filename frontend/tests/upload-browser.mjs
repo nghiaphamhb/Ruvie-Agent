@@ -1,17 +1,17 @@
-import {showWorkspaceView,openSettings,closeSettings,openAccountMenu,logoutFromMenu,ensureSidebar} from './workspace-actions.mjs';
+import { showWorkspaceView, logoutFromMenu } from './workspace-actions.mjs';
 /** F007 upload checks use a separate session and browser clock, never app data. */
 import assert from 'node:assert/strict';
 
 export async function runUploadChecks(browser, origin) {
-  const page = await browser.newPage({locale: 'vi-VN',viewport:{width:1280,height:720}});
+  const page = await browser.newPage({ locale: 'vi-VN', viewport: { width: 1280, height: 720 } });
   page.setDefaultTimeout(5000);
   let signedIn = true;
   let account = 'alpha';
-  let projects = [{id:'p1',code:'P1',name:'Project One'}];
+  let projects = [{ id: 'p1', code: 'P1', name: 'Project One' }];
   let uploadHttp = 202;
   let logoutHttp = 204;
   let statusHttp = 200;
-  let statuses = ['running','ready'];
+  let statuses = ['running', 'ready'];
   let holdUpload = false;
   let holdStatus = false;
   let releaseUpload;
@@ -20,220 +20,304 @@ export async function runUploadChecks(browser, origin) {
   const uploads = [];
   const reads = [];
   const errors = [];
-  page.on('pageerror',error => errors.push(error.message));
+  page.on('pageerror', (error) => errors.push(error.message));
   await page.clock.install();
-  await page.route('**/*', async route => {
+  await page.route('**/*', async (route) => {
     const req = route.request();
     const api = new URL(req.url()).pathname;
-    const respond = (data,status=200) => route.fulfill({status,contentType:'application/json',body:JSON.stringify(data)});
-    const session = {user:{id:account,display_name:account},csrf_token:`csrf-${account}`};
-    if (api === '/auth/session') return respond(signedIn ? session : {},signedIn ? 200 : 401);
-    if (api === '/auth/login') {signedIn=true; return respond(session);}
-    if (api === '/auth/logout') {if (logoutHttp !== 204) return respond({detail:'private logout error'},logoutHttp); signedIn=false; return route.fulfill({status:204});}
-    if (api === '/projects') return respond({items:projects});
-    if (api === '/llm/connection') return respond({source:'none',base_url:null,has_api_key:false,selected_model_id:null});
+    const respond = (data, status = 200) =>
+      route.fulfill({ status, contentType: 'application/json', body: JSON.stringify(data) });
+    const session = { user: { id: account, display_name: account }, csrf_token: `csrf-${account}` };
+    if (api === '/auth/session') return respond(signedIn ? session : {}, signedIn ? 200 : 401);
+    if (api === '/auth/login') {
+      signedIn = true;
+      return respond(session);
+    }
+    if (api === '/auth/logout') {
+      if (logoutHttp !== 204) return respond({ detail: 'private logout error' }, logoutHttp);
+      signedIn = false;
+      return route.fulfill({ status: 204 });
+    }
+    if (api === '/projects') return respond({ items: projects });
+    if (api === '/llm/connection')
+      return respond({
+        source: 'none',
+        base_url: null,
+        has_api_key: false,
+        selected_model_id: null,
+      });
     if (api === '/documents/upload') {
       const id = `revision-${++revision}`;
       const http = uploadHttp;
-      uploads.push({body:req.postDataBuffer().toString(),csrf:req.headers()['x-csrf-token']});
-      if (holdUpload) {holdUpload=false; await new Promise(resolve => {releaseUpload=resolve;});}
-      return respond({document_id:'doc',revision_id:id,job_id:'job',status:'pending'},http);
+      uploads.push({ body: req.postDataBuffer().toString(), csrf: req.headers()['x-csrf-token'] });
+      if (holdUpload) {
+        holdUpload = false;
+        await new Promise((resolve) => {
+          releaseUpload = resolve;
+        });
+      }
+      return respond(
+        { document_id: 'doc', revision_id: id, job_id: 'job', status: 'pending' },
+        http,
+      );
     }
     if (api.startsWith('/documents/revisions/')) {
       reads.push(api);
       const http = statusHttp;
-      const status = statuses.length>1 ? statuses.shift() : statuses[0];
-      if (holdStatus) {holdStatus=false; await new Promise(resolve => {releaseStatus=resolve;});}
-      return respond({revision_id:api.split('/')[3],status,error_code:status==='failed'?'invalid_file':null},http);
+      const status = statuses.length > 1 ? statuses.shift() : statuses[0];
+      if (holdStatus) {
+        holdStatus = false;
+        await new Promise((resolve) => {
+          releaseStatus = resolve;
+        });
+      }
+      return respond(
+        {
+          revision_id: api.split('/')[3],
+          status,
+          error_code: status === 'failed' ? 'invalid_file' : null,
+        },
+        http,
+      );
     }
     return route.continue();
   });
-  const nav = page.getByRole('navigation',{name:'Điều hướng chính'});
-  const show = name => showWorkspaceView(page,name);
-  const title = page.getByLabel('Tên tài liệu',{exact:true});
-  const file = page.getByLabel('File',{exact:true});
+  const nav = page.getByRole('navigation', { name: 'Điều hướng chính' });
+  const show = (name) => showWorkspaceView(page, name);
+  const title = page.getByLabel('Tên tài liệu', { exact: true });
+  const file = page.getByLabel('File', { exact: true });
   const submit = page.locator('.upload-submit');
-  const statusText = text => page.getByText(text,{exact:true});
-  async function fill(name='Upload title') {
-    await page.getByRole('combobox',{name:/^Project/}).selectOption('p1');
+  const statusText = (text) => page.getByText(text, { exact: true });
+  async function fill(name = 'Upload title') {
+    await page.getByRole('combobox', { name: /^Project/ }).selectOption('p1');
     await title.fill(name);
-    await page.getByLabel('Phần mềm',{exact:true}).fill('Ruvie');
-    await page.getByLabel('Phiên bản',{exact:true}).fill('1.2');
-    await file.setInputFiles({name:'sample.txt',mimeType:'text/plain',buffer:Buffer.from('sample document')});
+    await page.getByLabel('Phần mềm', { exact: true }).fill('Ruvie');
+    await page.getByLabel('Phiên bản', { exact: true }).fill('1.2');
+    await file.setInputFiles({
+      name: 'sample.txt',
+      mimeType: 'text/plain',
+      buffer: Buffer.from('sample document'),
+    });
   }
   async function login() {
-    await page.getByLabel('Email',{exact:true}).fill(`${account}@test.com`);
-    await page.getByLabel('Mật khẩu',{exact:true}).fill('password');
-    await page.getByRole('button',{name:'Đăng nhập',exact:true}).click();
+    await page.getByLabel('Email', { exact: true }).fill(`${account}@test.com`);
+    await page.getByLabel('Mật khẩu', { exact: true }).fill('password');
+    await page.getByRole('button', { name: 'Đăng nhập', exact: true }).click();
     await show('Tải tài liệu');
   }
-  let checks=0;
+  let checks = 0;
   try {
     await page.goto(origin);
-    const connectFromChat = page.getByRole('region',{name:'Chat',exact:true}).getByRole('button',{name:'Kết nối LLM',exact:true});
+    const connectFromChat = page
+      .getByRole('region', { name: 'Chat', exact: true })
+      .getByRole('button', { name: 'Kết nối LLM', exact: true });
     await connectFromChat.click();
-    assert.equal(await page.getByLabel('Base URL',{exact:true}).isVisible(),true);
+    assert.equal(await page.getByLabel('Base URL', { exact: true }).isVisible(), true);
     await show('Tải tài liệu');
-    assert.equal(await submit.isDisabled(),true,'missing file/project blocks upload');
+    assert.equal(await submit.isDisabled(), true, 'missing file/project blocks upload');
     await fill();
-    await page.getByText('sample.txt',{exact:true}).waitFor();
-    await page.getByText('text/plain · 15 B',{exact:true}).waitFor();
+    await page.getByText('sample.txt', { exact: true }).waitFor();
+    await page.getByText('text/plain · 15 B', { exact: true }).waitFor();
     await show('Chat');
     await show('Tải tài liệu');
-    assert.equal(await title.inputValue(),'Upload title');
-    assert.equal(await file.evaluate(e=>e.files[0].name),'sample.txt');
+    assert.equal(await title.inputValue(), 'Upload title');
+    assert.equal(await file.evaluate((e) => e.files[0].name), 'sample.txt');
     await submit.click();
     await statusText('Đang chờ xử lý').waitFor();
-    assert.equal(await submit.isDisabled(),true);
-    assert.equal(uploads.length,1);
-    assert.equal(uploads[0].csrf,'csrf-alpha');
-    for (const field of ['project_id','title','software','software_version','file']) assert.ok(uploads[0].body.includes(`name="${field}"`));
-    for (const value of ['p1','Upload title','Ruvie','1.2','sample document']) assert.ok(uploads[0].body.includes(value));
+    assert.equal(await submit.isDisabled(), true);
+    assert.equal(uploads.length, 1);
+    assert.equal(uploads[0].csrf, 'csrf-alpha');
+    for (const field of ['project_id', 'title', 'software', 'software_version', 'file'])
+      assert.ok(uploads[0].body.includes(`name="${field}"`));
+    for (const value of ['p1', 'Upload title', 'Ruvie', '1.2', 'sample document'])
+      assert.ok(uploads[0].body.includes(value));
     await show('Chat');
     await page.clock.fastForward(2000);
     await show('Tải tài liệu');
     await statusText('Đang xử lý').waitFor();
     await page.clock.fastForward(2000);
     await statusText('Sẵn sàng').waitFor();
-    const terminalReads=reads.length;
+    const terminalReads = reads.length;
     await page.clock.fastForward(10000);
-    assert.equal(reads.length,terminalReads,'ready stops polling');
-    await page.reload(); await show('Tải tài liệu');
-    assert.equal(await title.inputValue(),'','reload clears upload metadata');
-    assert.equal(await file.evaluate(e=>e.files.length),0,'reload clears file');
-    assert.equal(await page.locator('.upload-status').count(),0,'reload clears upload view status');
+    assert.equal(reads.length, terminalReads, 'ready stops polling');
+    await page.reload();
+    await show('Tải tài liệu');
+    assert.equal(await title.inputValue(), '', 'reload clears upload metadata');
+    assert.equal(await file.evaluate((e) => e.files.length), 0, 'reload clears file');
+    assert.equal(
+      await page.locator('.upload-status').count(),
+      0,
+      'reload clears upload view status',
+    );
     await fill();
     checks++;
-    statuses=['failed'];
+    statuses = ['failed'];
     await submit.click();
     await statusText('Đang chờ xử lý').waitFor();
     await page.clock.fastForward(2000);
     await statusText('Xử lý thất bại').waitFor();
     await statusText('Mã lỗi: invalid_file').waitFor();
-    const failedReads=reads.length;
+    const failedReads = reads.length;
     await page.clock.fastForward(10000);
-    assert.equal(reads.length,failedReads,'failed stops polling');
+    assert.equal(reads.length, failedReads, 'failed stops polling');
     checks++;
-    uploadHttp=404;
+    uploadHttp = 404;
     await submit.click();
-    await page.getByRole('alert').filter({hasText:'Không tìm thấy project'}).waitFor();
-    uploadHttp=202; statuses=['pending']; statusHttp=503;
+    await page.getByRole('alert').filter({ hasText: 'Không tìm thấy project' }).waitFor();
+    uploadHttp = 202;
+    statuses = ['pending'];
+    statusHttp = 503;
     await submit.click();
     await statusText('Đang chờ xử lý').waitFor();
     await page.clock.fastForward(2000);
-    await page.getByRole('alert').filter({hasText:'Không thể tải lên'}).waitFor();
-    statusHttp=200; statuses=['ready'];
-    await page.getByRole('button',{name:'Làm mới trạng thái',exact:true}).click();
+    await page.getByRole('alert').filter({ hasText: 'Không thể tải lên' }).waitFor();
+    statusHttp = 200;
+    statuses = ['ready'];
+    await page.getByRole('button', { name: 'Làm mới trạng thái', exact: true }).click();
     await statusText('Sẵn sàng').waitFor();
     checks++;
-    statuses=['pending'];
+    statuses = ['pending'];
     await submit.click();
     await statusText('Đang chờ xử lý').waitFor();
     await page.clock.fastForward(300001);
     await statusText('Việc xử lý vẫn tiếp tục ở máy chủ.').waitFor();
-    assert.equal(await submit.isDisabled(),false,'deadline releases upload lock');
-    statuses=['ready'];
-    await page.getByRole('button',{name:'Làm mới trạng thái',exact:true}).click();
+    assert.equal(await submit.isDisabled(), false, 'deadline releases upload lock');
+    statuses = ['ready'];
+    await page.getByRole('button', { name: 'Làm mới trạng thái', exact: true }).click();
     await statusText('Sẵn sàng').waitFor();
     checks++;
-    holdUpload=true;
+    holdUpload = true;
     await fill('Private old title');
     await submit.click();
-    await page.waitForFunction(()=>document.querySelector('.upload-submit').disabled);
+    await page.waitForFunction(() => document.querySelector('.upload-submit').disabled);
     await logoutFromMenu(page);
-    await page.getByRole('heading',{name:'Đăng nhập',exact:true}).waitFor();
-    account='beta';
+    await page.getByRole('heading', { name: 'Đăng nhập', exact: true }).waitFor();
+    account = 'beta';
     await login();
-    assert.equal(await title.inputValue(),'','logout clears metadata');
-    assert.equal(await file.evaluate(e=>e.files.length),0,'logout clears selected file');
-    await fill('New title'); statuses=['pending'];
+    assert.equal(await title.inputValue(), '', 'logout clears metadata');
+    assert.equal(await file.evaluate((e) => e.files.length), 0, 'logout clears selected file');
+    await fill('New title');
+    statuses = ['pending'];
     await submit.click();
     await statusText('Đang chờ xử lý').waitFor();
-    const oldRevision = revision-1;
-    const oldResponse = page.waitForResponse(async response => response.url().endsWith('/documents/upload') && (await response.json()).revision_id === `revision-${oldRevision}`);
+    const oldRevision = revision - 1;
+    const oldResponse = page.waitForResponse(
+      async (response) =>
+        response.url().endsWith('/documents/upload') &&
+        (await response.json()).revision_id === `revision-${oldRevision}`,
+    );
     releaseUpload();
     await (await oldResponse).finished();
     await page.clock.runFor(50);
-    assert.equal(await submit.isDisabled(),true,'old finally cannot unlock a new upload');
-    assert.equal(await title.inputValue(),'New title');
+    assert.equal(await submit.isDisabled(), true, 'old finally cannot unlock a new upload');
+    assert.equal(await title.inputValue(), 'New title');
     await logoutFromMenu(page);
-    await page.getByRole('heading',{name:'Đăng nhập',exact:true}).waitFor();
-    const loggedOutReads=reads.length;
+    await page.getByRole('heading', { name: 'Đăng nhập', exact: true }).waitFor();
+    const loggedOutReads = reads.length;
     await page.clock.fastForward(10000);
-    assert.equal(reads.length,loggedOutReads,'logout stops polling');
+    assert.equal(reads.length, loggedOutReads, 'logout stops polling');
     checks++;
     // A pending poll's 401 belongs to the old session, not the newly logged-in account.
     await login();
-    await fill('Old poll'); statuses=['pending'];
+    await fill('Old poll');
+    statuses = ['pending'];
     await submit.click();
     await statusText('Đang chờ xử lý').waitFor();
     const oldPoll = revision;
-    holdStatus=true; statusHttp=401;
+    holdStatus = true;
+    statusHttp = 401;
     await page.clock.fastForward(2000);
     await logoutFromMenu(page);
-    await page.getByRole('heading',{name:'Đăng nhập',exact:true}).waitFor();
-    account='gamma'; statusHttp=200;
-    await login(); await fill('New poll');
+    await page.getByRole('heading', { name: 'Đăng nhập', exact: true }).waitFor();
+    account = 'gamma';
+    statusHttp = 200;
+    await login();
+    await fill('New poll');
     await submit.click();
     await statusText('Đang chờ xử lý').waitFor();
-    const oldPollResponse = page.waitForResponse(r => r.url().includes(`/revision-${oldPoll}/status`));
+    const oldPollResponse = page.waitForResponse((r) =>
+      r.url().includes(`/revision-${oldPoll}/status`),
+    );
     releaseStatus();
     await (await oldPollResponse).finished();
     await page.clock.runFor(50);
-    assert.equal(await title.inputValue(),'New poll','stale 401 cannot end a new session');
-    assert.equal(await submit.isDisabled(),true,'stale poll finally cannot unlock new upload');
-    assert.equal(await page.getByRole('alert').count(),0);
+    assert.equal(await title.inputValue(), 'New poll', 'stale 401 cannot end a new session');
+    assert.equal(await submit.isDisabled(), true, 'stale poll finally cannot unlock new upload');
+    assert.equal(await page.getByRole('alert').count(), 0);
     checks++;
     // Manual refresh has a separate lock but shares the upload/session ownership.
     await page.clock.fastForward(300001);
     await statusText('Việc xử lý vẫn tiếp tục ở máy chủ.').waitFor();
-    holdStatus=true; statuses=['failed'];
+    holdStatus = true;
+    statuses = ['failed'];
     const oldRefresh = revision;
-    const refresh = page.getByRole('button',{name:/^(Làm mới trạng thái|Đang làm mới…)$/});
+    const refresh = page.getByRole('button', { name: /^(Làm mới trạng thái|Đang làm mới…)$/ });
     await refresh.click();
-    assert.equal(await refresh.isDisabled(),true);
-    assert.equal(await submit.isDisabled(),true,'manual refresh locks upload submit');
+    assert.equal(await refresh.isDisabled(), true);
+    assert.equal(await submit.isDisabled(), true, 'manual refresh locks upload submit');
     await logoutFromMenu(page);
-    await page.getByRole('heading',{name:'Đăng nhập',exact:true}).waitFor();
-    account='delta'; statuses=['pending'];
-    await login(); await fill('After refresh');
-    await submit.click(); await statusText('Đang chờ xử lý').waitFor();
-    const oldRefreshResponse = page.waitForResponse(r => r.url().includes(`/revision-${oldRefresh}/status`));
-    releaseStatus(); await (await oldRefreshResponse).finished();
+    await page.getByRole('heading', { name: 'Đăng nhập', exact: true }).waitFor();
+    account = 'delta';
+    statuses = ['pending'];
+    await login();
+    await fill('After refresh');
+    await submit.click();
+    await statusText('Đang chờ xử lý').waitFor();
+    const oldRefreshResponse = page.waitForResponse((r) =>
+      r.url().includes(`/revision-${oldRefresh}/status`),
+    );
+    releaseStatus();
+    await (await oldRefreshResponse).finished();
     await page.clock.runFor(50);
-    assert.equal(await statusText('Xử lý thất bại').count(),0,'stale refresh success cannot replace current status');
-    assert.equal(await submit.isDisabled(),true);
+    assert.equal(
+      await statusText('Xử lý thất bại').count(),
+      0,
+      'stale refresh success cannot replace current status',
+    );
+    assert.equal(await submit.isDisabled(), true);
     checks++;
     // Current-session 401 from polling/upload/refresh must end the session.
-    statusHttp=401;
+    statusHttp = 401;
     await page.clock.fastForward(2000);
-    await page.getByRole('heading',{name:'Đăng nhập',exact:true}).waitFor();
+    await page.getByRole('heading', { name: 'Đăng nhập', exact: true }).waitFor();
     const readsAtExpiry = reads.length;
     await page.clock.fastForward(10000);
-    assert.equal(reads.length,readsAtExpiry);
-    statusHttp=200; uploadHttp=401;
-    await login(); await fill(); await submit.click();
-    await page.getByRole('heading',{name:'Đăng nhập',exact:true}).waitFor();
-    uploadHttp=202;
-    await login(); await fill(); await submit.click();
+    assert.equal(reads.length, readsAtExpiry);
+    statusHttp = 200;
+    uploadHttp = 401;
+    await login();
+    await fill();
+    await submit.click();
+    await page.getByRole('heading', { name: 'Đăng nhập', exact: true }).waitFor();
+    uploadHttp = 202;
+    await login();
+    await fill();
+    await submit.click();
     await statusText('Đang chờ xử lý').waitFor();
     await page.clock.fastForward(300001);
     await statusText('Việc xử lý vẫn tiếp tục ở máy chủ.').waitFor();
-    statusHttp=401;
-    await page.getByRole('button',{name:'Làm mới trạng thái',exact:true}).click();
-    await page.getByRole('heading',{name:'Đăng nhập',exact:true}).waitFor();
+    statusHttp = 401;
+    await page.getByRole('button', { name: 'Làm mới trạng thái', exact: true }).click();
+    await page.getByRole('heading', { name: 'Đăng nhập', exact: true }).waitFor();
     checks++;
-    statusHttp=200;
+    statusHttp = 200;
     await login();
-    logoutHttp=503;
+    logoutHttp = 503;
     await logoutFromMenu(page);
-    await page.getByRole('alert').filter({hasText:'Không thể đăng xuất. Hãy thử lại.'}).waitFor();
-    assert.equal(await nav.isVisible(),true,'failed logout keeps current session');
-    logoutHttp=401;
+    await page
+      .getByRole('alert')
+      .filter({ hasText: 'Không thể đăng xuất. Hãy thử lại.' })
+      .waitFor();
+    assert.equal(await nav.isVisible(), true, 'failed logout keeps current session');
+    logoutHttp = 401;
     await logoutFromMenu(page);
-    await page.getByRole('heading',{name:'Đăng nhập',exact:true}).waitFor();
+    await page.getByRole('heading', { name: 'Đăng nhập', exact: true }).waitFor();
     checks++;
-    assert.deepEqual(errors,[]);
+    assert.deepEqual(errors, []);
     return checks;
-  } finally {releaseUpload?.(); releaseStatus?.(); await page.close();}
+  } finally {
+    releaseUpload?.();
+    releaseStatus?.();
+    await page.close();
+  }
 }
