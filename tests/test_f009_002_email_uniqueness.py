@@ -8,7 +8,7 @@ from unittest.mock import patch
 
 from alembic import command
 from alembic.config import Config
-from sqlalchemy import inspect, select
+from sqlalchemy import inspect, select, text
 from sqlalchemy.exc import IntegrityError
 
 import test_f005_007_e2e as fixtures
@@ -57,14 +57,18 @@ class EmailPostgresTests(unittest.TestCase):
         with patch.dict(os.environ, {"DATABASE_URL": self.fixture.database_url}):
             command.downgrade(config, "0008_user_llm_settings")
             with self.factory() as db:
-                db.add(User(id="collision", display_name="Collision", email="ALPHA@example.test"))
+                # Historical schemas may lack columns required by the current User mapper.
+                db.execute(text(
+                    "INSERT INTO users (id, display_name, email) "
+                    "VALUES ('collision', 'Collision', 'ALPHA@example.test')"
+                ))
                 db.commit()
             with self.assertRaises(Exception):
                 command.upgrade(config, "head")
             with self.factory() as db:
-                self.assertEqual(db.get(User, "alpha").email, "alpha@example.test")
-                self.assertEqual(db.get(User, "collision").email, "ALPHA@example.test")
-                db.delete(db.get(User, "collision"))
+                self.assertEqual(db.scalar(text("SELECT email FROM users WHERE id = 'alpha'")), "alpha@example.test")
+                self.assertEqual(db.scalar(text("SELECT email FROM users WHERE id = 'collision'")), "ALPHA@example.test")
+                db.execute(text("DELETE FROM users WHERE id = 'collision'"))
                 db.commit()
             command.upgrade(config, "head")
             indexes = inspect(self.fixture.client.app.state.engine).get_indexes("users")

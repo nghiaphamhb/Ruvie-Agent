@@ -1,6 +1,16 @@
 <script module lang="ts">
   export type WorkspaceView =
-    'chat' | 'search' | 'notes' | 'workspace' | 'projects' | 'documents' | 'folders' | 'history';
+    | 'chat'
+    | 'search'
+    | 'notes'
+    | 'workspace'
+    | 'projects'
+    | 'documents'
+    | 'folders'
+    | 'history'
+    | 'settings'
+    | 'admin-users'
+    | 'admin-settings';
 </script>
 
 <script lang="ts">
@@ -19,6 +29,7 @@
     ontoggle,
     onsettings,
     onlogout,
+    canAdmin = false,
   }: {
     activeView: WorkspaceView;
     accountName: string;
@@ -29,6 +40,7 @@
     ontoggle: () => void;
     onsettings: () => void;
     onlogout: () => void;
+    canAdmin?: boolean;
   } = $props();
   const items = [
     { id: 'chat', label: 'workspace.newChat' },
@@ -92,7 +104,15 @@
     <p>{$i18n.t('workspace.emptyConversations')}</p>
   </div>
   <div class="sidebar-account">
-    <AccountMenu name={accountName} {busy} {collapsed} {onsettings} {onlogout} />
+    <AccountMenu
+      name={accountName}
+      {busy}
+      {collapsed}
+      {onsettings}
+      {onlogout}
+      {canAdmin}
+      onadmin={() => onselect('admin-users')}
+    />
   </div>
 </nav>
 

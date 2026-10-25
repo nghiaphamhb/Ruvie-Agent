@@ -15,7 +15,6 @@
   --sidebar-width: 264px;
   --shell-background: radial-gradient(ellipse at 65% 35%, #123c60 0%, #0b2945 40%, #071a30 85%);
   --sidebar-background: #051426d9;
-  --sidebar-mobile-background: #051426;
   --sidebar-border: #31516d66;
   --focus-color: #c5e2ff;
   --brand-filter: brightness(0) invert(1);
@@ -70,10 +69,6 @@
 .chat-controls-trigger {
   margin-left: auto;
 }
-.sidebar-open {
-  visibility: hidden;
-}
-
 .workspace-shell :is(button, a, input, select, summary):focus-visible {
   outline: 2px solid var(--focus-color);
   outline-offset: 3px;
@@ -98,59 +93,6 @@
 .workspace-shell .view-heading {
   margin: 0 24px 16px;
   font-size: 24px;
-}
-.sidebar-backdrop {
-  display: none;
-}
-@media (max-width: 800px) {
-  .workspace-shell,
-  .workspace-shell.collapsed {
-    grid-template-columns: minmax(0, 1fr);
-  }
-  .workspace-shell .workspace-sidebar {
-    display: block;
-    visibility: hidden;
-    transform: translateX(-100%);
-    transition:
-      transform 200ms cubic-bezier(0.2, 0.8, 0.2, 1),
-      visibility 200ms;
-    position: fixed;
-    inset: 0 auto 0 0;
-    width: 280px;
-    max-width: calc(100vw - 48px);
-    background: var(--sidebar-mobile-background);
-    z-index: 50;
-  }
-  .workspace-shell.mobile-open .workspace-sidebar {
-    visibility: visible;
-    transform: translateX(0);
-  }
-  .workspace-shell .sidebar-open {
-    visibility: visible;
-  }
-  .workspace-shell .sidebar-backdrop {
-    display: block;
-    opacity: 0;
-    visibility: hidden;
-    pointer-events: none;
-    transition:
-      opacity 200ms ease,
-      visibility 200ms;
-    position: fixed;
-    inset: 0;
-    z-index: 40;
-    border: 0;
-    background: #010a17aa;
-  }
-  .workspace-shell .sidebar-collapse {
-    display: grid;
-  }
-  .workspace-shell .skip-link {
-    left: 56px;
-  }
-  .workspace-shell .sidebar-heading {
-    flex-direction: row;
-  }
 }
 
 .workspace-shell .composer:has(textarea:focus-visible) {
@@ -191,17 +133,9 @@
   scrollbar-color: var(--border) transparent;
 }
 
-@media (max-width: 800px) {
-  .workspace-shell .sidebar-backdrop.backdrop-open {
-    opacity: 1;
-    visibility: visible;
-    pointer-events: auto;
-  }
-}
 @media (prefers-reduced-motion: reduce) {
   .workspace-shell,
-  .workspace-shell .workspace-sidebar,
-  .workspace-shell .sidebar-backdrop {
+  .workspace-shell .workspace-sidebar {
     transition: none;
   }
 }
@@ -220,13 +154,8 @@
   text-overflow: ellipsis;
   white-space: nowrap;
 }
-.workspace-toolbar .sidebar-open {
-  flex-shrink: 0;
-}
-@media (min-width: 801px) {
-  .workspace-toolbar .chat-model-shortcut {
-    margin-left: -44px;
-  }
+.workspace-toolbar .chat-model-shortcut {
+  margin-left: 0;
 }
 
 /* Preferences apply to the signed-in workspace; each browser/account owns its choice. */
@@ -244,7 +173,6 @@
   --error-border: #efccca;
   --shell-background: #fafbfd;
   --sidebar-background: #f0f4f8;
-  --sidebar-mobile-background: #f0f4f8;
   --sidebar-border: #dce5ed;
   --focus-color: #2862aa;
   --control-color-scheme: light;

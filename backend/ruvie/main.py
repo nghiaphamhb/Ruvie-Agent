@@ -6,6 +6,7 @@ from ruvie.adapters.blob_storage import DEFAULT_BLOB_ROOT, LocalBlobStore
 from ruvie.adapters.embedding import create_query_embedder
 from ruvie.api.chat import router as chat_router
 from ruvie.api.auth import router as auth_router
+from ruvie.api.admin import router as admin_router
 from ruvie.api.documents import router as document_router
 from ruvie.api.projects import router as projects_router
 from ruvie.api.llm import router as llm_router
@@ -40,6 +41,7 @@ async def lifespan(app: FastAPI):
 app = FastAPI(title="Ruvie Agent", lifespan=lifespan)
 app.include_router(chat_router)
 app.include_router(auth_router)
+app.include_router(admin_router)
 app.include_router(document_router)
 app.include_router(projects_router)
 app.include_router(llm_router)

@@ -1,0 +1,17 @@
+{
+  "schemaVersion": 1,
+  "receiptId": "f58ef9e3-07d6-4a98-9019-6f28debd2aee",
+  "status": "current",
+  "command": "deliver",
+  "type": "architecture",
+  "input": "D:\\Github Repository\\Ruvie-Agent\\.archify\\architecture-ruvie-20261023-203734\\candidate.json",
+  "output": "D:\\Github Repository\\Ruvie-Agent\\.archify\\architecture-ruvie-20261023-203734\\ruvie-architecture.html",
+  "specification": {
+    "sha256": "202b1c014afe5f407e207cef8fbc1daa72c1f57378935402afa29f88ceba2ba2",
+    "bytes": 6352
+  },
+  "artifact": {
+    "sha256": "8035a6a39ba5e843a0206c0563b224fedc0507829a5c7848126b78f379c76cd0",
+    "bytes": 831118
+  }
+}

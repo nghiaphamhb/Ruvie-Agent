@@ -1,0 +1,388 @@
+{
+  "schema_version": 1,
+  "diagram_type": "sequence",
+  "meta": {
+    "title": "Luồng sequence người dùng và admin",
+    "locale": "en",
+    "output": ".archify/sequence-user-admin-20261023-205115/user-admin-sequence.html",
+    "quality_profile": "showcase"
+  },
+  "participants": [
+    {
+      "id": "person",
+      "type": "external",
+      "label": "Người dùng",
+      "sublabel": "user / admin"
+    },
+    {
+      "id": "web",
+      "type": "frontend",
+      "label": "Frontend Svelte",
+      "sublabel": "Auth · Workspace · Admin"
+    },
+    {
+      "id": "api",
+      "type": "backend",
+      "label": "FastAPI",
+      "sublabel": "/auth /chat /admin"
+    },
+    {
+      "id": "service",
+      "type": "backend",
+      "label": "Services",
+      "sublabel": "Auth · Chat · Admin"
+    },
+    {
+      "id": "db",
+      "type": "database",
+      "label": "Postgres",
+      "sublabel": "accounts · ACL · chunks"
+    },
+    {
+      "id": "embed",
+      "type": "external",
+      "label": "Embed API",
+      "sublabel": "query vector"
+    },
+    {
+      "id": "llm",
+      "type": "external",
+      "label": "LLM",
+      "sublabel": "answer stream"
+    }
+  ],
+  "segments": [
+    {
+      "from": 150,
+      "to": 370,
+      "label": "1 · Người dùng đăng nhập"
+    },
+    {
+      "from": 380,
+      "to": 840,
+      "label": "2 · Người dùng hỏi đáp qua RAG"
+    },
+    {
+      "from": 850,
+      "to": 1280,
+      "label": "3 · Admin tạo tài khoản"
+    }
+  ],
+  "messages": [
+    {
+      "id": "login-input",
+      "from": "person",
+      "to": "web",
+      "y": 165,
+      "label": "Nhập email + mật khẩu"
+    },
+    {
+      "id": "login-http",
+      "from": "web",
+      "to": "api",
+      "y": 193,
+      "label": "POST /auth/login · Origin",
+      "variant": "emphasis"
+    },
+    {
+      "id": "authenticate",
+      "from": "api",
+      "to": "service",
+      "y": 221,
+      "label": "AuthService.authenticate"
+    },
+    {
+      "id": "user-query",
+      "from": "service",
+      "to": "db",
+      "y": 249,
+      "label": "Đọc user + password hash"
+    },
+    {
+      "id": "user-result",
+      "from": "db",
+      "to": "service",
+      "y": 277,
+      "label": "Tài khoản hợp lệ",
+      "variant": "return"
+    },
+    {
+      "id": "session-write",
+      "from": "service",
+      "to": "db",
+      "y": 305,
+      "label": "Tạo session + CSRF"
+    },
+    {
+      "id": "session-result",
+      "from": "db",
+      "to": "service",
+      "y": 333,
+      "label": "Token session",
+      "variant": "return"
+    },
+    {
+      "id": "login-result",
+      "from": "api",
+      "to": "web",
+      "y": 361,
+      "label": "Secure HttpOnly cookie + danh tính",
+      "variant": "return"
+    },
+    {
+      "id": "question",
+      "from": "person",
+      "to": "web",
+      "y": 393,
+      "label": "Gửi câu hỏi"
+    },
+    {
+      "id": "chat-request",
+      "from": "web",
+      "to": "api",
+      "y": 421,
+      "label": "POST /chat · cookie phiên",
+      "variant": "emphasis"
+    },
+    {
+      "id": "prepare-chat",
+      "from": "api",
+      "to": "service",
+      "y": 449,
+      "label": "ChatService.prepare"
+    },
+    {
+      "id": "resolve-model",
+      "from": "service",
+      "to": "db",
+      "y": 477,
+      "label": "Đọc cấu hình model tài khoản"
+    },
+    {
+      "id": "model-result",
+      "from": "db",
+      "to": "service",
+      "y": 505,
+      "label": "Provider/model hợp lệ",
+      "variant": "return"
+    },
+    {
+      "id": "embed-question",
+      "from": "service",
+      "to": "embed",
+      "y": 533,
+      "label": "Embed câu hỏi"
+    },
+    {
+      "id": "query-vector",
+      "from": "embed",
+      "to": "service",
+      "y": 561,
+      "label": "Vector 1024 chiều",
+      "variant": "return"
+    },
+    {
+      "id": "authorized-search",
+      "from": "service",
+      "to": "db",
+      "y": 589,
+      "label": "Tìm cosine trong chunks READY",
+      "variant": "security",
+      "note": "Readable documents (role membership OR active read grant) and READY revisions are filtered in SQL before cosine ranking."
+    },
+    {
+      "id": "retrieval-hits",
+      "from": "db",
+      "to": "service",
+      "y": 690,
+      "label": "Đoạn được phép đọc + citation",
+      "variant": "return"
+    },
+    {
+      "id": "prompt-provider",
+      "from": "service",
+      "to": "llm",
+      "y": 718,
+      "label": "Prompt có ngữ cảnh đã lọc quyền",
+      "variant": "emphasis"
+    },
+    {
+      "id": "stream-deltas",
+      "from": "llm",
+      "to": "service",
+      "y": 746,
+      "label": "delta · citations · completed",
+      "variant": "return"
+    },
+    {
+      "id": "sse-response",
+      "from": "api",
+      "to": "web",
+      "y": 774,
+      "label": "SSE: delta / citations / completed",
+      "variant": "return"
+    },
+    {
+      "id": "answer",
+      "from": "web",
+      "to": "person",
+      "y": 802,
+      "label": "Hiển thị câu trả lời + nguồn",
+      "variant": "return"
+    },
+    {
+      "id": "open-admin",
+      "from": "person",
+      "to": "web",
+      "y": 863,
+      "label": "Mở Administration"
+    },
+    {
+      "id": "session-check",
+      "from": "web",
+      "to": "api",
+      "y": 891,
+      "label": "GET /auth/session",
+      "variant": "security"
+    },
+    {
+      "id": "session-identity",
+      "from": "api",
+      "to": "service",
+      "y": 919,
+      "label": "Xác minh cookie + trạng thái user"
+    },
+    {
+      "id": "role-query",
+      "from": "service",
+      "to": "db",
+      "y": 947,
+      "label": "Đọc user + system_role"
+    },
+    {
+      "id": "role-admin",
+      "from": "db",
+      "to": "service",
+      "y": 975,
+      "label": "Active admin + CSRF",
+      "variant": "return"
+    },
+    {
+      "id": "admin-form",
+      "from": "web",
+      "to": "person",
+      "y": 1003,
+      "label": "Hiện form tạo tài khoản",
+      "variant": "return"
+    },
+    {
+      "id": "create-account",
+      "from": "person",
+      "to": "web",
+      "y": 1031,
+      "label": "Nhập tên, email, mật khẩu, role"
+    },
+    {
+      "id": "admin-post",
+      "from": "web",
+      "to": "api",
+      "y": 1059,
+      "label": "POST /admin/users · Origin + CSRF",
+      "variant": "security"
+    },
+    {
+      "id": "admin-service",
+      "from": "api",
+      "to": "service",
+      "y": 1087,
+      "label": "require_admin · khóa + tạo account"
+    },
+    {
+      "id": "admin-commit",
+      "from": "service",
+      "to": "db",
+      "y": 1115,
+      "label": "Ghi user + audit · commit"
+    },
+    {
+      "id": "created-summary",
+      "from": "db",
+      "to": "service",
+      "y": 1143,
+      "label": "Metadata tài khoản mới",
+      "variant": "return"
+    },
+    {
+      "id": "created-response",
+      "from": "api",
+      "to": "web",
+      "y": 1171,
+      "label": "201 · metadata an toàn",
+      "variant": "return",
+      "note": "Không tạo session/cookie cho recipient. Nếu email đã tồn tại trả 409; route yêu cầu Origin + CSRF và service xác minh lại quyền admin."
+    },
+    {
+      "id": "created-ui",
+      "from": "web",
+      "to": "person",
+      "y": 1213,
+      "label": "Thông báo tạo thành công",
+      "variant": "return"
+    }
+  ],
+  "activations": [
+    {
+      "participant": "web",
+      "from": 160,
+      "to": 780,
+      "type": "frontend"
+    },
+    {
+      "participant": "api",
+      "from": 190,
+      "to": 760,
+      "type": "backend"
+    },
+    {
+      "participant": "service",
+      "from": 218,
+      "to": 745,
+      "type": "backend"
+    },
+    {
+      "participant": "service",
+      "from": 888,
+      "to": 1140,
+      "type": "backend"
+    }
+  ],
+  "cards": [
+    {
+      "dot": "cyan",
+      "title": "Người dùng thường",
+      "items": [
+        "Đăng nhập bằng POST /auth/login; API trả cookie phiên Secure + HttpOnly và CSRF token trong response.",
+        "Chat dùng /chat; ChatService xác thực model, embed câu hỏi, gọi AuthorizedRetrievalService và stream câu trả lời cùng citations qua SSE.",
+        "Tài liệu không đọc được hoặc revision chưa READY sẽ không đi vào ngữ cảnh LLM."
+      ]
+    },
+    {
+      "dot": "rose",
+      "title": "Admin",
+      "items": [
+        "Workspace chỉ mở khu vực admin sau khi vai trò trong phiên hiện tại được xác minh; API và service kiểm tra quyền ở backend.",
+        "POST /admin/users kiểm tra Origin + CSRF; service khóa và nạp lại actor admin trước khi ghi user cùng audit trong một transaction.",
+        "Tài khoản mới bắt đầu không có session, project membership hoặc document grants; admin role không bỏ qua ACL tài liệu."
+      ]
+    },
+    {
+      "dot": "amber",
+      "title": "Giới hạn xác minh nguồn",
+      "items": [
+        "Sơ đồ phản ánh working tree ngày 2026-10-23. HEAD được ghim là 1add8751ff37dde46fc037d1581ece34d86512f2; link_mode local-only.",
+        "Phần Admin hiện là mã chưa commit: backend/ruvie/api/admin.py và services/admin.py cùng frontend/src/lib/features/admin/admin-api.ts. Các file này không tồn tại trong revision HEAD nên nguồn của nhánh admin chưa được xác minh theo revision.",
+        "Một số file auth và WorkspacePage cũng đang sửa cục bộ. Giao diện Archify mặc định tiếng Anh; nội dung sequence là tiếng Việt."
+      ]
+    }
+  ]
+}

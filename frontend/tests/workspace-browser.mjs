@@ -1,6 +1,7 @@
 /** F010: rendered workspace behavior, using isolated fake HTTP APIs. */
 import assert from 'node:assert/strict';
 import { runWorkspaceAccessibilityChecks } from './workspace-a11y-browser.mjs';
+import { ensureSidebar, openSettings, closeSettings } from './workspace-actions.mjs';
 import { createServer } from 'node:http';
 import { readFile, mkdir } from 'node:fs/promises';
 import { createRequire } from 'node:module';
@@ -88,8 +89,12 @@ try {
     calls.push({ api, method, body: route.request().postData() });
     const json = (data, status = 200) =>
       route.fulfill({ status, contentType: 'application/json', body: JSON.stringify(data) });
+    if (api === '/auth/setup') return json({ requires_initial_admin: false });
     if (api === '/auth/session')
-      return json({ user: { id: 'user', display_name: 'Nguyễn An' }, csrf_token: 'csrf' });
+      return json({
+        user: { id: 'user', system_role: 'admin', display_name: 'Nguyễn An' },
+        csrf_token: 'csrf',
+      });
     if (api === '/auth/logout') return json({ detail: 'private logout detail' }, 503);
     if (expired && api.startsWith('/llm')) return json({}, 401);
     if (api === '/projects') {
@@ -132,6 +137,18 @@ try {
   });
   await page.goto(origin);
   await page.locator('.chat-welcome').waitFor();
+  await page.waitForFunction(() =>
+    document.querySelector('.workspace-toolbar')?.textContent.includes('First model'),
+  );
+  await page.reload();
+  await page.locator('.chat-welcome').waitFor();
+  await page.evaluate(() => new Promise(requestAnimationFrame));
+  assert.equal(
+    await page.locator('#chat-heading').evaluate((e) => e === document.activeElement),
+    false,
+    'reload does not move focus to the welcome heading',
+  );
+  checks++;
   assert.equal(
     await page.getByRole('heading', { name: 'Xin chào, Nguyễn An', exact: true }).count(),
     1,
@@ -145,15 +162,21 @@ try {
   );
   checks++;
   // Draft changes must not recenter the empty-chat welcome or composer.
-  for (const viewport of [
-    { width: 1366, height: 768 },
-    { width: 375, height: 812 },
-  ]) {
+  for (const viewport of [{ width: 1366, height: 768 }]) {
     await page.setViewportSize(viewport);
     for (const reducedMotion of ['no-preference', 'reduce']) {
       await page.emulateMedia({ reducedMotion });
       await page.locator('#question').fill('');
       await page.evaluate(() => document.fonts.ready);
+      await page.evaluate(async () => {
+        document.body.getBoundingClientRect();
+        await Promise.all(
+          document
+            .getAnimations()
+            .filter((animation) => animation.effect.getTiming().iterations !== Infinity)
+            .map((animation) => animation.finished.catch(() => {})),
+        );
+      });
       const welcome = await page.locator('.chat-welcome').boundingBox();
       const composer = await page.locator('.composer').boundingBox();
       const suggestions = await page.locator('.chat-suggestions').boundingBox();
@@ -213,26 +236,43 @@ try {
   } else {
     await mkdir(fileURLToPath(new URL('../../logs/f010/', import.meta.url)), { recursive: true });
     const nav = page.getByRole('navigation', { name: 'Điều hướng chính' });
+    await ensureSidebar(page);
     for (const name of ['Chat mới', 'Tìm kiếm', 'Ghi chú', 'Workspace', 'Dự án', 'Tài liệu'])
       assert.equal(await nav.getByRole('button', { name, exact: true }).count(), 1);
     checks++;
+    await nav.getByRole('button', { name: 'Ghi chú', exact: true }).click();
+    await page.waitForFunction(() =>
+      document.activeElement?.matches('.view-panel:not([hidden]) [data-view-heading]'),
+    );
+    await page.goBack();
+    await page.waitForFunction(() => document.activeElement?.id === 'chat-heading');
+    await page.goForward();
+    await page.waitForFunction(() =>
+      document.activeElement?.matches('.view-panel:not([hidden]) [data-view-heading]'),
+    );
+    await page.goBack();
+    await page.waitForFunction(() => document.activeElement?.id === 'chat-heading');
+    checks++;
     assert.equal(
-      await page.locator('.composer [aria-label="Chọn model"]').count(),
+      await page.locator('.workspace-toolbar [aria-label="Chọn model"]').count(),
       1,
-      'model selector belongs to composer',
+      'model selector belongs to the current workspace toolbar',
     );
     assert.equal(
       calls.filter((c) => c.api === '/models').length,
-      1,
-      'catalog loads before opening Settings',
+      2,
+      'catalog loads once per page load before opening Settings',
     );
     checks++;
-    await page.getByRole('button', { name: 'Tóm tắt tài liệu', exact: true }).click();
-    assert.equal(await page.locator('#question').inputValue(), 'Tóm tắt tài liệu');
+    await page.locator('#question').fill('');
+    await page.getByRole('button', { name: 'Tìm nguyên nhân lỗi', exact: true }).click();
+    const suggested =
+      'Tôi gặp lỗi khi sử dụng [phần mềm, phiên bản]. Thông báo lỗi: […]. Lỗi xuất hiện khi […].';
+    assert.equal(await page.locator('#question').inputValue(), suggested);
     assert.equal(calls.filter((c) => c.api === '/chat').length, 0);
     checks++;
     await page.getByRole('button', { name: 'Thu gọn sidebar', exact: true }).click();
-    assert.equal(await page.locator('#question').inputValue(), 'Tóm tắt tài liệu');
+    assert.equal(await page.locator('#question').inputValue(), suggested);
     await snap('sidebar-collapsed');
     await page.getByRole('button', { name: 'Mở sidebar', exact: true }).click();
     checks++;
@@ -264,36 +304,38 @@ try {
     const initialGets = calls.filter((c) => c.method === 'GET' && c.api.startsWith('/llm')).length;
     await page.locator('.account-trigger').click();
     await page.locator('.account-settings').click();
-    await page.getByRole('dialog', { name: 'Cài đặt', exact: true }).waitFor();
-    await page.locator('#settings-tab-general').focus();
+    await page.locator('#settings-heading').waitFor();
+    await page.locator('#settings-tab-appearance').focus();
     await page.keyboard.press('ArrowRight');
-    assert.equal(await page.locator('#settings-tab-llm').getAttribute('aria-selected'), 'true');
     assert.equal(
-      await page.locator('#settings-tab-llm').evaluate((e) => e === document.activeElement),
+      await page.locator('#settings-tab-appearance').getAttribute('aria-selected'),
+      'true',
+    );
+    assert.equal(
+      await page.locator('#settings-tab-appearance').evaluate((e) => e === document.activeElement),
       true,
     );
+    assert.equal(await page.locator('#llm-key').count(), 0);
+    await closeSettings(page);
+    assert.equal(await page.locator('dialog[open]').count(), 0);
+    await openSettings(page, 'llm');
     assert.equal(await page.locator('#llm-key').inputValue(), '');
-    await page.locator('.settings-dialog').press('Escape');
-    assert.equal(await page.locator('.settings-dialog').isVisible(), false);
-    await page.locator('.account-trigger').click();
-    await page.locator('.account-settings').click();
-    await page.locator('#settings-tab-llm').click();
     assert.equal(
       calls.filter((c) => c.method === 'GET' && c.api.startsWith('/llm')).length,
       initialGets,
-      'modal reopen does not reload catalog',
+      'settings navigation does not reload catalog',
     );
     checks++;
     await page.locator('#llm-key').fill('draft-secret');
     await page.getByRole('button', { name: 'Kết nối', exact: true }).click();
     await page.getByRole('button', { name: 'Đang xử lý…', exact: true }).waitFor();
-    await page.locator('.settings-dialog').press('Escape');
+    await closeSettings(page);
     assert.equal(
       await page.getByRole('button', { name: 'Chọn model', exact: true }).isDisabled(),
       true,
     );
     saveRelease();
-    await page.getByText('Model: Second model', { exact: true }).waitFor();
+    await page.locator('.workspace-toolbar').getByText('Second model', { exact: true }).waitFor();
     assert.equal(
       calls.filter((c) => c.method === 'PUT').length,
       1,
@@ -362,27 +404,22 @@ try {
     await page.screenshot({
       path: fileURLToPath(new URL('../../logs/f010/chat-desktop.png', import.meta.url)),
     });
-    await page.locator('.account-trigger').click();
-    await page.locator('.account-settings').click();
-    await page.locator('#settings-tab-llm').click();
+    await openSettings(page, 'llm');
     await page.screenshot({
       path: fileURLToPath(new URL('../../logs/f010/settings-desktop.png', import.meta.url)),
     });
-    await page.locator('.settings-dialog').press('Escape');
-    for (const size of [
-      { width: 1024, height: 600 },
-      { width: 375, height: 812 },
-    ]) {
+    await closeSettings(page);
+    for (const size of [{ width: 1024, height: 600 }]) {
       await page.setViewportSize(size);
       assert.equal(
         await page.evaluate(() => document.documentElement.scrollWidth <= innerWidth + 1),
         true,
       );
       await page.locator('#question').fill('Preserved draft');
-      if (!(await nav.isVisible())) await page.locator('.sidebar-open').click();
+      await ensureSidebar(page);
       await nav.getByRole('button', { name: 'Ghi chú', exact: true }).click();
       await page.getByRole('heading', { name: 'Ghi chú', exact: true }).waitFor();
-      if (!(await nav.isVisible())) await page.locator('.sidebar-open').click();
+      await ensureSidebar(page);
       await page.locator('.sidebar-brand').click();
       assert.equal(await page.locator('#question').inputValue(), 'Preserved draft');
       await page.locator('#question').evaluate((e) => e.blur());
@@ -392,6 +429,7 @@ try {
       checks++;
     }
     await page.setViewportSize({ width: 1366, height: 768 });
+    await ensureSidebar(page);
     await nav.getByRole('button', { name: 'Dự án', exact: true }).click();
     await page
       .locator('.projects-page')
@@ -471,15 +509,13 @@ try {
     );
     assert.ok(!(await page.locator('body').innerText()).includes('private logout detail'));
     checks++;
-    await page.locator('.account-trigger').click();
-    await page.locator('.account-settings').click();
-    await page.locator('#settings-tab-llm').click();
+    await openSettings(page, 'llm');
     expired = true;
     await page.locator('.llm-panel').getByRole('button', { name: 'Tải lại', exact: true }).click();
     await page.getByRole('heading', { name: 'Đăng nhập', exact: true }).waitFor();
     assert.equal(
       await page
-        .locator('.workspace-shell,.settings-dialog,.account-menu,.chat-controls-panel')
+        .locator('.workspace-shell,.settings-embedded,.account-menu,.chat-controls-panel')
         .count(),
       0,
       '401 unmounts all account surfaces',

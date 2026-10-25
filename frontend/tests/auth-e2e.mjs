@@ -17,7 +17,7 @@ const mime = {
 };
 const server = createServer(async (req, res) => {
   const pathname = new URL(req.url, 'http://localhost').pathname;
-  if (/^\/(auth|projects|documents|llm|models|chat)(\/|$)/.test(pathname)) {
+  if (/^\/(auth|admin|projects|documents|llm|models|chat)(\/|$)/.test(pathname)) {
     const upstream = proxyRequest(
       new URL(req.url, process.env.RUVIE_E2E_BACKEND_URL),
       { method: req.method, headers: req.headers },
@@ -66,10 +66,13 @@ try {
     (response) =>
       response.url().endsWith('/auth/register') && response.request().method() === 'POST',
   );
-  await page.getByRole('button', { name: 'Tạo tài khoản', exact: true }).click();
+  await page.locator('form:has(#password_confirmation) button[type=submit]').click();
   const response = await registration;
   assert.equal(response.status(), 201);
   const user = (await response.json()).user;
+  assert.equal(user.system_role, 'admin');
+  await page.locator('#admin-users-heading').waitFor();
+  assert.equal(new URL(page.url()).searchParams.get('view'), 'admin-users');
   await page.getByRole('navigation', { name: 'Điều hướng chính' }).waitFor();
   assert.equal(await page.locator('.account-name').innerText(), 'Nguyễn An');
   const cookies = await page.context().cookies();
@@ -86,17 +89,32 @@ try {
   assert.equal(await page.locator('.auth-form').count(), 0);
   await logoutFromMenu(page);
   await page.getByRole('button', { name: 'Đăng nhập', exact: true }).waitFor();
-  await page.getByRole('link', { name: 'Tạo tài khoản', exact: true }).click();
-  await page.getByLabel('Tên hiển thị', { exact: true }).fill('Replacement');
-  await page.getByLabel('Email', { exact: true }).fill(email.toUpperCase());
-  await page.getByLabel('Mật khẩu', { exact: true }).fill('replacement-password');
-  await page.getByLabel('Nhập lại mật khẩu', { exact: true }).fill('replacement-password');
-  const duplicate = page.waitForResponse((response) => response.url().endsWith('/auth/register'));
-  await page.getByRole('button', { name: 'Tạo tài khoản', exact: true }).click();
-  assert.equal((await duplicate).status(), 409);
-  await page.getByText('Email này đã có tài khoản. Hãy đăng nhập.', { exact: true }).waitFor();
-  await page.getByRole('link', { name: 'Đăng nhập', exact: true }).click();
+  assert.equal(
+    await page.getByRole('link', { name: 'Tạo tài khoản quản trị viên', exact: true }).count(),
+    0,
+  );
+  await page.goto(origin + '/?form=register');
+  await page.getByRole('button', { name: 'Đăng nhập', exact: true }).waitFor();
+  assert.equal(await page.getByLabel('Tên hiển thị', { exact: true }).count(), 0);
+  const blocked = await page.evaluate(
+    async ({ email }) => {
+      const reply = await fetch('/auth/register', {
+        method: 'POST',
+        headers: { 'Content-Type': 'application/json' },
+        body: JSON.stringify({
+          display_name: 'Replacement',
+          email,
+          password: 'replacement-password',
+        }),
+      });
+      return { status: reply.status, body: await reply.json() };
+    },
+    { email: email.toUpperCase() },
+  );
+  assert.equal(blocked.status, 409);
+  assert.equal(blocked.body.detail.code, 'setup_already_completed');
   assert.equal(await page.getByLabel('Mật khẩu', { exact: true }).inputValue(), '');
+  await page.getByLabel('Email', { exact: true }).fill(email);
   await page.getByLabel('Mật khẩu', { exact: true }).fill(password);
   await page.getByRole('button', { name: 'Đăng nhập', exact: true }).click();
   await page.getByRole('navigation', { name: 'Điều hướng chính' }).waitFor();

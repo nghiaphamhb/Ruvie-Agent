@@ -49,12 +49,27 @@ try {
     release,
     slow = false,
     calls = 0,
-    submitted;
+    submitted,
+    requiresInitialAdmin = true,
+    setupStatus = 200,
+    setupSlow = false,
+    releaseSetup,
+    blockedSetup,
+    dropRegistration = false;
   await page.route('**/*', async (route) => {
     const api = new URL(route.request().url()).pathname;
     const json = (data, code = 200) =>
       route.fulfill({ status: code, contentType: 'application/json', body: JSON.stringify(data) });
     if (api === '/auth/session') return json(current || {}, current ? 200 : 401);
+    if (api === '/auth/setup') {
+      const observedState = requiresInitialAdmin;
+      if (setupSlow)
+        await new Promise((resolve) => {
+          releaseSetup = resolve;
+          blockedSetup?.();
+        });
+      return json({ requires_initial_admin: observedState }, setupStatus);
+    }
     if (api === '/auth/register') {
       calls++;
       submitted = route.request().postDataJSON();
@@ -62,20 +77,30 @@ try {
         await new Promise((resolve) => {
           release = resolve;
         });
-      if (status === 409)
-        return json({ detail: { code: 'email_taken', fields: { email: 'email_taken' } } }, 409);
+      if (status === 409) {
+        requiresInitialAdmin = false;
+        return json({ detail: { code: 'setup_already_completed' } }, 409);
+      }
       if (status === 422)
         return json(
           { detail: { code: 'validation_error', fields: { password: 'password_length' } } },
           422,
         );
       if (status === 500) return json({ detail: 'private SQL/password detail' }, 500);
-      current = { user: { id: 'new', display_name: 'Nguyễn An' }, csrf_token: 'csrf' };
+      requiresInitialAdmin = false;
+      if (dropRegistration) return route.abort('failed');
+      current = {
+        user: { id: 'new', display_name: 'Nguyễn An', system_role: 'admin' },
+        csrf_token: 'csrf',
+      };
       return json(current, 201);
     }
     if (api === '/auth/login') {
       if (loginStatus !== 200) return json({ detail: 'private login details' }, loginStatus);
-      current = { user: { id: 'new', display_name: 'Nguyễn An' }, csrf_token: 'csrf' };
+      current = {
+        user: { id: 'new', display_name: 'Nguyễn An', system_role: 'admin' },
+        csrf_token: 'csrf',
+      };
       return json(current);
     }
     if (api === '/auth/logout') {
@@ -85,6 +110,70 @@ try {
     if (api === '/projects') return json({ items: [] });
     return route.continue();
   });
+  setupSlow = true;
+  const firstSetupHeld = new Promise((resolve) => {
+    blockedSetup = resolve;
+  });
+  const requestedSetup = page.waitForRequest('**/auth/setup', { timeout: 3000 }).then(
+    () => true,
+    () => false,
+  );
+  await page.goto(origin + '/?form=register');
+  assert.equal(await requestedSetup, true, 'signed-out app must read setup before showing a form');
+  await firstSetupHeld;
+  assert.equal(await page.locator('form').count(), 0, 'setup pending must not flash bootstrap');
+  setupSlow = false;
+  releaseSetup();
+  await page.getByLabel('Tên hiển thị', { exact: true }).waitFor();
+  setupStatus = 503;
+  await page.reload();
+  await page.getByRole('button', { name: 'Thử lại', exact: true }).first().waitFor();
+  assert.equal(await page.locator('form').count(), 0);
+  setupStatus = 200;
+  await page.getByRole('button', { name: 'Thử lại', exact: true }).first().click();
+  await page.getByLabel('Tên hiển thị', { exact: true }).waitFor();
+  requiresInitialAdmin = false;
+  await page.goto(origin + '/?form=register');
+  await page.getByRole('button', { name: 'Đăng nhập', exact: true }).waitFor();
+  assert.equal(await page.getByLabel('Tên hiển thị', { exact: true }).count(), 0);
+  assert.equal(
+    await page.getByRole('link', { name: 'Tạo tài khoản quản trị viên', exact: true }).count(),
+    0,
+  );
+  assert.equal(new URL(page.url()).searchParams.get('form'), 'login');
+  // Two retries may overlap; an older "empty" result must not reopen bootstrap.
+  await page.route('**/auth/session', (route) => route.abort('failed'));
+  await page.reload();
+  const retryNotice = page
+    .locator('[data-sonner-toast]')
+    .getByRole('button', { name: 'Thử lại', exact: true });
+  await retryNotice.waitFor();
+  await page.unroute('**/auth/session');
+  setupSlow = true;
+  requiresInitialAdmin = true;
+  const oldSetupRequested = page.waitForRequest('**/auth/setup');
+  const oldSetupHeld = new Promise((resolve) => {
+    blockedSetup = resolve;
+  });
+  await page.locator('.auth-card').getByRole('button', { name: 'Thử lại', exact: true }).click();
+  await oldSetupRequested;
+  await oldSetupHeld;
+  const releaseOldSetup = releaseSetup;
+  setupSlow = false;
+  requiresInitialAdmin = false;
+  await retryNotice.click();
+  await page.getByRole('button', { name: 'Đăng nhập', exact: true }).waitFor();
+  const oldSetupResponse = page.waitForResponse('**/auth/setup');
+  releaseOldSetup();
+  await oldSetupResponse;
+  await page.evaluate(() => new Promise(requestAnimationFrame));
+  assert.equal(
+    await page.getByRole('link', { name: 'Tạo tài khoản quản trị viên', exact: true }).count(),
+    0,
+  );
+  checks++;
+  requiresInitialAdmin = true;
+  checks += 4;
   await page.setViewportSize({ width: 1280, height: 605 });
   await page.goto(origin + '/?form=register');
   await page.locator('form').waitFor();
@@ -94,7 +183,7 @@ try {
     'whole stage fits at 100% zoom on a low laptop viewport',
   );
   await page.setViewportSize({ width: 1366, height: 768 });
-  await page.goto(origin);
+  await page.goto(origin + '/?form=login');
   await page.waitForFunction(() => document.querySelector('[data-slot="inner-curl"]')?.complete);
   const artColor = await page.locator('[data-slot="inner-curl"]').evaluate((image) => {
     const canvas = document.createElement('canvas');
@@ -116,10 +205,10 @@ try {
     'decorative artwork must retain the blue Figma appearance',
   );
   await page.getByRole('button', { name: 'Đăng nhập', exact: true }).waitFor();
-  await page.getByRole('link', { name: 'Tạo tài khoản', exact: true }).click();
+  await page.getByRole('link', { name: 'Tạo tài khoản quản trị viên', exact: true }).click();
   await page.getByLabel('Tên hiển thị', { exact: true }).waitFor();
   assert.equal(new URL(page.url()).searchParams.get('form'), 'register');
-  await page.getByRole('button', { name: 'Tạo tài khoản', exact: true }).click();
+  await page.getByRole('button', { name: 'Tạo tài khoản quản trị viên', exact: true }).click();
   assert.equal(calls, 0);
   assert.equal(await page.evaluate(() => document.activeElement.id), 'display_name');
   const name = page.getByLabel('Tên hiển thị', { exact: true }),
@@ -151,7 +240,7 @@ try {
   await confirmation.fill('registered-password');
   await confirmation.fill('different-password');
   const beforeMismatch = calls;
-  await page.getByRole('button', { name: 'Tạo tài khoản', exact: true }).click();
+  await page.getByRole('button', { name: 'Tạo tài khoản quản trị viên', exact: true }).click();
   await page.getByText('Mật khẩu nhập lại chưa khớp.', { exact: true }).waitFor();
   assert.equal(calls, beforeMismatch, 'mismatched confirmation must never call the API');
   assert.equal(await page.evaluate(() => document.activeElement.id), 'password_confirmation');
@@ -165,28 +254,36 @@ try {
   await confirmation.fill('registered-password');
   checks += 3;
   status = 409;
-  await page.getByRole('button', { name: 'Tạo tài khoản', exact: true }).click();
+  await page.getByRole('button', { name: 'Tạo tài khoản quản trị viên', exact: true }).click();
   await page
-    .getByText('Email này đã có tài khoản. Hãy đăng nhập.', { exact: true })
+    .getByText('Hệ thống đã được khởi tạo. Hãy đăng nhập.', { exact: true })
     .first()
     .waitFor();
-  assert.equal(await page.evaluate(() => document.activeElement.id), 'email');
+  await page.getByRole('button', { name: 'Đăng nhập', exact: true }).waitFor();
+  assert.equal(await name.count(), 0);
   for (const locale of ['en-US', 'ru-RU', 'vi-VN']) {
     await page.locator('#login-language').selectOption(locale);
     await page.waitForFunction((language) => document.documentElement.lang === language, locale);
-    assert.equal(await page.getByText('auth.errors.emailTaken', { exact: true }).count(), 0);
+    assert.equal(await page.getByText('auth.errors.setupCompleted', { exact: true }).count(), 0);
   }
   status = 422;
+  requiresInitialAdmin = true;
+  await page.goto(origin + '/?form=register');
+  await name.fill('Nguyễn An');
+  await email.fill('an@example.test');
   await password.fill('registered-password-new');
   await confirmation.fill('registered-password-new');
-  await page.getByRole('button', { name: 'Tạo tài khoản', exact: true }).click();
-  await page.getByText('Mật khẩu phải có 12–128 ký tự.', { exact: true }).waitFor();
+  await page.getByRole('button', { name: 'Tạo tài khoản quản trị viên', exact: true }).click();
+  await page
+    .locator('#password-error')
+    .getByText('Mật khẩu phải có 12–128 ký tự.', { exact: true })
+    .waitFor();
   assert.equal(await page.evaluate(() => document.activeElement.id), 'password');
   checks++;
   status = 500;
   await password.fill('registered-password-newer');
   await confirmation.fill('registered-password-newer');
-  await page.getByRole('button', { name: 'Tạo tài khoản', exact: true }).click();
+  await page.getByRole('button', { name: 'Tạo tài khoản quản trị viên', exact: true }).click();
   await page.getByText('Không thể tạo tài khoản. Vui lòng thử lại.', { exact: true }).waitFor();
   assert.equal((await page.locator('body').innerText()).includes('private SQL'), false);
   assert.equal(
@@ -202,9 +299,10 @@ try {
   checks += 2;
   status = 201;
   slow = true;
+  await name.fill('Nguyễn An');
   await password.fill(' registered-password ');
   await confirmation.fill(' registered-password ');
-  await page.getByRole('button', { name: 'Tạo tài khoản', exact: true }).click();
+  await page.getByRole('button', { name: 'Tạo tài khoản quản trị viên', exact: true }).click();
   await page.waitForFunction(
     () => document.querySelector('form')?.getAttribute('aria-busy') === 'true',
   );
@@ -235,6 +333,28 @@ try {
   await logoutFromMenu(page);
   await page.getByRole('button', { name: 'Đăng nhập', exact: true }).waitFor();
   checks += 7;
+  // The server may commit even when the client loses the response. Do not retry or infer identity.
+  requiresInitialAdmin = true;
+  dropRegistration = true;
+  await page.goto(origin + '/?form=register');
+  await name.fill('Nguyễn An');
+  await email.fill('an@example.test');
+  await password.fill('unknown-password');
+  await confirmation.fill('unknown-password');
+  const beforeLostResponse = calls;
+  await page.getByRole('button', { name: 'Tạo tài khoản quản trị viên', exact: true }).click();
+  await page.getByRole('button', { name: 'Đăng nhập', exact: true }).waitFor();
+  await page
+    .getByText(
+      'Chưa xác định được kết quả tạo tài khoản. Hãy kiểm tra trạng thái rồi đăng nhập nếu đã có tài khoản.',
+      { exact: true },
+    )
+    .waitFor();
+  assert.equal(calls, beforeLostResponse + 1);
+  assert.equal(await password.inputValue(), '');
+  assert.equal(await name.count(), 0);
+  dropRegistration = false;
+  checks += 3;
   const dropdown = page.getByRole('combobox', { name: 'Ngôn ngữ', exact: true });
   assert.ok((await dropdown.boundingBox()).height <= 44.1, 'single compact dropdown');
   assert.equal(
@@ -252,6 +372,7 @@ try {
     'glass border is thin and subtle',
   );
   checks += 2;
+  requiresInitialAdmin = true; // Exercise the legitimate empty-system form in layout checks.
   const sizes = [
     { width: 1920, height: 1080 },
     { width: 1366, height: 768 },
@@ -260,9 +381,6 @@ try {
     { width: 1280, height: 605 },
     { width: 1366, height: 650 },
     { width: 1024, height: 600 },
-    { width: 768, height: 1024 },
-    { width: 375, height: 812 },
-    { width: 320, height: 568 },
     { width: 640, height: 360 },
   ];
   await mkdir(fileURLToPath(new URL('../../logs/f009/', import.meta.url)), { recursive: true });
@@ -322,7 +440,7 @@ try {
       await page.locator('.auth-submit').scrollIntoViewIfNeeded();
       assert.equal(await page.locator('.auth-submit').isVisible(), true);
       checks++;
-      if ([1920, 1526, 1280, 375, 320].includes(size.width))
+      if ([1920, 1526, 1280].includes(size.width))
         await page.screenshot({
           path: fileURLToPath(
             new URL(`../../logs/f009/${mode}-${size.width}.png`, import.meta.url),
@@ -344,41 +462,15 @@ try {
   }
 
   // Russian text and 200% zoom use the actual browser, not source-string comparisons.
-  await page.setViewportSize({ width: 320, height: 568 });
-  for (const locale of ['vi-VN', 'en-US', 'ru-RU']) {
-    await page.goto(origin + '/?form=register');
-    await page.locator('#login-language').selectOption(locale);
-    await page.waitForFunction((language) => document.documentElement.lang === language, locale);
-    assert.equal(
-      await page.evaluate(() => document.documentElement.scrollWidth <= innerWidth + 1),
-      true,
-    );
-    for (const label of await page.locator('.auth-field label,.auth-hint,.auth-switch').all())
-      assert.ok((await label.evaluate((el) => parseFloat(getComputedStyle(el).fontSize))) >= 14);
-    for (const input of await page.locator('.auth-input').all())
-      assert.ok((await input.evaluate((el) => parseFloat(getComputedStyle(el).fontSize))) >= 16);
-    await page
-      .getByLabel(
-        locale === 'vi-VN'
-          ? 'Tên hiển thị'
-          : locale === 'en-US'
-            ? 'Display name'
-            : 'Отображаемое имя',
-        { exact: true },
-      )
-      .focus();
-    assert.notEqual(
-      await page.locator('#display_name').evaluate((el) => getComputedStyle(el).outlineStyle),
-      'none',
-    );
-    checks++;
-  }
   const zoom = await browser.newPage({
     viewport: { width: 640, height: 360 },
     deviceScaleFactor: 2,
     locale: 'vi-VN',
   });
   await zoom.route('**/auth/session', (route) => route.fulfill({ status: 401 }));
+  await zoom.route('**/auth/setup', (route) =>
+    route.fulfill({ json: { requires_initial_admin: true } }),
+  );
   for (const mode of ['login', 'register']) {
     await zoom.goto(origin + '/?form=' + mode);
     await zoom.locator('.auth-form').waitFor();
@@ -516,6 +608,7 @@ try {
   assert.ok(fallbackPaint.ratio >= 4.5);
   assert.equal(await page.locator('.auth-submit').isVisible(), true);
   checks++;
+  requiresInitialAdmin = false;
   // Server feedback uses the shared root toast; client validation stays beside its field.
   await page.setViewportSize({ width: 1280, height: 605 });
   await page.goto(origin + '/?form=login');
@@ -550,19 +643,10 @@ try {
     timeout: 8000,
   });
   checks += 5;
-  await page.setViewportSize({ width: 320, height: 568 });
-  await page.locator('#login-language').selectOption('vi-VN');
-  await page.getByRole('button', { name: 'Đăng nhập', exact: true }).click();
-  await toast.getByText('Email hoặc mật khẩu không đúng.', { exact: true }).waitFor();
-  const box = await toast.boundingBox();
-  assert.ok(box.x >= 0 && box.x + box.width <= 320, 'mobile toast fits the viewport');
-  await page.screenshot({
-    path: fileURLToPath(new URL('../../logs/f009/login-toast-mobile.png', import.meta.url)),
-    fullPage: true,
-  });
-  await page.getByRole('button', { name: 'Đóng thông báo', exact: true }).click();
-  await page.waitForFunction(() => !document.querySelector('[data-sonner-toast]'));
   await page.unroute('**/*');
+  await page.route('**/auth/setup', (route) =>
+    route.fulfill({ json: { requires_initial_admin: false } }),
+  );
   await page.route('**/auth/session', (route) => route.abort('failed'));
   await page.goto(origin + '/?form=login');
   await toast.getByRole('button', { name: 'Thử lại', exact: true }).waitFor();

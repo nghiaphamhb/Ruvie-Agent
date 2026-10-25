@@ -30,6 +30,13 @@
 </div>
 
 <style>
+  :global(.workspace-shell) .language-selector {
+    --language-bg: var(--surface);
+    --language-ink: var(--ink);
+    --language-border: var(--border);
+    --language-hover: var(--soft);
+    color-scheme: var(--control-color-scheme);
+  }
   .language-selector {
     position: relative;
     display: block;
@@ -63,24 +70,24 @@
     appearance: none;
     padding: 8px 14px 8px 42px;
     border-radius: 8px;
-    background: rgba(0, 52, 101, 0.35);
-    color: white;
-    border-color: rgba(255, 255, 255, 0.18);
+    background: var(--language-bg, rgba(0, 52, 101, 0.35));
+    color: var(--language-ink, white);
+    border-color: var(--language-border, rgba(255, 255, 255, 0.18));
     font-size: 14px;
   }
   select:hover {
-    background: rgba(0, 52, 101, 0.5);
+    background: var(--language-hover, rgba(0, 52, 101, 0.5));
   }
   select option {
-    background: white;
-    color: #073b65;
+    background: var(--language-bg, white);
+    color: var(--language-ink, #073b65);
   }
   .language-icon {
     position: absolute;
     left: 14px;
     top: 50%;
     transform: translateY(-50%);
-    color: white;
+    color: var(--language-ink, white);
     pointer-events: none;
   }
   @supports (appearance: base-select) {
@@ -101,10 +108,10 @@
     select::picker(select) {
       margin-top: 8px;
       padding: 6px;
-      border: 1px solid rgba(255, 255, 255, 0.2);
+      border: 1px solid var(--language-border, rgba(255, 255, 255, 0.2));
       border-radius: 16px;
-      background: #074675;
-      color: white;
+      background: var(--language-bg, #074675);
+      color: var(--language-ink, white);
       box-shadow: 0 12px 32px rgba(0, 22, 48, 0.28);
       font: inherit;
     }
@@ -116,18 +123,18 @@
       padding: 8px 10px;
       border-radius: 10px;
       background: transparent;
-      color: white;
+      color: var(--language-ink, white);
       cursor: pointer;
     }
     select option:hover,
     select option:focus {
-      background: rgba(255, 255, 255, 0.12);
+      background: var(--language-hover, rgba(255, 255, 255, 0.12));
     }
     select option:checked {
-      background: rgba(255, 255, 255, 0.2);
+      background: var(--language-hover, rgba(255, 255, 255, 0.2));
     }
     select option::checkmark {
-      color: white;
+      color: var(--language-ink, white);
     }
   }
 </style>

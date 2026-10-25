@@ -1,0 +1,76 @@
+{
+  "schemaVersion": 1,
+  "ok": true,
+  "command": "finalize",
+  "status": "pass",
+  "type": "architecture",
+  "quality": "showcase",
+  "specification": {
+    "path": "D:\\Github Repository\\Ruvie-Agent\\.archify\\architecture-ruvie-20261023-203734\\candidate.json",
+    "sha256": "202b1c014afe5f407e207cef8fbc1daa72c1f57378935402afa29f88ceba2ba2",
+    "bytes": 6352
+  },
+  "artifact": {
+    "path": "D:\\Github Repository\\Ruvie-Agent\\.archify\\architecture-ruvie-20261023-203734\\ruvie-architecture.html",
+    "sha256": "8035a6a39ba5e843a0206c0563b224fedc0507829a5c7848126b78f379c76cd0",
+    "bytes": 831118
+  },
+  "gates": {
+    "validate": "pass",
+    "deliver": "pass",
+    "check": "pass",
+    "browser-check": "pass"
+  },
+  "diagnostics": [
+    {
+      "code": "i18n/locale-fallback",
+      "severity": "warning",
+      "message": "meta.locale \"vi\" has no bundled catalog and no usable meta.translations; the Viewer chrome and <html lang> fall back to English.",
+      "subject": {
+        "diagramType": "architecture",
+        "path": "/meta/locale"
+      },
+      "evidence": {
+        "locale": "vi",
+        "bundledLocales": [
+          "en",
+          "zh-CN",
+          "zh-TW",
+          "es",
+          "ko",
+          "ar"
+        ]
+      },
+      "supportedFixes": [
+        "Supply meta.translations for this locale.",
+        "Use a bundled locale: en, zh-CN, zh-TW, es, ko, ar."
+      ]
+    }
+  ],
+  "diagnosticSummary": {
+    "total": 1,
+    "shown": 1,
+    "truncated": false
+  },
+  "evidence": {
+    "receipt": "D:\\Github Repository\\Ruvie-Agent\\.archify\\architecture-ruvie-20261023-203734\\ruvie-architecture.finalize.json",
+    "summaryReceipt": "D:\\Github Repository\\Ruvie-Agent\\.archify\\architecture-ruvie-20261023-203734\\ruvie-architecture.finalize-summary.json",
+    "browserCheckReceipt": "D:\\Github Repository\\Ruvie-Agent\\.archify\\architecture-ruvie-20261023-203734\\ruvie-architecture.browser-check.json"
+  },
+  "update": {
+    "status": "current",
+    "installedVersion": "3.2.0",
+    "availableVersion": "3.2.0",
+    "releaseNotes": null,
+    "checkedAt": "2026-10-23T17:40:01.884Z",
+    "source": "network",
+    "noticeRequired": false,
+    "noticeText": null
+  },
+  "visualReview": "not-requested",
+  "durationMs": 5514,
+  "browserCheck": {
+    "requested": true,
+    "ran": true
+  }
+}

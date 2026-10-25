@@ -1,0 +1,51 @@
+{
+  "schemaVersion": 1,
+  "ok": true,
+  "command": "finalize",
+  "status": "pass",
+  "type": "sequence",
+  "quality": "showcase",
+  "specification": {
+    "path": "D:\\Github Repository\\Ruvie-Agent\\.archify\\sequence-user-admin-20261023-205115\\candidate.json",
+    "sha256": "49fd900aafb56541eff5d96f239f01a3abd0a3c0332acca505e57e808c5b21e2",
+    "bytes": 9929
+  },
+  "artifact": {
+    "path": "D:\\Github Repository\\Ruvie-Agent\\.archify\\sequence-user-admin-20261023-205115\\user-admin-sequence.html",
+    "sha256": "3f0805029165647aa513a6ee731f31258474b6c986d9da05032677ab3eaa0737",
+    "bytes": 838063
+  },
+  "gates": {
+    "validate": "pass",
+    "deliver": "pass",
+    "check": "pass",
+    "browser-check": "pass"
+  },
+  "diagnostics": [],
+  "diagnosticSummary": {
+    "total": 0,
+    "shown": 0,
+    "truncated": false
+  },
+  "evidence": {
+    "receipt": "D:\\Github Repository\\Ruvie-Agent\\.archify\\sequence-user-admin-20261023-205115\\user-admin-sequence.finalize.json",
+    "summaryReceipt": "D:\\Github Repository\\Ruvie-Agent\\.archify\\sequence-user-admin-20261023-205115\\user-admin-sequence.finalize-summary.json",
+    "browserCheckReceipt": "D:\\Github Repository\\Ruvie-Agent\\.archify\\sequence-user-admin-20261023-205115\\user-admin-sequence.browser-check.json"
+  },
+  "update": {
+    "status": "current",
+    "installedVersion": "3.2.0",
+    "availableVersion": "3.2.0",
+    "releaseNotes": null,
+    "checkedAt": "2026-10-23T17:40:01.884Z",
+    "source": "cache",
+    "noticeRequired": false,
+    "noticeText": null
+  },
+  "visualReview": "not-requested",
+  "durationMs": 4757,
+  "browserCheck": {
+    "requested": true,
+    "ran": true
+  }
+}

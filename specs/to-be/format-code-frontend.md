@@ -1,1 +1,0 @@
-eslint as an example 

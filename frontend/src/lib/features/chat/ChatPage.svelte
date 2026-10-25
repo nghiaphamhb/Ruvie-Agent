@@ -147,15 +147,6 @@
   .chat-suggestions button:hover {
     background: var(--soft);
   }
-  @media (max-width: 600px) {
-    .chat-page {
-      padding: 12px 16px 16px;
-    }
-    .chat-page.empty {
-      justify-content: flex-start;
-      padding-top: 24px;
-    }
-  }
   @media (max-height: 600px) {
     .chat-page.empty {
       padding-top: 12px;

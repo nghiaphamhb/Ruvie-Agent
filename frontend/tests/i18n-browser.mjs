@@ -1,9 +1,4 @@
-import {
-  showWorkspaceView,
-  openSettings,
-  closeSettings,
-  logoutFromMenu,
-} from './workspace-actions.mjs';
+import { showWorkspaceView, openSettings, logoutFromMenu } from './workspace-actions.mjs';
 /** Locale browser checks use fake APIs, never live credentials or the development DB. */
 import { fileURLToPath } from 'node:url';
 import assert from 'node:assert/strict';
@@ -96,16 +91,23 @@ async function fixture(browser, origin, options = {}) {
     requests.push({ api, method: request.method(), body: request.postData() });
     const json = (data) =>
       route.fulfill({ contentType: 'application/json', body: JSON.stringify(data) });
+    if (api === '/auth/setup') return json({ requires_initial_admin: false });
     if (api === '/auth/session')
       return state.loggedIn
-        ? json({ user: { id: 'locale', display_name: 'Original account' }, csrf_token: 'csrf' })
+        ? json({
+            user: { id: 'locale', system_role: 'admin', display_name: 'Original account' },
+            csrf_token: 'csrf',
+          })
         : route.fulfill({ status: 401 });
     if (api === '/auth/login') {
       if (state.loginNetwork) return route.abort('failed');
       if (state.loginGate) await state.loginGate;
       if (state.loginStatus !== 200) return route.fulfill({ status: state.loginStatus });
       state.loggedIn = true;
-      return json({ user: { id: 'locale', display_name: 'Original account' }, csrf_token: 'csrf' });
+      return json({
+        user: { id: 'locale', system_role: 'admin', display_name: 'Original account' },
+        csrf_token: 'csrf',
+      });
     }
     if (api === '/auth/logout') {
       state.loggedIn = false;
@@ -163,11 +165,8 @@ async function fixture(browser, origin, options = {}) {
 }
 async function choose(f, locale) {
   const workspace = (await f.page.locator('.workspace-shell').count()) > 0;
-  const wasOpen = await f.page.locator('.settings-dialog').isVisible();
-  const previousTab = wasOpen
-    ? await f.page.locator('.settings-tabs [aria-selected=true]').getAttribute('id')
-    : null;
-  if (workspace) await openSettings(f.page, 'general');
+  const previous = f.page.url();
+  if (workspace) await openSettings(f.page, 'appearance');
   await f.select.focus();
   await f.select.selectOption(locale);
   await f.page.waitForFunction((value) => document.documentElement.lang === value, locale);
@@ -177,10 +176,7 @@ async function choose(f, locale) {
     true,
     'locale keeps focus while choosing',
   );
-  if (workspace) {
-    if (wasOpen) await f.page.locator('#' + previousTab).click();
-    else await closeSettings(f.page);
-  }
+  if (workspace && f.page.url() !== previous) await f.page.goBack();
 }
 async function signIn(f, locale = 'vi-VN') {
   const t = catalogs[locale];
@@ -221,11 +217,18 @@ export async function runLocaleChecks(browser, origin, streamHooks) {
       });
       await openSettings(f.page, 'llm');
       await f.page.locator('#llm-key').fill('dummy-key');
-      const before = f.requests.length;
+      const before = f.requests.filter(
+        ({ api }) => api !== '/auth/session' && !api.startsWith('/admin/'),
+      ).length;
       const next = locale === 'ru-RU' ? 'en-US' : 'ru-RU';
       await choose(f, next);
       const n = catalogs[next];
-      assert.equal(f.requests.length, before, 'locale change sends no requests');
+      assert.equal(
+        f.requests.filter(({ api }) => api !== '/auth/session' && !api.startsWith('/admin/'))
+          .length,
+        before,
+        'locale navigation does not reload business data',
+      );
       assert.equal(await f.page.locator('#llm-key').inputValue(), 'dummy-key');
       assert.equal(await f.page.evaluate(() => localStorage.getItem('ruvie.ui.locale')), next);
       assert.equal(await f.page.locator('#question').inputValue(), 'Original draft');
@@ -315,13 +318,18 @@ export async function runLocaleChecks(browser, origin, streamHooks) {
     f.state.llmStatus = 502;
     await f.page.getByRole('button', { name: 'Kết nối', exact: true }).click();
     await f.page.locator('.llm-panel [role=alert]').waitFor();
-    const before = f.requests.length;
+    const before = f.requests.filter(
+      ({ api }) => api !== '/auth/session' && !api.startsWith('/admin/'),
+    ).length;
     await choose(f, 'ru-RU');
     assert.equal(
       await f.page.locator('.llm-panel [role=alert]').innerText(),
       catalogs['ru-RU']['llm.errors.providerUnavailable'],
     );
-    assert.equal(f.requests.length, before);
+    assert.equal(
+      f.requests.filter(({ api }) => api !== '/auth/session' && !api.startsWith('/admin/')).length,
+      before,
+    );
     assert.ok(!(await f.page.locator('body').innerText()).includes('secret-never-display'));
     checks++;
     f.state.llmStatus = 200;
@@ -427,21 +435,33 @@ export async function runLocaleChecks(browser, origin, streamHooks) {
       .fill('Original');
     const beforeSearch = delayed.requests.length;
     await choose(delayed, 'ru-RU');
-    assert.equal(await delayed.page.locator('#model-search').inputValue(), 'Original');
     assert.equal(delayed.requests.length, beforeSearch);
     await delayed.page
       .locator('.model-selector')
       .getByRole('button', { name: 'Выбрать модель', exact: true })
       .click();
+    // Settings dismisses the model popover; reopening starts a fresh search.
+    assert.equal(await delayed.page.locator('#chat-model-search').inputValue(), '');
+    await delayed.page
+      .getByRole('combobox', { name: 'Поиск моделей', exact: true })
+      .fill('Original');
+    await delayed.page.getByRole('option').first().waitFor();
+    assert.equal(await delayed.page.getByRole('option').count(), 2);
     let releaseModel;
     delayed.state.modelGate = new Promise((resolve) => {
       releaseModel = resolve;
     });
     await delayed.page.getByRole('option', { name: 'Original model B b', exact: true }).click();
-    await delayed.page.getByText('Проверка моделей…', { exact: true }).waitFor();
+    await delayed.page
+      .locator('.workspace-toolbar')
+      .getByText('Проверка моделей…', { exact: true })
+      .waitFor();
     await choose(delayed, 'en-US');
     releaseModel();
-    await delayed.page.getByText('Model: Original model B', { exact: true }).waitFor();
+    await delayed.page
+      .locator('.workspace-toolbar')
+      .getByText('Original model B', { exact: true })
+      .waitFor();
     assert.equal(delayed.requests.filter((r) => r.api === '/llm/connection/model').length, 1);
     await showWorkspaceView(delayed.page, 'LLM connection');
     let releaseConnection;
@@ -510,13 +530,13 @@ export async function runLocaleChecks(browser, origin, streamHooks) {
         .getByRole('button', { name: catalogs[next]['model.choose'], exact: true })
         .click();
       await failure.page.getByRole('option', { name: 'Original model B b', exact: true }).click();
-      await failure.page.locator('.model-selector [role=alert]').waitFor();
+      await failure.page.locator('.workspace-toolbar .model-selector [role=alert]').waitFor();
       await choose(failure, locale);
       assert.equal(
-        await failure.page.locator('.model-selector [role=alert]').innerText(),
+        await failure.page.locator('.workspace-toolbar .model-selector [role=alert]').innerText(),
         t['llm.errors.invalid'],
       );
-      await failure.page.locator('#model-menu').evaluate((menu) => menu.hidePopover());
+      await failure.page.locator('#chat-model-menu').evaluate((menu) => menu.hidePopover());
       await openSettings(failure.page, 'llm');
       failure.state.llmStatus = 401;
       await failure.page.getByRole('button', { name: t['llm.connect'], exact: true }).click();
@@ -550,7 +570,7 @@ export async function runLocaleChecks(browser, origin, streamHooks) {
             true,
             'no horizontal overflow',
           );
-          await openSettings(f.page, 'general');
+          await openSettings(f.page, 'appearance');
           await f.select.scrollIntoViewIfNeeded();
           assert.equal(await f.select.isVisible(), true);
           await f.select.focus();

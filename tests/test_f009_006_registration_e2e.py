@@ -32,7 +32,9 @@ class RegistrationPostgresTests(unittest.TestCase):
 
     def setUp(self):
         self.fixture = fixtures.F005007EndToEndTests()
-        self.fixture.setUp()
+        # Bootstrap tests require an empty, disposable database, not seeded users.
+        with patch.object(self.fixture, "_seed_accounts"):
+            self.fixture.setUp()
         self.addCleanup(self.fixture.tearDown)
 
     def client(self):
@@ -41,15 +43,18 @@ class RegistrationPostgresTests(unittest.TestCase):
         return client
 
     def test_new_account_session_cannot_read_existing_private_revision_or_context(self):
+        client = self.client()
+        response = client.post("/auth/register", headers={"Origin": fixtures.ORIGIN},
+            json={"display_name": "New Person", "email": "new@example.test", "password": PASSWORD})
+        self.assertEqual(response.status_code, 201, response.text)
+        self.assertEqual(response.json()["user"]["system_role"], "admin")
+        # Add unrelated owners/documents only after bootstrapping the first admin.
+        self.fixture._seed_accounts()
         csrf, _ = self.fixture._login("alpha@example.test")
         uploaded = self.fixture._upload(csrf, "project-alpha", "Private guide", b"ALPHA_PRIVATE_GUIDE")
         self.assertEqual(uploaded.status_code, 202, uploaded.text)
         self.fixture._run_worker_once()
         revision = uploaded.json()["revision_id"]
-        client = self.client()
-        response = client.post("/auth/register", headers={"Origin": fixtures.ORIGIN},
-            json={"display_name": "New Person", "email": "new@example.test", "password": PASSWORD})
-        self.assertEqual(response.status_code, 201, response.text)
         self.assertEqual(client.get("/auth/session").json(), response.json())
         self.assertEqual(client.get("/projects").json(), {"items": []})
         self.assertEqual(client.get(f"/documents/revisions/{revision}/status").status_code, 404)

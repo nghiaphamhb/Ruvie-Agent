@@ -5,16 +5,18 @@ from dataclasses import dataclass
 from datetime import datetime, timedelta, timezone
 from uuid import uuid4
 
-from sqlalchemy import func, select
+from sqlalchemy import func, or_, select, update
 from sqlalchemy.orm import Session
-from sqlalchemy.exc import IntegrityError
 
 from ruvie.contracts.auth import RegisterRequest
 
 from ruvie.models import AuthSession, User
+from ruvie.services.audit import AuditEventWriter
 
 
 SESSION_HOURS = 12
+PRESENCE_SECONDS = 180
+PRESENCE_WRITE_SECONDS = 25
 
 
 def hash_password(password: str) -> str:
@@ -60,10 +62,10 @@ class RegisteredAccount:
     created_session: CreatedSession
 
 
-class EmailTaken(ValueError):
-    """An existing account owns the normalized email; never overwrite its password."""
+class SetupAlreadyCompleted(ValueError):
+    """Any existing account closes public bootstrap, regardless of role or activity."""
     def __init__(self):
-        super().__init__("email_taken")
+        super().__init__("setup_already_completed")
 
 
 class AuthService:
@@ -72,7 +74,11 @@ class AuthService:
 
     def authenticate(self, email: str, password: str) -> User | None:
         """Return an active user with a matching password, or None for invalid credentials."""
-        user = self.session.scalar(select(User).where(func.lower(User.email) == email.strip().casefold()))
+        # Hold the account row through create_session's commit so an admin reset
+        # cannot race a successful login and leave a freshly minted old-password session.
+        user = self.session.scalar(
+            select(User).where(func.lower(User.email) == email.strip().casefold()).with_for_update()
+        )
         if not user or not user.is_active or not user.password_hash:
             return None
         return user if verify_password(password, user.password_hash) else None
@@ -86,28 +92,33 @@ class AuthService:
         self.session.commit()
         return True
 
+    def get_setup_status(self) -> bool:
+        """Return whether there are no accounts; database errors propagate to the caller."""
+        return self.session.scalar(select(User.id).limit(1)) is None
+
     def register(self, display_name: str, email: str, password: str) -> RegisteredAccount:
-        """Create the account and session in one transaction, with no access grants."""
+        """Bootstrap one admin, session and audit atomically, without resource grants."""
         body = RegisterRequest(display_name=display_name, email=email, password=password)
         try:
-            existing = self.session.scalar(select(User.id).where(func.lower(User.email) == body.email))
-            if existing is not None:
-                raise EmailTaken()
+            # Shared across processes, held until commit/rollback. Check emptiness only
+            # after the lock: different emails must not create multiple first admins.
+            # PostgreSQL is the system of record; SQLite serves serial unit tests only.
+            if self.session.get_bind().dialect.name == "postgresql":
+                self.session.execute(select(func.pg_advisory_xact_lock(0x52555649, 12)))
+            if not self.get_setup_status():
+                raise SetupAlreadyCompleted()
             user = User(id=str(uuid4()), display_name=body.display_name, email=body.email,
-                        password_hash=hash_password(body.password), is_active=True)
+                        password_hash=hash_password(body.password), is_active=True, system_role="admin")
             self.session.add(user)
             # Flush the parent row before its FK-dependent session; neither write is committed yet.
             self.session.flush()
             created = self._stage_session(user.id)
+            AuditEventWriter.append(
+                self.session, user.id, action="account.bootstrap", resource_type="user",
+                resource_id=user.id, outcome="allow", reason="created_as_admin",
+            )
             self.session.commit()
             return RegisteredAccount(user=user, created_session=created)
-        except IntegrityError as error:
-            self.session.rollback()
-            constraint = getattr(getattr(error.orig, "diag", None), "constraint_name", None)
-            # Only email constraints are conflicts; other integrity failures must stay failures.
-            if constraint in ("uq_users_email_lower", "users_email_key"):
-                raise EmailTaken() from None
-            raise
         except Exception:
             self.session.rollback()
             raise
@@ -122,12 +133,49 @@ class AuthService:
         """Add a session without committing; registration owns the shared transaction."""
         token = secrets.token_urlsafe(32)
         csrf = secrets.token_urlsafe(32)
-        expires = datetime.now(timezone.utc) + timedelta(hours=SESSION_HOURS)
+        now = datetime.now(timezone.utc)
+        expires = now + timedelta(hours=SESSION_HOURS)
         self.session.add(AuthSession(
             id=str(uuid4()), user_id=user_id, token_hash=hashlib.sha256(token.encode()).hexdigest(),
-            csrf_token=csrf, expires_at=expires,
+            csrf_token=csrf, expires_at=expires, last_seen_at=now,
         ))
+        self._record_activity(user_id, now)
         return CreatedSession(token, csrf, expires)
+
+    def _record_activity(self, user_id: str, now: datetime) -> None:
+        """Keep activity monotonic when two sessions heartbeat concurrently."""
+        self.session.execute(update(User).where(
+            User.id == user_id,
+            or_(User.last_active_at.is_(None), User.last_active_at < now),
+        ).values(last_active_at=now).execution_options(synchronize_session=False))
+
+    def touch_presence(self, token: str, user_id: str) -> bool:
+        """Refresh only the trusted cookie session; throttle tabs sharing that cookie."""
+        now = datetime.now(timezone.utc)
+        token_hash = hashlib.sha256(token.encode()).hexdigest()
+        # Match password-reset lock order (user, then sessions) to avoid cross-request deadlocks.
+        if self.session.scalar(select(User.id).where(
+            User.id == user_id, User.is_active.is_(True),
+        ).with_for_update()) is None:
+            return False
+        valid = (
+            AuthSession.token_hash == token_hash,
+            AuthSession.user_id == user_id,
+            AuthSession.expires_at > now,
+            select(User.id).where(User.id == user_id, User.is_active.is_(True)).exists(),
+        )
+        changed = self.session.execute(update(AuthSession).where(
+            *valid,
+            or_(AuthSession.last_seen_at.is_(None),
+                AuthSession.last_seen_at <= now - timedelta(seconds=PRESENCE_WRITE_SECONDS)),
+        ).values(last_seen_at=now).execution_options(synchronize_session=False))
+        if changed.rowcount:
+            self._record_activity(user_id, now)
+        elif self.session.scalar(select(AuthSession.id).where(*valid)) is None:
+            self.session.rollback()
+            return False
+        self.session.commit()
+        return True
 
     def resolve_session(self, token: str) -> ResolvedSession | None:
         """Resolve a cookie token; remove expired sessions and reject inactive users."""

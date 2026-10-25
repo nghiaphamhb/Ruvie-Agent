@@ -7,12 +7,16 @@
     onclose,
     children,
     className = '',
+    closeDisabled = false,
+    dismissOnBackdrop = false,
   }: {
     open: boolean;
     title: string;
     onclose: () => void;
     children: Snippet;
     className?: string;
+    closeDisabled?: boolean;
+    dismissOnBackdrop?: boolean;
   } = $props();
   let dialog: HTMLDialogElement;
   let trigger: HTMLElement | null = null;
@@ -21,12 +25,24 @@
       trigger = document.activeElement as HTMLElement;
       dialog.showModal();
       void tick().then(() => {
-        if (open) dialog.querySelector<HTMLElement>('[data-dialog-heading]')?.focus();
+        if (open)
+          (
+            dialog.querySelector<HTMLElement>('[data-dialog-initial-focus]') ??
+            dialog.querySelector<HTMLElement>('[data-dialog-heading]')
+          )?.focus();
       });
     } else if (!open && dialog.open) {
       dialog.close();
       if (trigger?.isConnected) trigger.focus();
     }
+  });
+  $effect(() => {
+    if (!open) return;
+    const overflow = document.body.style.overflow;
+    document.body.style.overflow = 'hidden';
+    return () => {
+      document.body.style.overflow = overflow;
+    };
   });
   function key(event: KeyboardEvent) {
     if (event.key !== 'Tab') return;
@@ -58,10 +74,21 @@
   class={'surface-dialog ' + className}
   aria-label={title}
   onkeydown={key}
+  onclick={(event) => {
+    if (!dismissOnBackdrop || closeDisabled || event.target !== dialog) return;
+    const rect = dialog.getBoundingClientRect();
+    if (
+      event.clientX < rect.left ||
+      event.clientX > rect.right ||
+      event.clientY < rect.top ||
+      event.clientY > rect.bottom
+    )
+      onclose();
+  }}
   oncancel={(event) => {
     event.preventDefault();
     event.stopPropagation();
-    onclose();
+    if (!closeDisabled) onclose();
   }}
   onclose={() => {
     if (open) onclose();
@@ -69,7 +96,12 @@
 >
   <header>
     <h2 data-dialog-heading tabindex="-1">{title}</h2>
-    <button type="button" aria-label={$i18n.t('ux.close')} onclick={onclose}>×</button>
+    <button
+      type="button"
+      aria-label={$i18n.t('ux.close')}
+      disabled={closeDisabled}
+      onclick={onclose}>×</button
+    >
   </header>
   {@render children()}
 </dialog>
@@ -81,7 +113,7 @@
     padding: 24px;
     overflow: auto;
     border: 1px solid var(--border);
-    border-radius: 12px;
+    border-radius: 16px;
     background: var(--surface);
     color: var(--ink);
   }
@@ -95,17 +127,17 @@
     align-items: center;
     min-height: 44px;
     padding-right: 44px;
-    margin-bottom: 16px;
+    margin-bottom: 20px;
   }
   h2 {
     margin: 0;
-    font-size: 21px;
+    font-size: 20px;
     overflow-wrap: anywhere;
   }
   button {
     position: absolute;
-    top: -12px;
-    right: -12px;
+    top: 0;
+    right: 0;
     display: grid;
     place-items: center;
     width: 44px;
@@ -113,20 +145,15 @@
     padding: 0;
     border: 0;
     border-radius: 8px;
-    background: var(--surface);
+    background: transparent;
     color: var(--ink);
     font-size: 24px;
   }
   button:hover {
     background: var(--soft);
   }
-  @media (max-width: 600px) {
-    dialog {
-      padding: 16px;
-    }
-    button {
-      top: -4px;
-      right: -4px;
-    }
+  button:disabled {
+    opacity: 0.55;
+    cursor: wait;
   }
 </style>

@@ -77,10 +77,4 @@
     margin: 0;
     overflow-wrap: anywhere;
   }
-  @media (max-width: 400px) {
-    dl div {
-      grid-template-columns: 1fr;
-      gap: 4px;
-    }
-  }
 </style>

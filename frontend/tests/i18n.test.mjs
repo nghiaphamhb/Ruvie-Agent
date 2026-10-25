@@ -84,6 +84,12 @@ test('catalogs cover logical keys, plural forms, nonempty values and placeholder
     }
   for (const suffix of ['one', 'few', 'many', 'other']) assert.ok(ru['citations.count_' + suffix]);
 });
+
+test('admin password reset confirmation is translated in every supported locale', async () => {
+  const [vi, en, ru] = await catalogs();
+  for (const value of [en, vi, ru]) assert.ok(value['admin.passwordUpdated'].length > 0);
+  assert.equal(new Set([en, vi, ru].map((value) => value['admin.passwordUpdated'])).size, 3);
+});
 test('missing and empty translations fall back to explicit English', async () => {
   const { translationOptions } = await core();
   const instance = createInstance();

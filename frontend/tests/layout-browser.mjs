@@ -50,7 +50,11 @@ export async function runLayoutChecks(browser, origin) {
         route.fulfill({ contentType: 'application/json', body: JSON.stringify(data) });
       if (api === '/auth/session')
         return json({
-          user: { id: 'layout', display_name: 'Long account name '.repeat(8) },
+          user: {
+            id: 'layout',
+            system_role: 'admin',
+            display_name: 'Long account name '.repeat(8),
+          },
           csrf_token: 'csrf',
         });
       if (api === '/projects')
@@ -85,9 +89,9 @@ export async function runLayoutChecks(browser, origin) {
         'only application regions scroll',
       );
       assert.equal(
-        size.width > 800 ? await nav.isVisible() : await page.locator('.sidebar-open').isVisible(),
+        await nav.isVisible(),
         true,
-        'navigation is reachable at every viewport',
+        'desktop navigation remains visible at every zoom-equivalent viewport',
       );
     }
     try {

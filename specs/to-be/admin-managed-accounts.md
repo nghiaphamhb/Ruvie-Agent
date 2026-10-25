@@ -1,87 +1,148 @@
-# Khởi tạo admin và tài khoản do admin cấp
+# Admin tạo tài khoản cho người dùng
 
 Trạng thái: To-be, chưa triển khai.
 Ngày ghi nhận: 2026-10-13.
+Cập nhật: 2026-10-20.
 
 ## Mục tiêu
 
-Ruvie Agent dùng mô hình tài khoản do công ty quản lý. Trang đăng ký chỉ mở
-khi database chưa có user nào. User đầu tiên được tạo sẽ là admin. Khi database
-đã có user, admin tạo tài khoản cho nhân viên; nhân viên đăng nhập và có quyền
-tự đổi mật khẩu.
+Ruvie Agent dùng mô hình tài khoản do công ty quản lý. Administrator, gọi tắt là admin, tạo tài khoản và chọn vai trò hệ thống cho người dùng. Admin bàn giao thông tin đăng nhập qua kênh nội bộ phù hợp.
 
-Định hướng này thay thế hành vi hiện tại: đăng ký công khai luôn có thể truy cập,
-tài khoản đầu tiên không trở thành admin. Quyền admin hệ thống tách riêng với
-vai trò nghề nghiệp trong từng project.
+Tài liệu này ưu tiên nghiệp vụ tạo tài khoản. Các hoạt động còn lại được ghi ngắn gọn trong [backlog administrator](administrator-operations.md). Chưa đề xuất thiết kế code, API hoặc schema.
 
-## 1. Khởi tạo admin lần đầu
+## EPC — Admin tạo tài khoản
 
-- Điều kiện mở trang đăng ký: database có **0 user**. Người mở app được hiển
-  thị trang **Tạo tài khoản quản trị viên**.
-- Trạng thái này dựa trên dữ liệu trong database, áp dụng nhất quán cho giao
-  diện và máy chủ. Database đã có user nhưng chưa có admin vẫn không mở đăng ký.
-- Form gồm tên hiển thị, email, mật khẩu và xác nhận mật khẩu.
-- Tạo thành công: user đầu tiên có quyền admin và được đăng nhập vào app.
-  Database đã có user nên đăng ký công khai được đóng.
-- Tạo thất bại và database vẫn có 0 user: hiển thị lỗi và cho phép thử lại.
-- Nếu nhiều người gửi form đồng thời, chỉ một yêu cầu được tạo admin đầu tiên.
-  Các yêu cầu còn lại không tạo thêm tài khoản và được đưa về đăng nhập.
+EPC (Event-driven Process Chain) mô tả chuỗi sự kiện và hoạt động nghiệp vụ. Hình lục giác là sự kiện/trạng thái. Ô bo góc là hoạt động. Vòng tròn XOR chỉ cho phép một nhánh xảy ra. Nhãn trong ngoặc vuông xác định bên thực hiện.
 
-## 2. Đăng nhập sau khi khởi tạo
+```mermaid
+flowchart TD
+    needed{{"Có nhu cầu cấp tài khoản"}}
+    prepare("[Admin] Nhập tên, email, mật khẩu ban đầu và chọn vai trò")
+    submitted{{"Yêu cầu tạo tài khoản đã được gửi"}}
+    validate("[Hệ thống] Kiểm tra quyền admin, dữ liệu và email trùng")
+    validationGate(("XOR"))
+    rejected{{"Yêu cầu bị từ chối; lý do đã được thông báo"}}
+    accepted{{"Yêu cầu đáp ứng điều kiện tạo tài khoản"}}
+    create("[Hệ thống] Tạo tài khoản với vai trò đã chọn")
+    creationGate(("XOR"))
+    failed{{"Tạo thất bại; chưa có tài khoản mới"}}
+    created{{"Tài khoản đã được tạo; phiên admin được giữ nguyên"}}
+    handover("[Admin] Bàn giao thông tin đăng nhập qua kênh nội bộ phù hợp")
+    completed{{"Người dùng đã nhận thông tin đăng nhập"}}
 
-- Khi database có ít nhất **1 user**, người chưa đăng nhập chỉ thấy trang
-  **Đăng nhập**. Bỏ liên kết, nút và lời mời chuyển sang đăng ký trên giao diện
-  login/register.
-- Truy cập trực tiếp URL đăng ký, dùng lịch sử trình duyệt hoặc gửi form đăng
-  ký đã mở từ trước đều không tạo được tài khoản; giao diện đưa về đăng nhập.
-- Hệ thống chặn đăng ký công khai cả phía máy chủ, kể cả khi bỏ qua giao diện.
-- Khi database vẫn có user, đóng/mở app, khởi động lại server, đăng xuất hoặc
-  đổi trình duyệt không mở lại đăng ký. Không có lựa chọn bật lại đăng ký công
-  khai khi database đã có user.
+    needed --> prepare --> submitted --> validate --> validationGate
+    validationGate --> rejected
+    validationGate --> accepted
+    accepted --> create --> creationGate
+    creationGate --> failed
+    creationGate --> created
+    created --> handover --> completed
 
-## 3. Admin cấp tài khoản cho nhân viên
+    classDef event fill:#eef2ff,stroke:#6366f1,color:#111827
+    classDef activity fill:#ecfdf5,stroke:#059669,color:#111827
+    classDef connector fill:#fff7ed,stroke:#d97706,color:#111827
+    class needed,submitted,rejected,accepted,failed,created,completed event
+    class prepare,validate,create,handover activity
+    class validationGate,creationGate connector
+```
 
-- Admin mở **Quản trị → Người dùng → Tạo tài khoản**.
-- Admin nhập tên hiển thị, email và mật khẩu ban đầu; tài khoản được tạo có
-  quyền user thông thường.
-- Email trùng hoặc dữ liệu không hợp lệ được báo rõ; không ghi đè tài khoản cũ.
-- Admin bàn giao thông tin đăng nhập cho nhân viên qua kênh nội bộ phù hợp.
-- Nhân viên đăng nhập bằng tài khoản được cấp. Tạo user không thay phiên đăng
-  nhập hiện tại của admin và không tự cấp quyền đọc tài liệu/project.
-- Chỉ admin được tạo tài khoản; user thông thường không thực hiện được thao
-  tác này dù truy cập trực tiếp chức năng tạo user.
-
-## 4. Người dùng tự đổi mật khẩu
-
-- User và admin đã đăng nhập mở **Cài đặt → Tài khoản → Đổi mật khẩu**.
-- Nhập mật khẩu hiện tại, mật khẩu mới và xác nhận mật khẩu mới.
-- Chỉ đổi mật khẩu của chính tài khoản đang đăng nhập; mật khẩu hiện tại phải
-  đúng, xác nhận phải khớp và mật khẩu mới phải đạt chính sách hiện hành.
-- Thành công: thông báo rõ, xóa các trường mật khẩu; lần đăng nhập tiếp theo
-  dùng mật khẩu mới, mật khẩu cũ không còn đăng nhập được.
-- Thất bại: giữ nguyên mật khẩu đã lưu và báo lỗi phù hợp.
+Sơ đồ thể hiện một lần xử lý yêu cầu. Sau lỗi, admin có thể sửa thông tin rồi gửi lại. Đăng nhập bằng tài khoản mới là bước kiểm chứng kết quả, không thay phiên đăng nhập dùng để tạo tài khoản.
 
 ## Phạm vi
 
-Tập trung ba luồng trên và việc điều chỉnh giao diện login/register. Chưa bao
-gồm quên mật khẩu, reset mật khẩu thay user, lời mời qua email, nhập user hàng
-loạt hoặc bắt buộc đổi mật khẩu ở lần đăng nhập đầu.
+### Bao gồm
+
+- Admin mở **Quản trị → Người dùng → Tạo tài khoản**.
+- Admin nhập thông tin và chọn vai trò `user` hoặc `admin`.
+- Hệ thống kiểm tra quyền, dữ liệu, email trùng và thông báo kết quả tạo.
+- Admin bàn giao thông tin đăng nhập; người nhận có thể đăng nhập sau đó.
+
+### Chưa bao gồm
+
+- Khởi tạo admin đầu tiên và khôi phục khi không còn admin.
+- Sửa thông tin, đổi vai trò, tạm ngừng hoặc xóa tài khoản đã có.
+- Cấp quyền project, tài liệu, model hoặc công cụ trong form tạo tài khoản.
+- Quên mật khẩu, reset mật khẩu thay người dùng và tự đổi mật khẩu.
+- Lời mời qua email, nhập tài khoản hàng loạt hoặc bắt buộc đổi mật khẩu ở lần đăng nhập đầu.
+
+Các phần này thuộc [backlog administrator](administrator-operations.md).
+
+## Điều kiện bắt đầu
+
+- Hệ thống đã có admin; người thực hiện đang đăng nhập bằng tài khoản admin.
+- Quyền admin hệ thống tách riêng với vai trò nghề nghiệp trong từng project.
+- Admin đã có thông tin cần thiết và kênh bàn giao cho người nhận.
+- Đăng ký công khai vẫn đóng khi hệ thống đã có tài khoản. Admin cấp thêm tài khoản qua chức năng quản trị, không bật lại đăng ký.
+
+## Thông tin và vai trò
+
+| Trường | Quy tắc nghiệp vụ |
+| --- | --- |
+| Tên hiển thị | Bắt buộc; không chấp nhận tên rỗng hoặc chỉ có khoảng trắng |
+| Email | Bắt buộc; đúng định dạng; không trùng tài khoản đã có, kể cả khác chữ hoa/thường |
+| Mật khẩu ban đầu | Bắt buộc; đáp ứng chính sách mật khẩu của Ruvie Agent |
+| Vai trò hệ thống | Chọn `user` hoặc `admin`; mặc định là `user` |
+
+| Vai trò được chọn | Kết quả sau khi tạo |
+| --- | --- |
+| `user` | Người dùng thông thường; không có quyền quản trị hệ thống |
+| `admin` | Administrator; có quyền quản trị và tạo thêm tài khoản với một trong hai vai trò |
+
+Admin được chọn cả hai vai trò trong cùng luồng tạo tài khoản. Không cần một quy trình riêng để tạo thêm admin. Lựa chọn `admin` phải nêu rõ người nhận sẽ có quyền quản trị hệ thống.
+
+Cả hai vai trò đều không tự nhận membership project, vai trò nghề nghiệp hoặc quyền đọc tài liệu. Vai trò `admin` không mặc nhiên cho phép đọc mọi tài liệu.
+
+## Luồng nghiệp vụ
+
+1. Admin mở **Quản trị → Người dùng → Tạo tài khoản**.
+2. Hệ thống hiển thị form rỗng với vai trò mặc định `user`.
+3. Admin nhập tên, email, mật khẩu ban đầu và chọn vai trò.
+4. Admin gửi yêu cầu tạo tài khoản.
+5. Hệ thống xác minh người gửi vẫn có quyền admin; kiểm tra dữ liệu và email trùng.
+6. Nếu yêu cầu hợp lệ, hệ thống tạo tài khoản với đúng vai trò đã chọn.
+7. Hệ thống thông báo thành công và vai trò của tài khoản vừa tạo. Hệ thống xóa mật khẩu khỏi form; không trả lại mật khẩu đã lưu.
+8. Admin bàn giao email đăng nhập và mật khẩu ban đầu qua kênh nội bộ phù hợp.
+9. Người nhận đăng nhập bằng tài khoản được cấp. Quyền sau đăng nhập tương ứng với vai trò hệ thống và các quyền tài nguyên được cấp riêng.
+
+Tạo tài khoản mới không đăng nhập thay người nhận, không đăng xuất admin và không thay danh tính của phiên admin đang mở.
+
+## Tình huống lỗi
+
+| Tình huống | Kết quả cần có |
+| --- | --- |
+| Chưa đăng nhập hoặc không còn quyền admin khi gửi | Từ chối; không tạo tài khoản, kể cả khi form đã mở từ trước |
+| User thông thường truy cập trực tiếp chức năng tạo tài khoản | Từ chối; không cho phép tự chọn hoặc tự cấp vai trò admin |
+| Thiếu trường bắt buộc, email sai hoặc mật khẩu không đạt chính sách | Báo rõ trường cần sửa; không tạo tài khoản |
+| Vai trò ngoài `user`/`admin` | Từ chối; không tạo tài khoản với vai trò không hợp lệ |
+| Email đã tồn tại | Báo trùng; không sửa tài khoản, mật khẩu hoặc vai trò đã có |
+| Hai yêu cầu tạo cùng email đồng thời | Chỉ một tài khoản được tạo; yêu cầu còn lại nhận kết quả trùng email |
+| Tạo tài khoản thất bại | Báo lỗi an toàn; không để lại tài khoản tạo dở |
+| Mất phản hồi sau khi gửi | Chưa kết luận thành công/thất bại; kiểm tra tài khoản theo email trước khi gửi lại; không tạo bản trùng |
+| Admin hủy trước khi gửi | Không tạo tài khoản và không giữ mật khẩu trong form đã đóng |
+
+Thông báo và lịch sử hoạt động không chứa mật khẩu. Sau lỗi kiểm tra, admin có thể sửa thông tin; hệ thống không yêu cầu nhập lại các trường không nhạy cảm khi vẫn còn ở cùng form.
+
+## Tiêu chí nghiệm thu nghiệp vụ
+
+- [ ] Chỉ admin tạo được tài khoản; truy cập trực tiếp chức năng không vượt quyền.
+- [ ] Form mặc định chọn `user`; admin có thể chọn `admin` và hiểu quyền đi kèm.
+- [ ] Tài khoản được tạo có đúng vai trò đã chọn, đăng nhập được bằng thông tin đã cấp.
+- [ ] User mới không truy cập được khu vực quản trị; admin mới truy cập được và tạo thêm tài khoản với vai trò `user` hoặc `admin`.
+- [ ] Cả hai lựa chọn vai trò đều không tự cấp quyền project hoặc đọc tài liệu.
+- [ ] Email trùng, kể cả khác chữ hoa/thường hoặc tạo đồng thời, không tạo bản trùng và không ghi đè tài khoản cũ.
+- [ ] Dữ liệu hoặc vai trò không hợp lệ được báo rõ; yêu cầu bị từ chối không tạo tài khoản.
+- [ ] Mất quyền admin trước lúc gửi khiến yêu cầu bị từ chối.
+- [ ] Tạo thành công hoặc thất bại không đổi danh tính phiên admin đang dùng.
+- [ ] Thành công/hủy form xóa mật khẩu khỏi form; phản hồi và thông báo không trả lại mật khẩu đã lưu.
+- [ ] Tạo tài khoản thất bại không để lại tài khoản tạo dở.
+- [ ] Không có thao tác bật lại đăng ký công khai trong luồng này.
+
+Các mục trên là tiêu chí cho hành vi tương lai, chưa được đánh dấu hoàn thành.
 
 ## Tham khảo references
 
-- `references/backend/ruvie/main.py`: nhận biết onboarding khi chưa có user.
-- `references/src/routes/auth/+page.svelte`: onboarding, chọn chế độ đăng
-  nhập/đăng ký và hiển thị liên kết theo trạng thái cho phép đăng ký.
-- `references/backend/ruvie/routers/auths.py`: `signup_handler` tạo admin đầu
-  tiên; `signup` kiểm tra điều kiện đăng ký; `add_user` dành cho admin;
-  `update_password` xác minh mật khẩu hiện tại trước khi đổi.
-- `references/src/lib/components/admin/Users/UserList/AddUserModal.svelte`:
-  form admin tạo user với tên, email và mật khẩu.
-- `references/src/lib/components/chat/Settings/Account/UpdatePassword.svelte`:
-  form mật khẩu hiện tại, mật khẩu mới, xác nhận và phản hồi kết quả.
+- [Form tạo người dùng](../../references/src/lib/components/admin/Users/UserList/AddUserModal.svelte): tham khảo tên, email, mật khẩu, vai trò và phản hồi sau khi tạo.
+- [Luồng cấp tài khoản](../../references/backend/ruvie/routers/auths.py), `add_user`: tham khảo admin tạo tài khoản với vai trò được chọn, kiểm tra email/mật khẩu và ghi nhận bên thực hiện.
+- [Kiểm tra admin](../../references/backend/ruvie/utils/auth.py), `get_admin_user`: tham khảo yêu cầu chỉ administrator được thực hiện.
 
-References nhận biết khởi tạo bằng điều kiện chưa có user trong database và
-gán user đầu tiên làm admin; đăng ký về sau phụ thuộc cấu hình. Định hướng mới
-chỉ mở đăng ký công khai khi database có 0 user và đóng khi đã có user. Tận dụng
-luồng và tương tác đã có; giữ xác thực hiện tại và kiểm tra quyền tài liệu của
-Ruvie Agent.
+Chỉ tham khảo hành vi phù hợp. Không đưa nhập CSV, vai trò `pending`, gán nhóm mặc định hoặc token đăng nhập của tài khoản mới vào phạm vi này. Quyền tài nguyên vẫn tuân theo chính sách default-deny của Ruvie Agent.

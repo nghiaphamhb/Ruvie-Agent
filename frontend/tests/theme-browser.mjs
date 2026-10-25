@@ -1,5 +1,6 @@
 /** Theme UX uses fake APIs; no development account or LLM provider. */
 import assert from 'node:assert/strict';
+import { closeSettings, ensureSidebar } from './workspace-actions.mjs';
 import { createServer } from 'node:http';
 import { readFile, mkdir } from 'node:fs/promises';
 import { createRequire } from 'node:module';
@@ -58,7 +59,10 @@ try {
     if (!/^\/(auth|projects|models|llm)(\/|$)/.test(api)) return route.continue();
     calls.push(api);
     if (api === '/auth/session')
-      return json({ user: { id: user, display_name: 'Admin' }, csrf_token: 'csrf' });
+      return json({
+        user: { id: user, system_role: 'user', display_name: 'Admin' },
+        csrf_token: 'csrf',
+      });
     if (api === '/projects') return json({ items: [] });
     if (api === '/models')
       return json({
@@ -84,9 +88,33 @@ try {
     );
   }
   async function settings() {
+    await ensureSidebar(page);
     await page.locator('.account-trigger').click();
     await page.locator('.account-settings').click();
-    await page.getByRole('tab', { name: 'Hiển thị', exact: true }).click();
+    assert.equal(
+      await page.locator('dialog[open]').count(),
+      0,
+      'settings replace chat without a modal',
+    );
+    assert.equal(await page.locator('.workspace-sidebar').isVisible(), true);
+    assert.equal(await page.locator('#question').isVisible(), false);
+    assert.equal(new URL(page.url()).searchParams.get('view'), 'settings');
+    assert.equal(
+      await page.locator('#settings-tab-appearance').getAttribute('aria-selected'),
+      'true',
+    );
+    assert.equal(await page.getByRole('tab').count(), 1);
+    assert.equal(await page.getByRole('tab', { name: 'Kết nối LLM', exact: true }).count(), 0);
+    assert.equal(await page.locator('#settings-appearance #account-language').isVisible(), true);
+    assert.ok(
+      await page
+        .locator('#account-language')
+        .evaluate(
+          (e) =>
+            e.getBoundingClientRect().top >
+            document.querySelector('#settings-appearance fieldset').getBoundingClientRect().bottom,
+        ),
+    );
   }
   await page.goto(origin);
   await shell.waitFor();
@@ -109,9 +137,9 @@ try {
   await light.focus();
   await page.keyboard.press('Tab');
   assert.equal(
-    await page.locator('.settings-close').evaluate((e) => e === document.activeElement),
+    await page.locator('#account-language').evaluate((e) => e === document.activeElement),
     true,
-    'Tab leaves the radio group and stays in Settings',
+    'Tab moves from theme to language',
   );
   await page.emulateMedia({ colorScheme: 'dark' });
   await resolved('light');
@@ -130,7 +158,7 @@ try {
   await resolved('dark');
   assert.equal(await dark.isChecked(), true);
   checks++;
-  await page.locator('.settings-dialog').press('Escape');
+  await closeSettings(page);
   await page.reload();
   await resolved('dark');
   checks++;
@@ -145,7 +173,7 @@ try {
   checks++;
   await settings();
   await light.check();
-  await page.locator('.settings-dialog').press('Escape');
+  await closeSettings(page);
   await page.locator('#question').fill('');
   await mkdir(fileURLToPath(new URL('../../logs/theme/', import.meta.url)), { recursive: true });
   await page.screenshot({
@@ -175,16 +203,34 @@ try {
             return v <= 0.04045 ? v / 12.92 : ((v + 0.055) / 1.055) ** 2.4;
           })
           .reduce((sum, v, i) => sum + v * [0.2126, 0.7152, 0.0722][i], 0);
+      const language = getComputedStyle(element.querySelector('#account-language'));
+      const languageColor = luminance(
+        language.color
+          .match(/[\d.]+/g)
+          .slice(0, 3)
+          .map(Number),
+      );
+      const languageBackground = luminance(
+        language.backgroundColor
+          .match(/[\d.]+/g)
+          .slice(0, 3)
+          .map(Number),
+      );
+      const languageContrast =
+        (Math.max(languageColor, languageBackground) + 0.05) /
+        (Math.min(languageColor, languageBackground) + 0.05);
       return [
         ['--ink', '--paper'],
         ['--muted', '--paper'],
         ['--muted', '--surface'],
         ['--error', '--error-bg'],
-      ].map(([a, b]) => {
-        const x = luminance(rgb(a)),
-          y = luminance(rgb(b));
-        return (Math.max(x, y) + 0.05) / (Math.min(x, y) + 0.05);
-      });
+      ]
+        .map(([a, b]) => {
+          const x = luminance(rgb(a)),
+            y = luminance(rgb(b));
+          return (Math.max(x, y) + 0.05) / (Math.min(x, y) + 0.05);
+        })
+        .concat(languageContrast);
     });
     assert.ok(
       contrast.every((value) => value >= 4.5),
@@ -198,12 +244,12 @@ try {
         ),
       ),
     });
-    await page.locator('.settings-dialog').press('Escape');
+    await closeSettings(page);
   }
   checks++;
   await settings();
   await light.check();
-  await page.locator('.settings-dialog').press('Escape');
+  await closeSettings(page);
   await page.getByRole('button', { name: 'Chọn model', exact: true }).click();
   assert.equal(
     await page.locator('.menu:popover-open').evaluate((e) => getComputedStyle(e).colorScheme),
@@ -214,15 +260,7 @@ try {
   });
   await page.getByRole('combobox').press('Escape');
   checks++;
-  await page.setViewportSize({ width: 375, height: 812 });
-  await page.locator('.sidebar-open').click();
-  await settings();
-  assert.equal(await page.evaluate(() => document.documentElement.scrollWidth <= innerWidth), true);
-  await page.screenshot({
-    path: fileURLToPath(new URL('../../logs/theme/light-mobile.png', import.meta.url)),
-  });
-  checks++;
-  await page.locator('.settings-dialog').press('Escape');
+  await closeSettings(page);
   await page.addInitScript(() => {
     Object.defineProperty(window, 'localStorage', {
       get() {
@@ -232,7 +270,6 @@ try {
   });
   await page.reload();
   await resolved('light');
-  await page.locator('.sidebar-open').click();
   await settings();
   await dark.check();
   await resolved('dark');

@@ -175,12 +175,4 @@
     border-radius: 16px;
     background: var(--surface);
   }
-  @media (max-width: 700px) {
-    .search-layout {
-      grid-template-columns: 1fr;
-    }
-    section {
-      padding: 16px;
-    }
-  }
 </style>

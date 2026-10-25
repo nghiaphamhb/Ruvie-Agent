@@ -45,10 +45,9 @@
   position="top-right"
   closeButton
   offset={{ top: '76px', right: '24px' }}
-  mobileOffset={{ top: '76px', right: '16px', left: '16px' }}
   containerAriaLabel={$i18n.t('notifications.label')}
   closeButtonAriaLabel={$i18n.t('notifications.close')}
-  style="--width:min(356px,calc(100vw - 32px));"
+  style="--width:356px;"
   toastOptions={{ classes: { closeButton: 'auth-toast-close', toast: 'auth-response-toast' } }}
 />
 

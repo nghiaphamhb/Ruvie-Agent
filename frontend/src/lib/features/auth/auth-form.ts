@@ -15,12 +15,11 @@ export function validEmail(value: string, requireDomainDot = true): boolean {
   );
 }
 
-/** Count Unicode code points like Python len; do not trim or truncate passwords. */
-export function validateRegistration(
+/** Shared account identity rules; count Unicode like Python and preserve passwords. */
+export function validateAccountIdentity(
   name: string,
   email: string,
   password: string,
-  confirmation: string,
 ): AuthFieldErrors {
   const errors: AuthFieldErrors = {};
   const nameLength = Array.from(name.trim()).length;
@@ -32,6 +31,17 @@ export function validateRegistration(
   if (!passwordLength) errors.password = message('auth.errors.required');
   else if (passwordLength < 12 || passwordLength > 128)
     errors.password = message('auth.errors.passwordLength');
+  return errors;
+}
+
+/** Public bootstrap additionally requires an exact password confirmation. */
+export function validateRegistration(
+  name: string,
+  email: string,
+  password: string,
+  confirmation: string,
+): AuthFieldErrors {
+  const errors = validateAccountIdentity(name, email, password);
   if (!confirmation) errors.password_confirmation = message('auth.errors.required');
   else if (confirmation !== password)
     errors.password_confirmation = message('auth.errors.passwordMismatch');

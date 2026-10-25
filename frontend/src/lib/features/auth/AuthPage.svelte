@@ -2,6 +2,7 @@
   import { onMount, tick } from 'svelte';
   import { i18n } from '../../i18n/index.ts';
   import type { AuthFieldErrors } from './auth-form.ts';
+  import type { UiMessage } from '../../i18n/messages.ts';
   import LanguageSelector from '../../shared/LanguageSelector.svelte';
   import LoginForm from './LoginForm.svelte';
   import RegisterForm from './RegisterForm.svelte';
@@ -17,6 +18,10 @@
   let {
     busy,
     checking,
+    checkingSetup,
+    requiresInitialAdmin,
+    readError,
+    onretry,
     fieldErrors,
     onlogin,
     onregister,
@@ -24,6 +29,10 @@
   }: {
     busy: boolean;
     checking: boolean;
+    checkingSetup: boolean;
+    requiresInitialAdmin: boolean | null;
+    readError: UiMessage | null;
+    onretry: () => void;
     fieldErrors: AuthFieldErrors;
     onlogin: (email: string, password: string) => Promise<boolean>;
     onregister: (name: string, email: string, password: string) => Promise<boolean>;
@@ -31,12 +40,21 @@
   } = $props();
   type Mode = 'login' | 'register';
   function readMode(): Mode {
-    return new URLSearchParams(window.location.search).get('form') === 'register'
-      ? 'register'
-      : 'login';
+    if (requiresInitialAdmin !== true) return 'login';
+    return new URLSearchParams(window.location.search).get('form') === 'login'
+      ? 'login'
+      : 'register';
   }
   let mode = $state<Mode>(typeof window === 'undefined' ? 'login' : readMode());
   let email = $state('');
+  // Reconcile only server/read state changes. Typing must not reset a form or its navigation.
+  $effect(() => {
+    if (checking || readError || requiresInitialAdmin === null) return;
+    mode = readMode();
+    const url = new URL(window.location.href);
+    url.searchParams.set('form', mode);
+    history.replaceState({}, '', url);
+  });
   let stageWidth = $state(1093);
   let stageHeight = $state(614);
   const artScale = $derived(Math.max(stageWidth / 1366, stageHeight / 768));
@@ -44,6 +62,7 @@
   /** Adapt chooseAuthMode from the legacy auth page; reset passwords by remounting the form. */
   async function changeMode(next: Mode, push = true) {
     if (busy || checking) return;
+    if (next === 'register' && requiresInitialAdmin !== true) next = 'login';
     mode = next;
     onerrorclear();
     const url = new URL(window.location.href);
@@ -51,11 +70,6 @@
     if (push) history.pushState({}, '', url);
     await tick();
     document.getElementById(next === 'register' ? 'display_name' : 'email')?.focus();
-  }
-  function followMode(event: MouseEvent, next: Mode) {
-    if (event.metaKey || event.ctrlKey || event.shiftKey || event.altKey) return;
-    event.preventDefault();
-    void changeMode(next);
   }
   onMount(() => {
     function popped() {
@@ -95,8 +109,15 @@
     <div class="auth-card">
       <img class="auth-logo" src={logo} alt="Ruvie" width="140" height="48" />
       {#if checking}
-        <p class="auth-checking" aria-live="polite">{$i18n.t('auth.checking')}</p>
-      {:else}
+        <p class="auth-checking" aria-live="polite">
+          {$i18n.t(checkingSetup ? 'auth.checkingSetup' : 'auth.checking')}
+        </p>
+      {:else if readError}
+        <p class="auth-checking" role="alert">{$i18n.message(readError)}</p>
+        <button class="auth-submit" type="button" onclick={onretry}
+          >{$i18n.t('common.retry')}</button
+        >
+      {:else if requiresInitialAdmin !== null}
         {#key mode}
           {#if mode === 'login'}
             <LoginForm {busy} bind:email {onlogin} {onerrorclear} />
@@ -104,16 +125,13 @@
             <RegisterForm {busy} {fieldErrors} bind:email {onregister} {onerrorclear} />
           {/if}
         {/key}
-        <p class="auth-switch">
-          <span>{$i18n.t(mode === 'login' ? 'auth.noAccount' : 'auth.hasAccount')}</span>
-          <a
-            href={mode === 'login' ? '/?form=register' : '/?form=login'}
-            aria-disabled={busy}
-            onclick={(event) => followMode(event, mode === 'login' ? 'register' : 'login')}
-          >
-            {$i18n.t(mode === 'login' ? 'auth.register' : 'auth.login')}
-          </a>
-        </p>
+        {#if mode === 'login'}
+          <p class="auth-switch">
+            <span role="link" aria-disabled="true" class="forgot-password"
+              >{$i18n.t('auth.forgotPassword')}</span
+            >
+          </p>
+        {/if}
       {/if}
     </div>
   </section>
@@ -219,13 +237,13 @@
     line-height: 1.6;
     text-align: center;
   }
-  a {
+  .forgot-password {
     color: white;
     font-weight: 650;
     text-underline-offset: 3px;
   }
-  a[aria-disabled='true'] {
-    cursor: wait;
+  .forgot-password[aria-disabled='true'] {
+    cursor: not-allowed;
     opacity: 0.7;
   }
   .auth-checking {
@@ -311,23 +329,7 @@
       background: #124f91;
     }
   }
-  @media (max-width: 800px) {
-    .auth-page {
-      padding: 72px 16px 16px;
-    }
-    .auth-stage {
-      min-height: 0;
-      padding: 16px;
-    }
-    .auth-card {
-      padding: 40px;
-    }
-    .auth-language {
-      right: 16px;
-      top: 16px;
-    }
-  }
-  @media (max-height: 740px) and (min-width: 801px) {
+  @media (max-height: 740px) {
     .auth-page {
       padding: 48px 24px 8px;
     }

@@ -1,18 +1,26 @@
 import { message, type UiMessage } from '../../i18n/messages.ts';
 import type { AuthField, AuthFieldErrors } from './auth-form.ts';
-export type AuthUser = { id: string; display_name: string };
+export type AuthUser = { id: string; display_name: string; system_role: 'user' | 'admin' };
 export type AuthSession = { user: AuthUser; csrf_token: string };
+export type AuthSetup = { requires_initial_admin: boolean };
 
 /** Preserve HTTP status and safe translation keys; never expose raw backend detail. */
 export class AuthApiError extends Error {
   readonly status?: number;
   readonly uiMessage: UiMessage;
   readonly fieldErrors: AuthFieldErrors;
-  constructor(uiMessage: UiMessage, status?: number, fieldErrors: AuthFieldErrors = {}) {
+  readonly code?: string;
+  constructor(
+    uiMessage: UiMessage,
+    status?: number,
+    fieldErrors: AuthFieldErrors = {},
+    code?: string,
+  ) {
     super('Authentication request failed');
     this.uiMessage = uiMessage;
     this.status = status;
     this.fieldErrors = fieldErrors;
+    this.code = code;
   }
 }
 
@@ -34,13 +42,57 @@ async function readSession(response: Response): Promise<AuthSession> {
       response.status === 401 ? message('auth.errors.credentials') : message('auth.errors.request'),
       response.status,
     );
-  return response.json() as Promise<AuthSession>;
+  try {
+    const value = await response.json();
+    const user = value?.user;
+    if (
+      !user ||
+      typeof user.id !== 'string' ||
+      !user.id ||
+      typeof user.display_name !== 'string' ||
+      !['user', 'admin'].includes(user.system_role) ||
+      typeof value.csrf_token !== 'string' ||
+      !value.csrf_token
+    ) {
+      throw new Error('Invalid session');
+    }
+    return {
+      user: { id: user.id, display_name: user.display_name, system_role: user.system_role },
+      csrf_token: value.csrf_token,
+    };
+  } catch {
+    throw new AuthApiError(message('auth.errors.request'), response.status);
+  }
 }
 
 export async function getAuthSession(): Promise<AuthSession | null> {
-  const response = await request('/auth/session');
+  const response = await request('/auth/session', { cache: 'no-store' });
   if (response.status === 401) return null;
   return readSession(response);
+}
+
+/** Presence writes contain no identity or client timestamp; the cookie selects the session. */
+export async function sendPresence(csrfToken: string, signal: AbortSignal): Promise<void> {
+  const response = await request('/auth/presence', {
+    method: 'POST',
+    signal,
+    cache: 'no-store',
+    headers: { 'X-CSRF-Token': csrfToken },
+  });
+  if (!response.ok) throw new AuthApiError(message('auth.errors.session'), response.status);
+}
+
+/** Setup is a strict server fact; a failed/malformed response never means zero accounts. */
+export async function getAuthSetup(): Promise<AuthSetup> {
+  const response = await request('/auth/setup', { cache: 'no-store' });
+  try {
+    if (!response.ok) throw new Error('Setup unavailable');
+    const body = await response.json();
+    if (typeof body?.requires_initial_admin !== 'boolean') throw new Error('Invalid setup');
+    return { requires_initial_admin: body.requires_initial_admin };
+  } catch {
+    throw new AuthApiError(message('auth.errors.setup'), response.status);
+  }
 }
 
 export async function login(email: string, password: string): Promise<AuthSession> {
@@ -71,6 +123,17 @@ export async function register(
   } catch {
     /* Invalid error bodies still produce a safe localized notice. */
   }
+  if (response.status === 409 && detail.code === 'setup_already_completed') {
+    throw new AuthApiError(
+      message('auth.errors.setupCompleted'),
+      409,
+      {},
+      'setup_already_completed',
+    );
+  }
+  if (response.status === 409 && detail.code !== 'email_taken') {
+    throw new AuthApiError(message('auth.errors.registrationFailed'), 409);
+  }
   const statusKeys = {
     403: 'auth.errors.origin',
     409: 'auth.errors.emailTaken',
@@ -94,7 +157,12 @@ export async function register(
   if (response.status === 409) fields.email = message('auth.errors.emailTaken');
   const key =
     statusKeys[response.status as keyof typeof statusKeys] ?? 'auth.errors.registrationFailed';
-  throw new AuthApiError(message(key), response.status, fields);
+  throw new AuthApiError(
+    message(key),
+    response.status,
+    fields,
+    detail.code === 'email_taken' ? 'email_taken' : undefined,
+  );
 }
 
 export async function logout(csrfToken: string): Promise<void> {
