@@ -16,8 +16,11 @@ configuration, tests, and documentation here.
   that generate or overwrite files in the proposed scope.
 - This rule applies to AGENTS.md itself.
 
-## Archived files
+## User-facing documentation
 
+- Keep `docs/` for guides and reference documentation intended for application users. Put agent/developer architecture, implementation notes and design proposals in `specs/` or another appropriate internal location.
+
+## Archived files
 Exclude every directory named `archive` (case-insensitive, at any depth) from
 searches and project context. Do not read, edit, execute, or use its contents.
 
@@ -96,7 +99,7 @@ secrets under `references/`.
 ## Development workflow
 
 - Read `README.md` before running the app, migrations, frontend, or tests.
-  Read [current architecture](docs/architecture.md) when working on module
+  Read [current and target architecture](specs/02-architecture.md) when working on module
   boundaries, data flows, authorization, persistence or feature state ownership.
   Use [database setup](docs/database-setup.md) for migrations and database operations.
   Keep runnable commands in README or linked documentation, not duplicated here.
@@ -105,3 +108,59 @@ secrets under `references/`.
   authorization/isolation coverage.
 - Preserve user work. Never commit `.env`, local uploads, virtual environments,
   logs, or generated frontend output.
+
+## Agent validation workflow
+
+Start Docker Desktop with Linux containers before database tests. Tests create
+disposable PostgreSQL/pgvector containers and databases, run Alembic there and use
+local fake providers. They do not require provider keys or reset the application
+database. The first run may pull the test image. Do not run two backend suites at
+once: their shared fixture owns process-wide application/provider resources.
+
+From the repository root:
+
+~~~powershell
+$env:PYTHONDONTWRITEBYTECODE = '1'
+$env:PYTHONPATH = 'tests;backend'
+npm --prefix frontend run build
+.\.venv\Scripts\python.exe -B -m unittest discover -s tests -p 'test_*.py'
+npm --prefix frontend test
+npm --prefix frontend run lint
+npm --prefix frontend run format:check
+~~~
+
+Browser tests require an installed Playwright module and Chromium. Point the
+environment variables at your installation; these paths are examples to replace:
+
+~~~powershell
+$env:RUVIE_PLAYWRIGHT_PATH = 'C:\path\to\node_modules\playwright'
+$env:RUVIE_BROWSER_PATH = 'C:\path\to\chrome.exe'
+~~~
+
+If using Playwright's default browser installation instead, install the matching
+browser with `node "$env:RUVIE_PLAYWRIGHT_PATH\cli.js" install chromium` and leave
+`RUVIE_BROWSER_PATH` unset. Build the frontend before browser runs. Without the
+module/build prerequisites, Python browser tests report skips; the admin form
+component browser test skips without `RUVIE_PLAYWRIGHT_PATH`. A skip is not a pass.
+
+With browser variables configured, run the full backend command above again to
+include browser tests. For focused account integration and frontend regression:
+
+~~~powershell
+.\.venv\Scripts\python.exe -B -m unittest discover -s tests -p 'test_f012_*.py'
+.\.venv\Scripts\python.exe -B -m unittest discover -s tests -p 'test_f009_006_registration_e2e.py'
+npm --prefix frontend test
+node frontend/tests/admin-browser.mjs
+node frontend/tests/auth-browser.mjs
+node frontend/tests/theme-browser.mjs
+node frontend/tests/workspace-browser.mjs
+node frontend/tests/llm-browser.mjs
+node frontend/tests/frontend-ux-browser.mjs
+~~~
+
+`admin-e2e.mjs` and `auth-e2e.mjs` are launched by Python with a disposable backend,
+ports and database; do not launch them against the application database. Standalone
+browser scripts fake their HTTP boundary. Build output is under `frontend/dist/`;
+screenshots are under ignored `logs/`. Neither should be committed. See the F012
+spec for measured results and known regression failures; these commands do not
+imply that every current browser regression passes.

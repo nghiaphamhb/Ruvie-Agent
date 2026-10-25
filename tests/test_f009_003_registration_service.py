@@ -70,6 +70,7 @@ class RegistrationServiceTests(unittest.TestCase):
             self.assertEqual((result.user.display_name, result.user.email, result.user.is_active),
                              ("Nguyễn An", "an@example.test", True))
             self.assertTrue(verify_password(" example-password ", result.user.password_hash))
+            self.assertEqual(result.user.system_role, "admin")
             self.assertNotEqual(result.user.password_hash, " example-password ")
             created = result.created_session
             self.assertNotEqual(db.scalar(select(AuthSession)).token_hash, created.token)
@@ -86,7 +87,7 @@ class RegistrationServiceTests(unittest.TestCase):
             user.is_active = False
             old_hash = user.password_hash
             db.commit()
-            with self.assertRaisesRegex(ValueError, "email_taken"):
+            with self.assertRaisesRegex(ValueError, "setup_already_completed"):
                 self.register(db, email="AN@example.test", password="different-password")
             self.assertFalse(db.get(User, user.id).is_active)
             self.assertEqual(db.get(User, user.id).password_hash, old_hash)

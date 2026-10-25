@@ -9,6 +9,7 @@ export default defineConfig({
       '/models': 'http://127.0.0.1:8000',
       '/chat': 'http://127.0.0.1:8000',
       '/auth': 'http://127.0.0.1:8000',
+      '/admin': 'http://127.0.0.1:8000',
       '/projects': 'http://127.0.0.1:8000',
       '/documents': 'http://127.0.0.1:8000',
     },

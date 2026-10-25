@@ -223,12 +223,4 @@
     box-shadow: 0 4px 16px #0004;
     white-space: nowrap;
   }
-  @media (max-width: 600px) {
-    .turn-list {
-      padding: 20px 0 48px;
-    }
-    .assistant-row {
-      gap: 10px;
-    }
-  }
 </style>

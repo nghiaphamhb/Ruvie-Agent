@@ -98,7 +98,10 @@ async function runEnterChecks(browser) {
     const json = (data) =>
       route.fulfill({ contentType: 'application/json', body: JSON.stringify(data) });
     if (api === '/auth/session')
-      return json({ user: { id: 'keyboard', display_name: 'Keyboard' }, csrf_token: 'csrf' });
+      return json({
+        user: { id: 'keyboard', system_role: 'admin', display_name: 'Keyboard' },
+        csrf_token: 'csrf',
+      });
     if (api === '/projects') return json({ items: [] });
     if (api === '/models') return json(catalog);
     if (api === '/llm/connection/model') {
@@ -219,19 +222,6 @@ async function runEnterChecks(browser) {
     true,
     'Escape returns focus',
   );
-  await page.setViewportSize({ width: 375, height: 812 });
-  await modelTrigger.click();
-  const menu = page.locator('.menu:popover-open');
-  const bounds = await menu.boundingBox();
-  assert.ok(
-    bounds.x >= 0 && bounds.x + bounds.width <= 375,
-    'dropdown stays inside mobile viewport',
-  );
-  await page.screenshot({
-    path: fileURLToPath(new URL('../../logs/model-toolbar-mobile.png', import.meta.url)),
-  });
-  await page.getByRole('combobox', { name: 'Tìm model', exact: true }).press('Escape');
-  await page.setViewportSize({ width: 1100, height: 900 });
   assert.equal(
     await page.evaluate(() => {
       const ids = [...document.querySelectorAll('[id]')].map((e) => e.id);
@@ -279,9 +269,9 @@ async function runEnterChecks(browser) {
   connected = false;
   await page.reload();
   await page.locator('.chat-model-shortcut').click();
-  await page.getByRole('dialog', { name: 'Cài đặt', exact: true }).waitFor();
+  await page.locator('#admin-settings-heading').waitFor();
   assert.equal(
-    await page.locator('#settings-tab-llm').getAttribute('aria-selected'),
+    await page.locator('#admin-settings-tab-llm').getAttribute('aria-selected'),
     'true',
     'unconnected shortcut opens LLM settings',
   );
@@ -364,9 +354,15 @@ try {
       const api = new URL(req.url()).pathname;
       const respond = (data, status = 200) =>
         route.fulfill({ status, contentType: 'application/json', body: JSON.stringify(data) });
+      if (api === '/auth/setup') return respond({ requires_initial_admin: false });
       if (api === '/auth/session')
         return respond(
-          loggedIn ? { user: { id: 'alpha', display_name: 'Alpha' }, csrf_token: 'csrf' } : {},
+          loggedIn
+            ? {
+                user: { id: 'alpha', system_role: 'admin', display_name: 'Alpha' },
+                csrf_token: 'csrf',
+              }
+            : {},
           loggedIn ? 200 : 401,
         );
       if (api === '/auth/login') {
@@ -374,7 +370,10 @@ try {
         if (slowLogin) await wait(500);
         loggedIn = true;
         expired = false;
-        return respond({ user: { id: 'alpha', display_name: 'Alpha' }, csrf_token: 'csrf' });
+        return respond({
+          user: { id: 'alpha', system_role: 'admin', display_name: 'Alpha' },
+          csrf_token: 'csrf',
+        });
       }
       if (api === '/auth/logout') {
         loggedIn = false;
@@ -448,7 +447,10 @@ try {
       await page.getByLabel('Email', { exact: true }).fill('alpha@test.com');
       await page.getByLabel('Mật khẩu', { exact: true }).fill('test-password');
       await page.getByRole('button', { name: 'Đăng nhập', exact: true }).click();
-      await page.getByText('Model: Model A', { exact: false }).waitFor({ timeout: 4000 });
+      await page
+        .locator('.workspace-toolbar')
+        .getByText('Model A', { exact: true })
+        .waitFor({ timeout: 4000 });
     }
     loginStatus = 401;
     await page.getByLabel('Email', { exact: true }).fill('alpha@test.com');
@@ -473,7 +475,11 @@ try {
       true,
       'login locks inputs while pending',
     );
-    await page.getByText('Model: Model A', { exact: false }).waitFor();
+    await page
+      .locator('.selected-name:visible')
+      .filter({ hasText: /^(Model: )?Model A$/ })
+      .first()
+      .waitFor();
     slowLogin = false;
     checks++;
     assert.ok(modelReads > 0, 'models must load even when login is still busy');
@@ -495,9 +501,9 @@ try {
     await showView('Kết nối LLM');
     assert.equal(await page.getByLabel('Base URL', { exact: true }).isVisible(), true);
     assert.equal(
-      await page.locator('.settings-dialog').isVisible(),
+      await page.locator('#admin-settings-llm').isVisible(),
       true,
-      'LLM settings use a modal',
+      'LLM settings use the admin page',
     );
     await showView('Tải tài liệu');
     await page
@@ -520,7 +526,7 @@ try {
     await openAccountMenu(page);
     await page.locator('.account-settings').focus();
     await page.keyboard.press('Space');
-    await page.locator('#settings-tab-llm').click();
+    await showView('Kết nối LLM');
     assert.equal(
       await page.getByLabel('Base URL', { exact: true }).isVisible(),
       true,
@@ -605,7 +611,11 @@ try {
     );
     streamPlan = null;
     await page.reload();
-    await page.getByText('Model: Model A', { exact: false }).waitFor();
+    await page
+      .locator('.selected-name:visible')
+      .filter({ hasText: /^(Model: )?Model A$/ })
+      .first()
+      .waitFor();
     checks++;
 
     const picker = page.getByRole('button', { name: 'Chọn model', exact: true });
@@ -638,7 +648,7 @@ try {
       { polling: 50 },
     );
     assert.equal(
-      await page.locator('[aria-label="Chọn model"]').getAttribute('aria-expanded'),
+      await page.locator('[aria-label="Chọn model"]:visible').last().getAttribute('aria-expanded'),
       'false',
       'leaving Chat closes its popover',
     );
@@ -702,7 +712,11 @@ try {
     checks++;
 
     await page.reload();
-    await page.getByText('Model: Model B', { exact: false }).waitFor();
+    await page
+      .locator('.selected-name:visible')
+      .filter({ hasText: /^(Model: )?Model B$/ })
+      .first()
+      .waitFor();
     assert.equal(await page.locator('.turn').count(), 0, 'reload clears in-page chat');
     assert.equal(
       await page.getByLabel('Câu hỏi của bạn', { exact: true }).inputValue(),
@@ -713,7 +727,11 @@ try {
     checks++;
     await picker.click();
     await page.getByRole('option', { name: /Model A/ }).click();
-    await page.getByText('Model: Model A', { exact: false }).waitFor();
+    await page
+      .locator('.selected-name:visible')
+      .filter({ hasText: /^(Model: )?Model A$/ })
+      .first()
+      .waitFor();
     selectionStatus = 502;
     await picker.click();
     await page.getByRole('option', { name: /Model B/ }).click();
@@ -724,45 +742,75 @@ try {
     await page.getByLabel('Câu hỏi của bạn', { exact: true }).fill('Pending selection');
     await picker.click();
     await page.getByRole('option', { name: /Model B/ }).click();
+    const chatsBeforePendingSelection = chatBodies.length;
+    await page.getByRole('button', { name: 'Gửi câu hỏi', exact: true }).click();
     assert.equal(
-      await page.getByRole('button', { name: 'Gửi câu hỏi', exact: true }).isDisabled(),
-      true,
+      chatBodies.length,
+      chatsBeforePendingSelection,
+      'pending selection cannot send chat',
     );
-    await page.getByText('Model: Model B', { exact: false }).waitFor();
+    await page
+      .locator('.selected-name:visible')
+      .filter({ hasText: /^(Model: )?Model B$/ })
+      .first()
+      .waitFor();
     slowSelection = false;
     await picker.click();
     await page.getByRole('option', { name: /Model A/ }).click();
-    await page.getByText('Model: Model A', { exact: false }).waitFor();
+    await page
+      .locator('.selected-name:visible')
+      .filter({ hasText: /^(Model: )?Model A$/ })
+      .first()
+      .waitFor();
     await page.getByLabel('Câu hỏi của bạn', { exact: true }).fill('');
     checks++;
     // Provider changes must block sending until a valid choice is confirmed.
     const originalModels = [...catalog.models];
     catalog.models = [{ id: 'b', name: 'Model B' }];
     catalog.selection_required = true;
+    await showView('Kết nối LLM');
     await page.getByRole('button', { name: 'Tải lại model', exact: true }).click();
+    await showView('Chat');
     await page
       .getByText('Model đã lưu không còn khả dụng. Hãy chọn lại model.', { exact: true })
+      .first()
       .waitFor();
     await page.getByLabel('Câu hỏi của bạn', { exact: true }).fill('Blocked');
-    assert.equal(
-      await page.getByRole('button', { name: 'Gửi câu hỏi', exact: true }).isDisabled(),
-      true,
-    );
+    const beforeInvalidModel = chatBodies.length;
+    await page.getByRole('button', { name: 'Gửi câu hỏi', exact: true }).click();
+    assert.equal(chatBodies.length, beforeInvalidModel);
     await picker.click();
     await page.getByRole('option', { name: /Model B/ }).click();
-    await page.getByText('Model: Model B', { exact: false }).waitFor();
+    await page
+      .locator('.selected-name:visible')
+      .filter({ hasText: /^(Model: )?Model B$/ })
+      .first()
+      .waitFor();
     catalog.models = originalModels;
     catalog.selection_required = false;
     catalog.selected_model_id = 'a';
+    await showView('Kết nối LLM');
     await page.getByRole('button', { name: 'Tải lại model', exact: true }).click();
-    await page.getByText('Model: Model A', { exact: false }).waitFor();
+    await showView('Chat');
+    await page
+      .locator('.selected-name:visible')
+      .filter({ hasText: /^(Model: )?Model A$/ })
+      .first()
+      .waitFor();
     modelsStatus = 502;
+    await showView('Kết nối LLM');
     await page.getByRole('button', { name: 'Tải lại model', exact: true }).click();
     await page.getByRole('alert').filter({ hasText: 'Không lấy được model' }).waitFor();
     assert.equal(await picker.isDisabled(), true);
     modelsStatus = 200;
+    await showView('Kết nối LLM');
     await page.getByRole('button', { name: 'Tải lại model', exact: true }).click();
-    await page.getByText('Model: Model A', { exact: false }).waitFor();
+    await showView('Chat');
+    await page
+      .locator('.selected-name:visible')
+      .filter({ hasText: /^(Model: )?Model A$/ })
+      .first()
+      .waitFor();
     checks++;
     // A model can disappear after the UI loads. HTTP 422 reloads choices, not the chat.
     chatStatus = 422;
@@ -772,17 +820,23 @@ try {
     await page.getByRole('button', { name: 'Gửi câu hỏi', exact: true }).click();
     await page
       .getByText('Model đã lưu không còn khả dụng. Hãy chọn lại model.', { exact: true })
+      .first()
       .waitFor();
     assert.equal(chatBodies.length, previousChats + 1, 'no automatic chat retry');
-    assert.equal(
-      await page.getByRole('button', { name: 'Gửi câu hỏi', exact: true }).isDisabled(),
-      true,
-    );
+    await page.getByLabel('Câu hỏi của bạn', { exact: true }).fill('Try again with missing model');
+    await page.getByRole('button', { name: 'Gửi câu hỏi', exact: true }).click();
+    assert.equal(chatBodies.length, previousChats + 1, 'invalid model blocks another send');
     chatStatus = 200;
     catalog.models = originalModels;
     catalog.selection_required = false;
+    await showView('Kết nối LLM');
     await page.getByRole('button', { name: 'Tải lại model', exact: true }).click();
-    await page.getByText('Model: Model A', { exact: false }).waitFor();
+    await showView('Chat');
+    await page
+      .locator('.selected-name:visible')
+      .filter({ hasText: /^(Model: )?Model A$/ })
+      .first()
+      .waitFor();
     checks++;
     await showView('Kết nối LLM');
     const url = page.getByLabel('Base URL', { exact: true });
@@ -808,7 +862,11 @@ try {
     assert.equal(bodies.at(-1).api_key, '');
     checks++;
     await page.reload();
-    await page.getByText('Model: Model A', { exact: false }).waitFor();
+    await page
+      .locator('.selected-name:visible')
+      .filter({ hasText: /^(Model: )?Model A$/ })
+      .first()
+      .waitFor();
     await showView('Kết nối LLM');
     assert.equal(await url.inputValue(), 'https://personal.test/v1');
     assert.equal(await key.inputValue(), '');
@@ -835,11 +893,14 @@ try {
     await showView('Chat');
     await page.getByLabel('Câu hỏi của bạn', { exact: true }).fill('Question');
     await page.getByRole('button', { name: 'Gửi câu hỏi', exact: true }).click();
+    await showView('Kết nối LLM');
     assert.equal(await url.isDisabled(), true);
     await showView('Tải tài liệu');
     await showView('Chat');
     await page.getByText('Answer', { exact: true }).waitFor();
+    await showView('Kết nối LLM');
     await page.waitForFunction(() => !document.querySelector('#llm-url').disabled);
+    await showView('Chat');
     checks++;
     await page.setViewportSize({ width: 1280, height: 720 });
     catalog.models = [
@@ -849,20 +910,29 @@ try {
         name: `Extra model ${index} with a long provider name`,
       })),
     ];
+    await showView('Kết nối LLM');
     await page.getByRole('button', { name: 'Tải lại model', exact: true }).click();
-    await page.getByText('Model: Model A', { exact: false }).waitFor();
+    await showView('Chat');
+    await page
+      .locator('.selected-name:visible')
+      .filter({ hasText: /^(Model: )?Model A$/ })
+      .first()
+      .waitFor();
     await picker.click();
     await search.fill('extra-');
     await page.waitForFunction(
-      () => document.querySelector('[role="listbox"]')?.children.length === 25,
+      () =>
+        document.querySelector('[role="listbox"]')?.querySelectorAll('[role="option"]').length ===
+        25,
       null,
       { polling: 50 },
     );
     await page.keyboard.press('ArrowUp');
-    await page.waitForFunction(
-      () =>
-        document.querySelector('#model-search')?.getAttribute('aria-activedescendant') ===
-        'model-option-24',
+    await page.waitForFunction(() =>
+      document
+        .querySelector('[role="combobox"][aria-expanded="true"]')
+        ?.getAttribute('aria-activedescendant')
+        ?.endsWith('-option-24'),
     );
     await page.waitForFunction(
       () => document.querySelector('[role="listbox"]')?.scrollTop > 0,
@@ -873,7 +943,7 @@ try {
       await page.getByRole('listbox').evaluate((element) => element.scrollTop > 0),
       'keyboard scrolls long catalog',
     );
-    const menuBounds = await page.locator('#model-menu').boundingBox();
+    const menuBounds = await page.locator('.menu:popover-open').boundingBox();
     assert.ok(
       menuBounds.x >= 0 &&
         menuBounds.x + menuBounds.width <= 1280 &&
@@ -929,7 +999,11 @@ try {
     // A pending project read must not restore account data after logout/login.
     failProjects = true;
     await page.reload();
-    await page.getByText('Model: Model A', { exact: false }).waitFor();
+    await page
+      .locator('.selected-name:visible')
+      .filter({ hasText: /^(Model: )?Model A$/ })
+      .first()
+      .waitFor();
     failProjects = false;
     delayedProjects = true;
     await showView('Tải tài liệu');

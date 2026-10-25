@@ -1,0 +1,17 @@
+{
+  "schemaVersion": 1,
+  "receiptId": "dc01b427-7f49-42e2-b75e-dced4a0a8079",
+  "status": "current",
+  "command": "deliver",
+  "type": "sequence",
+  "input": "D:\\Github Repository\\Ruvie-Agent\\.archify\\sequence-user-admin-20261023-205115\\candidate.json",
+  "output": "D:\\Github Repository\\Ruvie-Agent\\.archify\\sequence-user-admin-20261023-205115\\user-admin-sequence.html",
+  "specification": {
+    "sha256": "49fd900aafb56541eff5d96f239f01a3abd0a3c0332acca505e57e808c5b21e2",
+    "bytes": 9929
+  },
+  "artifact": {
+    "sha256": "3f0805029165647aa513a6ee731f31258474b6c986d9da05032677ab3eaa0737",
+    "bytes": 838063
+  }
+}

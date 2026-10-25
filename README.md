@@ -25,7 +25,7 @@ so they can apply existing troubleshooting guidance more easily.
 
 Run commands in PowerShell from the repository root. Contributors and agents can
 find module responsibilities and data flows in
-[current architecture](docs/architecture.md).
+[architecture notes](specs/02-architecture.md).
 
 ### Backend
 
@@ -106,6 +106,7 @@ Set-Location backend
 ~~~
 
 Open the frontend URL printed by Vite. Check the API at
-<http://127.0.0.1:8000/health>. Sign in or register an account; project membership
+<http://127.0.0.1:8000/health>. With no users, create the first administrator;
+otherwise sign in using an account provisioned by an administrator. Project membership
 and document permissions must be assigned separately. In Settings, connect an
 LLM provider and select a model if no server fallback is configured.

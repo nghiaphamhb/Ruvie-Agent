@@ -1,0 +1,31 @@
+{
+ "schema_version":1,"diagram_type":"architecture",
+ "meta":{"title":"Kiến trúc codebase Ruvie Agent","locale":"vi","output":".archify/architecture-ruvie-20261023-203734/ruvie-architecture.html","quality_profile":"showcase","repository":{"url":"https://github.com/nghiaphamhb/Ruvie-Assistant.git","revision":"1add8751ff37dde46fc037d1581ece34d86512f2"}},
+ "components":[
+  {"id":"browser","type":"frontend","label":"Giao diện Svelte 5","sublabel":"pages / layout / features","pos":[40,40],"size":[205,74],"sources":[{"path":"frontend/src/lib/features/chat/chat-api.ts","line":100},{"path":"frontend/src/lib/features/documents/documents-api.ts","line":36}]},
+  {"id":"api","type":"backend","label":"API FastAPI","sublabel":"api/ · contracts/ · HTTP / SSE","pos":[440,40],"size":[215,74],"sources":[{"path":"backend/ruvie/api/chat.py","line":14},{"path":"backend/ruvie/api/documents.py","line":26}]},
+  {"id":"services","type":"backend","label":"Nghiệp vụ + RAG","sublabel":"Chat · Retrieval · Documents","tag":"Lọc quyền + READY trước truy xuất","pos":[440,285],"size":[230,90],"sources":[{"path":"backend/ruvie/services/chat.py","line":52},{"path":"backend/ruvie/services/retrieval.py","line":56},{"path":"backend/ruvie/services/documents/upload.py","line":77}]},
+  {"id":"llm","type":"external","label":"LLM provider","sublabel":"adapters/llm.py · stream","pos":[890,285],"size":[210,74],"sources":[{"path":"backend/ruvie/adapters/llm.py","line":221}]},
+  {"id":"postgres","type":"database","label":"PostgreSQL + pgvector","sublabel":"Dữ liệu · ACL · vectors · jobs","pos":[440,555],"size":[230,80],"sources":[{"path":"backend/ruvie/services/retrieval.py","line":66},{"path":"backend/ruvie/services/documents/upload.py","line":109}]},
+  {"id":"blobs","type":"database","label":"File gốc riêng tư","sublabel":"LocalBlobStore · data/uploads/","pos":[40,555],"size":[225,80],"sources":[{"path":"backend/ruvie/adapters/blob_storage.py","line":9},{"path":"backend/ruvie/adapters/blob_storage.py","line":21}]},
+  {"id":"worker","type":"backend","label":"Worker nhập tài liệu","sublabel":"Trích xuất → chunk → embedding","tag":"Tiến trình riêng · worker_cli.py","pos":[440,820],"size":[240,90],"sources":[{"path":"backend/ruvie/worker_cli.py","line":39},{"path":"backend/ruvie/services/documents/ingestion.py","line":74},{"path":"backend/ruvie/services/documents/ingestion.py","line":157}]},
+  {"id":"embedding","type":"external","label":"Embedding provider","sublabel":"bge-m3 · 1024 chiều · cosine","pos":[890,820],"size":[220,80],"sources":[{"path":"backend/ruvie/adapters/embedding.py","line":41},{"path":"backend/ruvie/adapters/embedding.py","line":58},{"path":"backend/ruvie/config.py","line":1}]}
+ ],
+ "connections":[
+  {"id":"browser-api","from":"browser","to":"api","label":"HTTP / SSE","variant":"emphasis"},
+  {"id":"api-services","from":"api","to":"services","label":"Gọi service","variant":"emphasis"},
+  {"id":"services-llm","from":"services","to":"llm","label":"Prompt → stream","variant":"emphasis"},
+  {"id":"services-db","from":"services","to":"postgres","label":"SQL + lọc quyền","variant":"security"},
+  {"id":"services-blobs","from":"services","to":"blobs","label":"Lưu upload"},
+  {"id":"worker-db","from":"worker","to":"postgres","label":"Claim job / lưu chunks","variant":"dashed"},
+  {"id":"worker-blobs","from":"worker","to":"blobs","label":"Đọc file gốc"},
+  {"id":"worker-embedding","from":"worker","to":"embedding","label":"Embedding chunks","variant":"dashed"},
+  {"id":"services-embedding","from":"services","to":"embedding","label":"Embedding câu hỏi"}
+ ],
+ "cards":[
+  {"dot":"cyan","title":"Tổ chức mã nguồn","items":["frontend/src/lib/pages/ điều phối vòng đời; layout/ dựng khung; features/ sở hữu state và API; shared/ và i18n/ hỗ trợ giao diện.","backend/ruvie/main.py quản lý tài nguyên và đăng ký router; api/ + contracts/ xử lý HTTP/SSE; services/ xử lý nghiệp vụ; adapters/ giao tiếp bên ngoài; models/ + database.py lưu trữ.","Auth, Projects và LLM settings là các service hỗ trợ trong API; Alembic quản lý schema qua backend/migrations/."]},
+  {"dot":"rose","title":"Quyền đọc và RAG","items":["ChatService → AuthorizedRetrievalService → PgvectorChunkRepository. SQL chỉ chọn tài liệu được phép đọc và revision READY trước xếp hạng cosine.","DocumentAccessService cho phép membership có role phù hợp HOẶC read grant còn hạn; mặc định từ chối. Quyền admin không tự cấp quyền đọc tài liệu.","Services gọi provider qua adapters; URL, key và cấu hình embedding do server quản lý. API mã hóa sự kiện delta, citations, completed và error."]},
+  {"dot":"amber","title":"Upload và xử lý nền","items":["Upload kiểm tra membership, ghi blob riêng tư rồi tạo document/revision/job; HTTP trả 202. Trình duyệt poll trạng thái.","Worker poll PostgreSQL, claim job bằng SKIP LOCKED; đọc file, trích xuất, chia chunk và embedding; chỉ chuyển READY sau khi hoàn tất.","PostgreSQL giữ hàng đợi công việc cùng dữ liệu và vectors. Revision/chunk giữ nguyên nội dung; citation gắn revision/chunk gốc. URI lưu trữ không trả ra client."]},
+  {"dot":"slate","title":"Phạm vi và phiên bản nguồn","items":["Sơ đồ tổng quan runtime và trách nhiệm module của ứng dụng đang hoạt động; không bao gồm references/ và các thư mục archive.","Working tree có thay đổi chưa commit: README.md, docs/architecture.md, auth/security/dependencies/main/models/services, App/WorkspacePage/layout/settings/i18n, Vite và tests/specs. Nguồn liên kết được kiểm chứng tại commit 1add875; chỉ dùng các hành vi đã đối chiếu còn tương ứng.","Phần Admin hiện có trong working tree: backend/ruvie/api/admin.py, contracts/admin.py, services/admin.py; frontend/src/lib/features/admin/, pages/AdminPage.svelte và migration 0010_users_system_role.py. Phần này chưa nằm trong commit nguồn được ghim; không có liên kết nguồn tại commit cho các file mới.","Nhãn và diễn giải bằng tiếng Việt; giao diện điều khiển Viewer dùng tiếng Anh dự phòng."]}
+ ]
+}

@@ -7,12 +7,16 @@
     collapsed,
     onsettings,
     onlogout,
+    canAdmin = false,
+    onadmin = () => {},
   }: {
     name: string;
     busy: boolean;
     collapsed: boolean;
     onsettings: () => void;
     onlogout: () => void;
+    canAdmin?: boolean;
+    onadmin?: () => void;
   } = $props();
   let menu: HTMLDivElement;
   let trigger: HTMLButtonElement;
@@ -102,6 +106,18 @@
   style:width={`${position.width}px`}
   onkeydown={keydown}
 >
+  {#if canAdmin}
+    <button
+      class="account-admin"
+      type="button"
+      role="menuitem"
+      disabled={busy}
+      onclick={() => {
+        close();
+        onadmin();
+      }}><WorkspaceIcon name="workspace" />{$i18n.t('admin.navigation')}</button
+    >
+  {/if}
   <button
     class="account-settings"
     type="button"

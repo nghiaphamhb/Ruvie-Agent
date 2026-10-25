@@ -4,7 +4,10 @@
   import ModelSelector from '../features/llm/ModelSelector.svelte';
   import type { UiMessage } from '../i18n/messages.ts';
   import { onDestroy, onMount, tick, untrack } from 'svelte';
-  import type { AuthUser } from '../features/auth/auth-api.ts';
+  import { getAuthSession, type AuthUser } from '../features/auth/auth-api.ts';
+  import { startPresence } from '../features/auth/presence.ts';
+  import { message } from '../i18n/messages.ts';
+  import AdminPage from './AdminPage.svelte';
   import { createChatState } from '../features/chat/chat-state.svelte.ts';
   import { createDocumentsState } from '../features/documents/documents-state.svelte.ts';
   import { createLlmState } from '../features/llm/llm-state.svelte.ts';
@@ -17,7 +20,7 @@
   import FeaturePlaceholder from '../shared/FeaturePlaceholder.svelte';
   import AppSidebar, { type WorkspaceView } from '../layout/AppSidebar.svelte';
   import WorkspaceShell from '../layout/WorkspaceShell.svelte';
-  import SettingsModal from '../features/settings/SettingsModal.svelte';
+  import SettingsPanel from '../features/settings/SettingsPanel.svelte';
   import { createThemeState } from '../features/settings/theme.ts';
   import ChatControlsPanel from '../features/chat/ChatControlsPanel.svelte';
   import ChatPage from '../features/chat/ChatPage.svelte';
@@ -37,11 +40,10 @@
     onexpired: () => void;
   } = $props();
   let activeView = $state<WorkspaceView>('chat'),
-    sidebarCollapsed = $state(false),
-    sidebarMobileOpen = $state(false);
-  let settingsOpen = $state(false),
-    settingsTab = $state<'general' | 'llm' | 'appearance'>('general'),
-    controlsOpen = $state(false),
+    sidebarCollapsed = $state(false);
+  let retainedAdminView = $state<'admin-users' | 'admin-settings' | null>(null);
+  let accountName = $state(untrack(() => authUser.display_name));
+  let controlsOpen = $state(false),
     uploadOpen = $state(false);
   let uploadInline = $state<HTMLDivElement>();
   const viewLabels = {
@@ -53,7 +55,15 @@
     documents: 'nav.documents',
     folders: 'workspace.folders',
     history: 'workspace.conversations',
+    settings: 'workspace.settings',
+    'admin-users': 'admin.users',
+    'admin-settings': 'admin.systemSettings',
   } as const;
+  let adminRevoked = $state(false);
+  const canAdmin = $derived(authUser.system_role === 'admin' && !adminRevoked);
+  let navigationNotice = $state<UiMessage | null>(null);
+  // Navigation reads can finish after logout or a newer Back/Forward action.
+  let navigationGeneration = 0;
   let chatNotice = $state<{ key: 'chat.configureModel' | 'chat.modelsLoading'; id: number } | null>(
     null,
   );
@@ -90,6 +100,7 @@
       : llm.catalog?.models.find((model) => model.id === llm.catalog?.selected_model_id),
   );
   let expired = false;
+  let presence: ReturnType<typeof startPresence> | undefined;
   const sessionCsrf = untrack(() => csrfToken);
   const theme = createThemeState(untrack(() => authUser.id));
   const llm = createLlmState({
@@ -109,6 +120,8 @@
   const documents = createDocumentsState({ csrfToken: sessionCsrf, onexpired: clearSession });
   /** Invalidate all request owners before App removes this account's workspace. */
   function dispose() {
+    presence?.dispose();
+    navigationGeneration++;
     chat.dispose();
     documents.dispose();
     llm.dispose();
@@ -121,48 +134,122 @@
     onexpired();
   }
   onMount(() => {
+    presence = startPresence(sessionCsrf, clearSession);
+    const updateAccount = (event: Event) => {
+      const user = (
+        event as CustomEvent<{
+          id: string;
+          display_name: string;
+          system_role: 'user' | 'admin';
+          password_changed?: boolean;
+        }>
+      ).detail;
+      if (user?.id !== authUser.id) return;
+      if (user.password_changed) {
+        clearSession();
+        return;
+      }
+      if (typeof user.display_name === 'string') accountName = user.display_name;
+      if (user.system_role === 'user' && authUser.system_role === 'admin') lostAdminAccess();
+    };
+    window.addEventListener('ruvie:account-updated', updateAccount);
+    void restoreView(false);
     void documents.loadProjects();
     void llm.initialize();
+    return () => window.removeEventListener('ruvie:account-updated', updateAccount);
   });
   onDestroy(dispose);
-  async function toggleSidebar() {
-    if (innerWidth <= 800) {
-      sidebarMobileOpen = !sidebarMobileOpen;
-      if (!sidebarMobileOpen) {
-        await tick();
-        document.querySelector<HTMLButtonElement>('.sidebar-open')?.focus();
-      }
-    } else sidebarCollapsed = !sidebarCollapsed;
+  function toggleSidebar() {
+    sidebarCollapsed = !sidebarCollapsed;
   }
-  function resizeWorkspace() {
-    if (innerWidth > 800) sidebarMobileOpen = false;
-  }
-  function openSettings(tab: 'general' | 'llm' = 'general') {
-    sidebarMobileOpen = false;
-    settingsTab = tab;
-    settingsOpen = true;
+  function openSettings() {
+    void selectView('settings');
   }
   function closeControls() {
     controlsOpen = false;
     document.querySelector<HTMLButtonElement>('.chat-controls-trigger')?.focus();
   }
-  async function closeSettings() {
-    settingsOpen = false;
-    await tick();
-    document
-      .querySelector<HTMLButtonElement>(innerWidth <= 800 ? '.sidebar-open' : '.account-trigger')
-      ?.focus();
-  }
-  async function selectView(view: WorkspaceView) {
+  /** View query selects presentation only; fresh server identity gates admin mounting. */
+  async function selectView(
+    view: WorkspaceView,
+    mode: 'push' | 'replace' = 'push',
+    moveFocus = true,
+  ) {
+    if (expired) return;
+    const current = ++navigationGeneration;
+    navigationNotice = null;
+    if (view === 'admin-users' || view === 'admin-settings') {
+      if (!canAdmin) {
+        view = 'chat';
+        mode = 'replace';
+        navigationNotice = message('admin.errors.admin_required');
+      } else {
+        try {
+          const session = await getAuthSession();
+          if (current !== navigationGeneration || expired) return;
+          if (!session || session.user.id !== authUser.id || session.csrf_token !== sessionCsrf) {
+            clearSession();
+            return;
+          }
+          if (session.user.system_role !== 'admin') {
+            adminRevoked = true;
+            view = 'chat';
+            mode = 'replace';
+            navigationNotice = message('admin.errors.admin_required');
+          }
+        } catch {
+          if (current !== navigationGeneration || expired) return;
+          view = 'chat';
+          mode = 'replace';
+          navigationNotice = message('admin.errors.sessionCheck');
+        }
+      }
+    }
+    const url = new URL(window.location.href);
+    if (view === 'chat') url.searchParams.delete('view');
+    else url.searchParams.set('view', view);
+    if (url.href !== window.location.href) {
+      if (mode === 'replace') history.replaceState({}, '', url);
+      else history.pushState({}, '', url);
+    }
+    // Personal settings preserve an open admin form; other destinations dispose it.
+    if (view === 'admin-users' || view === 'admin-settings') retainedAdminView = view;
+    else if (view !== 'settings') retainedAdminView = null;
     activeView = view;
-    sidebarMobileOpen = false;
     uploadOpen = false;
     await tick();
-    document
-      .querySelector<HTMLElement>(
+    if (!moveFocus || current !== navigationGeneration || expired) return;
+    const heading = [
+      ...document.querySelectorAll<HTMLElement>(
         '.view-panel:not([hidden]) [data-view-heading],.view-panel:not([hidden]) #question',
-      )
-      ?.focus();
+      ),
+    ].find((element) => element.getClientRects().length > 0);
+    heading?.focus();
+  }
+  function restoreView(moveFocus = true) {
+    const query = new URL(window.location.href).searchParams.get('view');
+    const view = query && Object.hasOwn(viewLabels, query) ? (query as WorkspaceView) : 'chat';
+    return selectView(view, 'replace', moveFocus);
+  }
+  async function lostAdminAccess() {
+    let session;
+    try {
+      session = await getAuthSession();
+    } catch {
+      navigationNotice = message('admin.errors.sessionCheck');
+      return;
+    }
+    if (!session || session.user.id !== authUser.id || session.csrf_token !== sessionCsrf) {
+      clearSession();
+      return;
+    }
+    if (session.user.system_role === 'admin') {
+      navigationNotice = message('admin.errors.admin_required');
+      return;
+    }
+    adminRevoked = true;
+    await selectView('chat', 'replace');
+    navigationNotice = message('admin.errors.admin_required');
   }
   async function newChat() {
     chat.reset();
@@ -176,15 +263,14 @@
   }
 </script>
 
-<svelte:window onresize={resizeWorkspace} />
+<svelte:window
+  onpopstate={() => {
+    void restoreView();
+  }}
+/>
 <WorkspaceShell
   theme={$theme.resolved}
   collapsed={sidebarCollapsed}
-  mobileOpen={sidebarMobileOpen}
-  ontoggle={toggleSidebar}
-  onclose={() => {
-    sidebarMobileOpen = false;
-  }}
   oncontrols={() => {
     controlsOpen = !controlsOpen;
   }}
@@ -208,7 +294,8 @@
         <button
           class="chat-model-shortcut"
           type="button"
-          onclick={() => openSettings('llm')}
+          disabled={!canAdmin}
+          onclick={() => selectView('admin-settings')}
           title={selectedModel?.name ?? $i18n.t('chat.modelNotSelected')}
           aria-label={$i18n.t('chat.configureModelLabel', {
             model: selectedModel?.name ?? $i18n.t('chat.modelNotSelected'),
@@ -226,9 +313,10 @@
   {/snippet}
   {#snippet sidebar()}<AppSidebar
       {activeView}
-      accountName={authUser.display_name}
+      {accountName}
+      {canAdmin}
       busy={authBusy}
-      collapsed={sidebarCollapsed && !sidebarMobileOpen}
+      collapsed={sidebarCollapsed}
       onselect={selectView}
       onnewchat={() => {
         void newChat();
@@ -238,9 +326,39 @@
       {onlogout}
     />{/snippet}
   {#if authError}<p class="auth-error" role="alert">{$i18n.message(authError)}</p>{/if}
+  {#if navigationNotice}<p role="alert">{$i18n.message(navigationNotice)}</p>{/if}
+  {#if retainedAdminView && canAdmin}
+    <div class="view-panel" hidden={activeView === 'settings'}>
+      <AdminPage
+        csrfToken={sessionCsrf}
+        onexpired={clearSession}
+        onforbidden={lostAdminAccess}
+        view={retainedAdminView}
+        active={activeView !== 'settings'}
+        onselect={(view) => selectView(view, 'push', false)}
+      >
+        {#snippet settings()}
+          <SettingsPanel {theme} system>
+            <LlmConnectionForm state={llm} disabled={chat.busy || authBusy} />
+            <ModelSelector
+              catalog={llm.catalog}
+              loading={llm.loading || llm.modelBusy}
+              disabled={chat.busy || authBusy}
+              error={llm.modelError}
+              onselect={llm.chooseModel}
+              onreload={llm.reloadModels}
+            />
+          </SettingsPanel>
+        {/snippet}
+      </AdminPage>
+    </div>
+  {/if}
+  <div class="view-panel" hidden={activeView !== 'settings'}>
+    <SettingsPanel {theme} />
+  </div>
   <div class="view-panel chat-view" hidden={activeView !== 'chat'}>
     <ChatPage
-      name={authUser.display_name}
+      name={accountName}
       turns={chat.turns}
       draft={chat.draft}
       busy={chat.busy}
@@ -275,7 +393,9 @@
   <div class="view-panel" hidden={activeView !== 'search'}>
     <DocumentSearchPage state={documents} />
   </div>
-  {#if !['chat', 'documents', 'projects', 'search'].includes(activeView)}<div class="view-panel">
+  {#if !['chat', 'documents', 'projects', 'search', 'settings', 'admin-users', 'admin-settings'].includes(activeView)}<div
+      class="view-panel"
+    >
       <FeaturePlaceholder view={activeView} title={viewLabels[activeView]} />
     </div>{/if}
   <UploadSurface
@@ -311,22 +431,4 @@
       ?.name ?? ''}
     onclose={closeControls}
   />
-  <SettingsModal
-    {theme}
-    open={settingsOpen}
-    bind:tab={settingsTab}
-    onclose={() => {
-      void closeSettings();
-    }}
-  >
-    <LlmConnectionForm state={llm} disabled={chat.busy || authBusy} />
-    <ModelSelector
-      catalog={llm.catalog}
-      loading={llm.loading || llm.modelBusy}
-      disabled={chat.busy || authBusy}
-      error={llm.modelError}
-      onselect={llm.chooseModel}
-      onreload={llm.reloadModels}
-    />
-  </SettingsModal>
 </WorkspaceShell>

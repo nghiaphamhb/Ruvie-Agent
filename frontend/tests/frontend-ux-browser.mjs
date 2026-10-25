@@ -7,6 +7,7 @@ import { fileURLToPath } from 'node:url';
 import path from 'node:path';
 import {
   openSettings,
+  closeSettings,
   showWorkspaceView,
   logoutFromMenu,
   ensureSidebar,
@@ -91,7 +92,10 @@ try {
     const json = (value, status = 200) =>
       route.fulfill({ status, contentType: 'application/json', body: JSON.stringify(value) });
     if (pathname === '/auth/session')
-      return json({ user: { id: 'u', display_name: 'Nguyễn An' }, csrf_token: 'csrf' });
+      return json({
+        user: { id: 'u', system_role: 'user', display_name: 'Nguyễn An' },
+        csrf_token: 'csrf',
+      });
     if (pathname === '/auth/logout') return route.fulfill({ status: 204 });
     if (pathname === '/projects') return json({ items: [{ id: 'p', name: 'Project', code: 'P' }] });
     if (pathname === '/models') return json(catalog);
@@ -206,7 +210,7 @@ try {
     .waitFor();
   checks++;
   await page.locator('#account-language').selectOption('vi-VN');
-  await page.locator('.settings-dialog').press('Escape');
+  await closeSettings(page);
   await page.locator('.auth-toast-close').click();
   await page.getByRole('button', { name: 'Thu gọn code', exact: true }).click();
   assert.equal(await page.locator('.answer pre').isVisible(), false);
@@ -265,21 +269,12 @@ try {
   checks += 3;
   await openSettings(page, 'general');
   await page.locator('#account-language').selectOption('ru-RU');
-  await page.locator('.settings-dialog').press('Escape');
+  await closeSettings(page);
   assert.equal(await box.inputValue(), 'install');
   checks++;
   await mkdir(fileURLToPath(new URL('../../logs/f011/', import.meta.url)), { recursive: true });
   await page.screenshot({
     path: fileURLToPath(new URL('../../logs/f011/search-desktop.png', import.meta.url)),
-  });
-  await page.setViewportSize({ width: 375, height: 812 });
-  assert.equal(
-    await page.evaluate(() => document.documentElement.scrollWidth <= innerWidth + 1),
-    true,
-  );
-  checks++;
-  await page.screenshot({
-    path: fileURLToPath(new URL('../../logs/f011/search-mobile.png', import.meta.url)),
   });
   await ensureSidebar(page);
   await page.locator('.sidebar-brand').click();
@@ -288,9 +283,6 @@ try {
     { width: 1366, height: 768 },
     { width: 1280, height: 605 },
     { width: 1024, height: 600 },
-    { width: 768, height: 1024 },
-    { width: 375, height: 812 },
-    { width: 320, height: 568 },
     { width: 640, height: 360 },
   ]) {
     await page.setViewportSize(size);

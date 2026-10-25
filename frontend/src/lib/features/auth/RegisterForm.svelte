@@ -20,8 +20,10 @@
   let password = $state('');
   let confirmation = $state('');
   let localErrors = $state<AuthFieldErrors>({});
+  let active = true;
   let fields = $derived({ ...fieldErrors, ...localErrors });
   onDestroy(() => {
+    active = false;
     password = '';
     confirmation = '';
   });
@@ -47,15 +49,19 @@
       await focusFirst(localErrors);
       return;
     }
-    if (await onregister(name.trim(), email.trim(), password)) {
+    let succeeded: boolean;
+    try {
+      succeeded = await onregister(name.trim(), email.trim(), password);
+    } finally {
       password = '';
       confirmation = '';
-    } else await focusFirst(fieldErrors);
+    }
+    if (!succeeded && active) await focusFirst(fieldErrors);
   }
 </script>
 
 <form class="auth-form" aria-busy={busy} novalidate onsubmit={submit} oninput={clearErrors}>
-  <h1>{$i18n.t('auth.register')}</h1>
+  <h1>{$i18n.t('auth.createAdmin')}</h1>
   <fieldset disabled={busy}>
     <div class="auth-field">
       <label for="display_name">{$i18n.t('auth.name')}</label>
@@ -68,10 +74,10 @@
         required
         bind:value={name}
         aria-invalid={Boolean(fields.display_name)}
-        aria-describedby={localErrors.display_name ? 'name-error' : undefined}
+        aria-describedby={fields.display_name ? 'name-error' : undefined}
       />
-      {#if localErrors.display_name}<p id="name-error" class="field-error" role="alert">
-          {$i18n.message(localErrors.display_name)}
+      {#if fields.display_name}<p id="name-error" class="field-error" role="alert">
+          {$i18n.message(fields.display_name)}
         </p>{/if}
     </div>
     <div class="auth-field">
@@ -86,10 +92,10 @@
         maxlength="320"
         bind:value={email}
         aria-invalid={Boolean(fields.email)}
-        aria-describedby={localErrors.email ? 'email-error' : undefined}
+        aria-describedby={fields.email ? 'email-error' : undefined}
       />
-      {#if localErrors.email}<p id="email-error" class="field-error" role="alert">
-          {$i18n.message(localErrors.email)}
+      {#if fields.email}<p id="email-error" class="field-error" role="alert">
+          {$i18n.message(fields.email)}
         </p>{/if}
     </div>
     <div class="auth-field">
@@ -99,10 +105,10 @@
         disabled={busy}
         autocomplete="new-password"
         invalid={Boolean(fields.password)}
-        describedby={localErrors.password ? 'password-error' : undefined}
+        describedby={fields.password ? 'password-error' : undefined}
       />
-      {#if localErrors.password}<p id="password-error" class="field-error" role="alert">
-          {$i18n.message(localErrors.password)}
+      {#if fields.password}<p id="password-error" class="field-error" role="alert">
+          {$i18n.message(fields.password)}
         </p>{/if}
     </div>
     <div class="auth-field">
@@ -124,7 +130,7 @@
         </p>{/if}
     </div>
     <button class="auth-submit" type="submit"
-      >{busy ? $i18n.t('auth.registering') : $i18n.t('auth.register')}</button
+      >{busy ? $i18n.t('auth.registering') : 'Submit'}</button
     >
   </fieldset>
 </form>

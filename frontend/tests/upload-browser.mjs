@@ -27,7 +27,11 @@ export async function runUploadChecks(browser, origin) {
     const api = new URL(req.url()).pathname;
     const respond = (data, status = 200) =>
       route.fulfill({ status, contentType: 'application/json', body: JSON.stringify(data) });
-    const session = { user: { id: account, display_name: account }, csrf_token: `csrf-${account}` };
+    const session = {
+      user: { id: account, system_role: 'admin', display_name: account },
+      csrf_token: `csrf-${account}`,
+    };
+    if (api === '/auth/setup') return respond({ requires_initial_admin: false });
     if (api === '/auth/session') return respond(signedIn ? session : {}, signedIn ? 200 : 401);
     if (api === '/auth/login') {
       signedIn = true;
@@ -108,10 +112,7 @@ export async function runUploadChecks(browser, origin) {
   let checks = 0;
   try {
     await page.goto(origin);
-    const connectFromChat = page
-      .getByRole('region', { name: 'Chat', exact: true })
-      .getByRole('button', { name: 'Kết nối LLM', exact: true });
-    await connectFromChat.click();
+    await show('Kết nối LLM');
     assert.equal(await page.getByLabel('Base URL', { exact: true }).isVisible(), true);
     await show('Tải tài liệu');
     assert.equal(await submit.isDisabled(), true, 'missing file/project blocks upload');

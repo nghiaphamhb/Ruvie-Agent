@@ -19,7 +19,10 @@ async function withFetch(fake, run) {
 
 test('login sends credentials using same-origin cookie mode', async () => {
   const { login } = await loadClient();
-  const payload = { user: { id: 'u1', display_name: 'Person' }, csrf_token: 'csrf' };
+  const payload = {
+    user: { id: 'u1', display_name: 'Person', system_role: 'user' },
+    csrf_token: 'csrf',
+  };
   await withFetch(
     async (url, options) => {
       assert.equal(url, '/auth/login');
@@ -54,7 +57,10 @@ test('session treats 401 as signed out and logout sends CSRF header', async () =
 test('register sends only three fields and preserves password whitespace using cookies', async () => {
   const api = await import('../src/lib/features/auth/auth-api.ts');
   assert.equal(typeof api.register, 'function', 'registration client is required');
-  const session = { user: { id: 'new', display_name: 'Nguyễn An' }, csrf_token: 'csrf' };
+  const session = {
+    user: { id: 'new', display_name: 'Nguyễn An', system_role: 'admin' },
+    csrf_token: 'csrf',
+  };
   await withFetch(
     async (url, init) => {
       assert.equal(url, '/auth/register');
@@ -137,6 +143,105 @@ test('register network and server failure never retries automatically', async ()
         });
         assert.equal(calls, 1);
       },
+    );
+  }
+});
+
+test('setup reads a strict boolean without caching or creating a session', async () => {
+  const api = await loadClient();
+  assert.equal(typeof api.getAuthSetup, 'function');
+  for (const requires_initial_admin of [true, false]) {
+    await withFetch(
+      async (url, options) => {
+        assert.equal(url, '/auth/setup');
+        assert.equal(options.credentials, 'same-origin');
+        assert.equal(options.cache, 'no-store');
+        return Response.json({ requires_initial_admin });
+      },
+      async () => assert.deepEqual(await api.getAuthSetup(), { requires_initial_admin }),
+    );
+  }
+});
+
+test('setup unavailable or malformed is never interpreted as an empty database', async () => {
+  const api = await loadClient();
+  assert.equal(typeof api.getAuthSetup, 'function');
+  for (const response of [
+    Response.json({ detail: 'private SQL' }, { status: 503 }),
+    Response.json({}),
+    Response.json({ requires_initial_admin: 'true' }),
+    new Response('private invalid JSON'),
+  ]) {
+    await withFetch(
+      async () => response,
+      async () => {
+        await assert.rejects(api.getAuthSetup(), (error) => {
+          assert.equal(error.uiMessage.key, 'auth.errors.setup');
+          assert.equal(String(error).includes('private'), false);
+          return true;
+        });
+      },
+    );
+  }
+});
+
+test('bootstrap conflict preserves the code and does not invent an email field error', async () => {
+  const api = await loadClient();
+  await withFetch(
+    async () => Response.json({ detail: { code: 'setup_already_completed' } }, { status: 409 }),
+    async () =>
+      assert.rejects(api.register('Name', 'name@example.test', 'password-long'), (error) => {
+        assert.equal(error.code, 'setup_already_completed');
+        assert.equal(error.uiMessage.key, 'auth.errors.setupCompleted');
+        assert.deepEqual(error.fieldErrors, {});
+        return true;
+      }),
+  );
+});
+
+test('unknown conflict codes never masquerade as email conflicts', async () => {
+  const api = await loadClient();
+  await withFetch(
+    async () =>
+      Response.json({ detail: { code: 'unrecognized', input: 'private' } }, { status: 409 }),
+    async () =>
+      assert.rejects(api.register('Name', 'name@example.test', 'password-long'), (error) => {
+        assert.deepEqual(error.fieldErrors, {});
+        assert.equal(error.uiMessage.key, 'auth.errors.registrationFailed');
+        return true;
+      }),
+  );
+});
+
+test('session reads do not cache', async () => {
+  const api = await loadClient();
+  let observed;
+  await withFetch(
+    async (_url, options) => {
+      observed = options;
+      return Response.json({
+        user: { id: 'u', display_name: 'U', system_role: 'user' },
+        csrf_token: 'csrf',
+      });
+    },
+    async () => {
+      await api.getAuthSession();
+      assert.equal(observed.cache, 'no-store');
+    },
+  );
+});
+
+test('session rejects missing or unknown server roles', async () => {
+  const api = await loadClient();
+  for (const role of [undefined, 'owner', null]) {
+    await withFetch(
+      async () => {
+        return Response.json({
+          user: { id: 'u', display_name: 'U', system_role: role },
+          csrf_token: 'csrf',
+        });
+      },
+      async () => assert.rejects(api.getAuthSession(), api.AuthApiError),
     );
   }
 });

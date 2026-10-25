@@ -105,11 +105,4 @@
     height: 18px;
     flex: none;
   }
-  @media (max-width: 400px) {
-    label {
-      flex-direction: column;
-      gap: 5px;
-      padding: 8px 4px;
-    }
-  }
 </style>

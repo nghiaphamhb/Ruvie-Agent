@@ -1,4 +1,4 @@
-import { showWorkspaceView, logoutFromMenu } from './workspace-actions.mjs';
+import { showWorkspaceView, openSettings, logoutFromMenu } from './workspace-actions.mjs';
 /** Called by the Python E2E fixture. Proxy real APIs; never mock browser requests. */
 import assert from 'node:assert/strict';
 import { createServer, request as proxyRequest } from 'node:http';
@@ -73,12 +73,29 @@ try {
     await showWorkspaceView(page, name);
   }
   async function connect(key) {
-    await showView('Kết nối LLM');
-    await page.getByLabel('Base URL', { exact: true }).fill(process.env.RUVIE_E2E_PROVIDER_URL);
-    await page.getByLabel('API key (tùy chọn)', { exact: true }).fill(key);
-    await page.getByRole('button', { name: 'Kết nối', exact: true }).click();
-    await page.getByText('Đã lưu kết nối.', { exact: true }).waitFor();
-    assert.equal(await page.getByLabel('API key (tùy chọn)', { exact: true }).inputValue(), '');
+    await openSettings(page, 'appearance');
+    assert.equal(await page.getByRole('tab', { name: 'Giao diện', exact: true }).count(), 1);
+    assert.equal(await page.getByRole('tab', { name: 'Kết nối LLM', exact: true }).count(), 0);
+    assert.equal(await page.locator('#llm-key').count(), 0);
+    // Seed each user's existing connection through the real API: regular-user settings
+    // intentionally no longer expose provider editing. Keep account-isolation coverage.
+    const status = await page.evaluate(
+      async ({ baseUrl, apiKey }) => {
+        const session = await (await fetch('/auth/session')).json();
+        const response = await fetch('/llm/connection', {
+          method: 'PUT',
+          headers: { 'Content-Type': 'application/json', 'X-CSRF-Token': session.csrf_token },
+          body: JSON.stringify({ base_url: baseUrl, api_key: apiKey }),
+        });
+        return response.status;
+      },
+      { baseUrl: process.env.RUVIE_E2E_PROVIDER_URL, apiKey: key },
+    );
+    assert.equal(status, 200);
+    await page.reload();
+    await showView('Chat');
+    await picker.waitFor();
+    await page.waitForFunction(() => !document.querySelector('[aria-label="Chọn model"]').disabled);
   }
   async function chat(title, forbidden) {
     await showView('Chat');
@@ -122,23 +139,24 @@ try {
   await showView('Chat');
   await picker.click();
   await page.getByRole('option', { name: /^B b/ }).click();
-  await page.getByText('Model: B', { exact: false }).waitFor();
+  await page.locator('.workspace-toolbar').getByText('B', { exact: true }).waitFor();
   await chat('Alpha guide', 'Beta guide');
   await page.reload();
-  await page.getByText('Model: B', { exact: false }).waitFor();
+  await page.locator('.workspace-toolbar').getByText('B', { exact: true }).waitFor();
+  assert.equal(
+    await page.evaluate(async () => (await (await fetch('/models')).json()).selected_model_id),
+    'b',
+  );
   await logout();
   await login('beta');
-  assert.ok(
-    (await picker.innerText()).includes('Model: A'),
-    'Beta must not inherit Alpha selection',
-  );
+  assert.ok((await picker.innerText()).trim() === 'A', 'Beta must not inherit Alpha selection');
   await connect('beta-provider-key');
   await page.setViewportSize({ width: 1024, height: 600 });
   await chat('Beta guide', 'Alpha guide');
   await logout();
   await login('alpha');
-  await page.getByText('Model: B', { exact: false }).waitFor();
-  assert.equal(await page.getByLabel('API key (tùy chọn)', { exact: true }).inputValue(), '');
+  await page.locator('.workspace-toolbar').getByText('B', { exact: true }).waitFor();
+  assert.equal(await page.locator('#llm-key').count(), 0);
   assert.equal(await page.evaluate(() => localStorage.length), 0);
   assert.deepEqual(errors, []);
   console.log('Browser E2E: 2 accounts passed (model, credentials, citations, reload, login).');

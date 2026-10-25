@@ -45,7 +45,8 @@ class RegistrationApiTests(unittest.TestCase):
         self.assertEqual(response.status_code, 201, response.text)
         body = response.json()
         self.assertEqual(set(body), {"user", "csrf_token"})
-        self.assertEqual(set(body["user"]), {"id", "display_name"})
+        self.assertEqual(set(body["user"]), {"id", "display_name", "system_role"})
+        self.assertEqual(body["user"]["system_role"], "admin")
         self.assertEqual(body["user"]["display_name"], "Nguyễn An")
         self.assertNotIn(PASSWORD, response.text)
         self.assertNotIn(self.client.cookies["ruvie_session"], response.text)
@@ -62,12 +63,12 @@ class RegistrationApiTests(unittest.TestCase):
                                  json={"email": "AN@example.test", "password": PASSWORD})
         self.assertEqual(login.status_code, 200)
 
-    def test_duplicate_email_returns_safe_field_error(self):
+    def test_existing_account_closes_setup_without_revealing_email_conflicts(self):
         self.assertEqual(self.register().status_code, 201)
         response = self.register(email="an@EXAMPLE.test")
         self.assertEqual(response.status_code, 409)
-        self.assertEqual(response.json(), {"detail": {"code": "email_taken",
-                                                      "fields": {"email": "email_taken"}}})
+        self.assertEqual(response.json(), {"detail": {"code": "setup_already_completed"}})
+        self.assertNotIn("set-cookie", response.headers)
 
     def test_untrusted_origin_never_creates_a_user(self):
         for headers in ({}, {"Origin": "https://untrusted.test"}):
@@ -100,7 +101,7 @@ class RegistrationApiTests(unittest.TestCase):
         with patch("ruvie.services.auth.hash_password", side_effect=RuntimeError(PASSWORD)):
             response = self.register()
         self.assertEqual(response.status_code, 500)
-        self.assertEqual(response.json(), {"detail": {"code": "registration_failed"}})
+        self.assertEqual(response.json(), {"detail": {"code": "account_creation_failed"}})
         self.assertNotIn(PASSWORD, response.text)
         self.assertNotIn("set-cookie", response.headers)
         with self.factory() as db:
