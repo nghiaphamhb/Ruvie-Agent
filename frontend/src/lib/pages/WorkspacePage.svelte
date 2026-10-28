@@ -37,7 +37,7 @@
     authBusy: boolean;
     authError: UiMessage | null;
     onlogout: () => void;
-    onexpired: () => void;
+    onexpired: (notice?: UiMessage) => void;
   } = $props();
   let activeView = $state<WorkspaceView>('chat'),
     sidebarCollapsed = $state(false);
@@ -127,11 +127,11 @@
     llm.dispose();
     theme.dispose();
   }
-  function clearSession() {
+  function clearSession(notice?: UiMessage) {
     if (expired) return;
     expired = true;
     dispose();
-    onexpired();
+    onexpired(notice);
   }
   onMount(() => {
     presence = startPresence(sessionCsrf, clearSession);
@@ -330,6 +330,7 @@
   {#if retainedAdminView && canAdmin}
     <div class="view-panel" hidden={activeView === 'settings'}>
       <AdminPage
+        actorUserId={authUser.id}
         csrfToken={sessionCsrf}
         onexpired={clearSession}
         onforbidden={lostAdminAccess}
@@ -354,7 +355,14 @@
     </div>
   {/if}
   <div class="view-panel" hidden={activeView !== 'settings'}>
-    <SettingsPanel {theme} />
+    <SettingsPanel
+      {theme}
+      csrfToken={sessionCsrf}
+      active={activeView === 'settings'}
+      onexpired={(notice) => {
+        clearSession(notice);
+      }}
+    />
   </div>
   <div class="view-panel chat-view" hidden={activeView !== 'chat'}>
     <ChatPage

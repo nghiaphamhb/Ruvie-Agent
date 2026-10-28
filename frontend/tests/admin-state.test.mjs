@@ -509,3 +509,196 @@ test('account list reports safe errors and retries through the same page loader'
     globalThis.fetch = previous;
   }
 });
+
+test('activity mutation reconciles lost response without retrying the write', async () => {
+  const state = await owner();
+  const previous = globalThis.fetch;
+  let patches = 0;
+  try {
+    globalThis.fetch = async (url, init = {}) => {
+      if (init.method === 'PATCH') {
+        patches++;
+        throw Error('lost');
+      }
+      if (url === '/admin/users/target')
+        return json({ user: { ...listedAccount, is_active: false } });
+      return json({
+        users: [{ ...listedAccount, is_active: false }],
+        total: 1,
+        page: 1,
+        page_size: 20,
+      });
+    };
+    const result = await state.changeActivity(listedAccount, false);
+    assert.equal(result.status, 'observed');
+    assert.equal(result.user.is_active, false);
+    assert.equal(patches, 1);
+  } finally {
+    state.dispose();
+    globalThis.fetch = previous;
+  }
+});
+
+test('activity response after owner disposal cannot expire a new session', async () => {
+  let expired = 0;
+  const state = await owner({
+    onexpired() {
+      expired++;
+    },
+  });
+  const previous = globalThis.fetch;
+  let finish;
+  try {
+    globalThis.fetch = () =>
+      new Promise((resolve) => {
+        finish = resolve;
+      });
+    const pending = state.changeActivity(listedAccount, false);
+    state.dispose();
+    finish(json({ detail: { code: 'authentication_required' } }, 401));
+    assert.equal((await pending).status, 'ignored');
+    assert.equal(expired, 0);
+  } finally {
+    state.dispose();
+    globalThis.fetch = previous;
+  }
+});
+
+test('a list started during an uncertain activity write cannot clear uncertainty', async () => {
+  const state = await owner();
+  const previous = globalThis.fetch;
+  let finishPatch, finishList;
+  try {
+    globalThis.fetch = (url, init = {}) => {
+      if (init.method === 'PATCH')
+        return new Promise((_, reject) => {
+          finishPatch = reject;
+        });
+      if (url.startsWith('/admin/users/list'))
+        return new Promise((resolve) => {
+          finishList = resolve;
+        });
+      throw Error('lookup unavailable');
+    };
+    const operation = state.changeActivity(listedAccount, false);
+    const staleList = state.loadUsers(undefined, true);
+    finishPatch(Error('lost'));
+    assert.equal((await operation).status, 'uncertain');
+    finishList(json({ users: [listedAccount], total: 1, page: 1, page_size: 20 }));
+    await staleList;
+    assert.deepEqual(state.activityUncertainIds, ['target']);
+  } finally {
+    state.dispose();
+    globalThis.fetch = previous;
+  }
+});
+
+test('activity remains blocked after an uncertain response until a fresh account list is read', async () => {
+  const state = await owner();
+  const previous = globalThis.fetch;
+  let writes = 0;
+  try {
+    globalThis.fetch = async (url, init = {}) => {
+      if (init.method === 'PATCH') {
+        writes++;
+        throw Error('network');
+      }
+      if (url === '/admin/users/target') throw Error('unavailable');
+      return json({ users: [listedAccount], total: 1, page: 1, page_size: 20 });
+    };
+    assert.equal((await state.changeActivity(listedAccount, false)).status, 'uncertain');
+    assert.deepEqual(state.activityUncertainIds, ['target']);
+    assert.equal((await state.changeActivity(listedAccount, false)).status, 'ignored');
+    assert.equal(writes, 1);
+    await state.loadUsers();
+    assert.deepEqual(state.activityUncertainIds, []);
+  } finally {
+    state.dispose();
+    globalThis.fetch = previous;
+  }
+});
+
+test('a rejected activity write does not leave a superseded list request loading forever', async () => {
+  const state = await owner();
+  const previous = globalThis.fetch;
+  let finishList;
+  try {
+    globalThis.fetch = (url, init = {}) => {
+      if (init.method === 'PATCH')
+        return Promise.resolve(json({ detail: { code: 'last_active_admin' } }, 409));
+      if (url.startsWith('/admin/users/list'))
+        return new Promise((resolve) => {
+          finishList = resolve;
+        });
+      throw Error('unexpected request');
+    };
+    const list = state.loadUsers();
+    assert.equal(state.listLoading, true);
+    assert.equal((await state.changeActivity(listedAccount, false)).status, 'rejected');
+    finishList(json({ users: [listedAccount], total: 1, page: 1, page_size: 20 }));
+    await list;
+    assert.equal(state.listLoading, false);
+  } finally {
+    state.dispose();
+    globalThis.fetch = previous;
+  }
+});
+
+test('uncertainty on two accounts remains tracked independently', async () => {
+  const state = await owner();
+  const previous = globalThis.fetch;
+  const other = { ...listedAccount, id: 'other' };
+  let writes = 0;
+  try {
+    globalThis.fetch = async (_url, init = {}) => {
+      if (init.method === 'PATCH') writes++;
+      throw Error('network');
+    };
+    assert.equal((await state.changeActivity(listedAccount, false)).status, 'uncertain');
+    assert.equal((await state.changeActivity(other, false)).status, 'uncertain');
+    assert.equal((await state.changeActivity(listedAccount, false)).status, 'ignored');
+    assert.equal((await state.changeActivity(other, false)).status, 'ignored');
+    assert.equal(writes, 2);
+  } finally {
+    state.dispose();
+    globalThis.fetch = previous;
+  }
+});
+
+test('activity permission failures go to the right owner and never retry', async () => {
+  const previous = globalThis.fetch;
+  try {
+    for (const [status, code, result, expired, forbidden] of [
+      [401, 'authentication_required', 'ignored', 1, 0],
+      [403, 'admin_required', 'ignored', 0, 1],
+      [403, 'csrf_invalid', 'rejected', 0, 0],
+      [403, 'origin_not_allowed', 'rejected', 0, 0],
+    ]) {
+      let expiredCount = 0,
+        forbiddenCount = 0,
+        calls = 0;
+      const state = await owner({
+        onexpired() {
+          expiredCount++;
+        },
+        onforbidden() {
+          forbiddenCount++;
+        },
+      });
+      try {
+        globalThis.fetch = async () => {
+          calls++;
+          return json({ detail: { code } }, status);
+        };
+        assert.equal((await state.changeActivity(listedAccount, false)).status, result);
+        assert.equal(expiredCount, expired);
+        assert.equal(forbiddenCount, forbidden);
+        assert.equal(calls, 1);
+      } finally {
+        state.dispose();
+      }
+    }
+  } finally {
+    globalThis.fetch = previous;
+  }
+});

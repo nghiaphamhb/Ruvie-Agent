@@ -11,11 +11,12 @@ from ruvie.api.security import AccountCreationRoute, account_validation_detail, 
 from ruvie.contracts.admin import (
     AccountLookupRequest, AccountLookupResponse, CreateAccountRequest, CreateAccountResponse,
     AccountListRequest, AccountListResponse, AdminAccountSummary, UpdateAccountRequest,
+    SetAccountActivityRequest,
 )
 from ruvie.dependencies import get_admin_user_id, get_session
 from ruvie.services.admin import (
     AccountNotFound, AdminAccountService, AdminRequired, AuthenticationRequired, EmailTaken,
-    LastActiveAdmin,
+    LastActiveAdmin, SelfDeactivationForbidden,
 )
 
 
@@ -45,6 +46,10 @@ class AdminRoute(AccountCreationRoute):
                 response = JSONResponse(status_code=409, content={
                     "detail": {"code": "last_active_admin"},
                 })
+            except SelfDeactivationForbidden:
+                response = JSONResponse(status_code=409, content={
+                    "detail": {"code": "self_deactivation_forbidden"},
+                })
             except HTTPException as error:
                 response = JSONResponse(status_code=error.status_code, content={"detail": error.detail})
             except Exception:
@@ -52,6 +57,8 @@ class AdminRoute(AccountCreationRoute):
                 operation = {"POST": "account_creation_failed", "PATCH": "account_update_unavailable"}.get(
                     request.method, "account_lookup_unavailable",
                 )
+                if request.method == "PATCH" and request.scope.get("route").path.endswith("/activity"):
+                    operation = "account_activity_unavailable"
                 response = JSONResponse(status_code=500 if request.method == "POST" else 503, content={
                     "detail": {"code": operation},
                 })
@@ -129,3 +136,16 @@ def update_account(
     """PATCH /admin/users/{id}: update identity fields with Origin, CSRF and DB-backed admin."""
     result = AdminAccountService(db).update_account(actor_user_id, account_id, body)
     return CreateAccountResponse(user=result)
+
+
+@router.patch("/users/{account_id}/activity", response_model=CreateAccountResponse)
+def set_account_activity(
+    account_id: str,
+    body: SetAccountActivityRequest,
+    actor_user_id: str = Depends(require_admin_write_access),
+    db: Session = Depends(get_session),
+) -> CreateAccountResponse:
+    """PATCH /admin/users/{id}/activity: set an account's enabled state."""
+    return CreateAccountResponse(
+        user=AdminAccountService(db).set_account_activity(actor_user_id, account_id, body),
+    )

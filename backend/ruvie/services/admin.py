@@ -10,6 +10,7 @@ from sqlalchemy.orm import Session
 from ruvie.contracts.admin import (
     AccountLookupRequest, AccountLookupResponse, AdminAccountSummary, CreateAccountRequest,
     AccountListRequest, AccountListResponse, AccountPresence, UpdateAccountRequest,
+    SetAccountActivityRequest,
 )
 from ruvie.models import AuthSession, User
 from ruvie.services.audit import AuditEventWriter
@@ -46,6 +47,12 @@ class LastActiveAdmin(ValueError):
         super().__init__("last_active_admin")
 
 
+class SelfDeactivationForbidden(ValueError):
+    """An administrator cannot deactivate their own account."""
+    def __init__(self):
+        super().__init__("self_deactivation_forbidden")
+
+
 @dataclass(frozen=True)
 class CreatedAccount:
     """Committed safe metadata; contains no ORM credentials or session secrets."""
@@ -56,6 +63,48 @@ class AdminAccountService:
     """Create or inspect accounts using a trusted actor ID and database-backed rights."""
     def __init__(self, session: Session):
         self.session = session
+
+    def _lock_account_updates(self) -> None:
+        """Serialize admin writes that lock both actor and target accounts."""
+        if self.session.bind.dialect.name == "postgresql":
+            self.session.execute(select(func.pg_advisory_xact_lock(0x52555649, 13)))
+
+    def set_account_activity(self, actor_user_id: str, account_id: str,
+                             command: SetAccountActivityRequest) -> AdminAccountSummary:
+        """Change account activity and revoke target sessions atomically."""
+        try:
+            body = SetAccountActivityRequest.model_validate(command.model_dump())
+            self._lock_account_updates()
+            actor = self.require_admin(actor_user_id, lock=True)
+            user = self.session.scalar(select(User).where(User.id == account_id)
+                                       .execution_options(populate_existing=True).with_for_update())
+            if user is None:
+                raise AccountNotFound()
+            if not body.is_active and user.is_active and user.system_role == "admin":
+                count = self.session.scalar(select(func.count()).select_from(User).where(
+                    User.system_role == "admin", User.is_active.is_(True)))
+                if count <= 1:
+                    raise LastActiveAdmin()
+            if not body.is_active and actor.id == user.id:
+                raise SelfDeactivationForbidden()
+            changed = user.is_active != body.is_active
+            user.is_active = body.is_active
+            if not body.is_active:
+                self.session.execute(AuthSession.__table__.delete().where(AuthSession.user_id == user.id))
+            if changed:
+                self.session.flush()
+                AuditEventWriter.append(
+                    self.session, actor.id,
+                    action="account.activate" if body.is_active else "account.deactivate",
+                    resource_type="user", resource_id=user.id, outcome="allow",
+                    reason="reactivated" if body.is_active else "deactivated_and_sessions_revoked",
+                )
+            summary = AdminAccountSummary.model_validate(user)
+            self.session.commit()
+            return summary
+        except Exception:
+            self.session.rollback()
+            raise
 
     def require_admin(self, actor_user_id: str, *, lock: bool = False) -> User:
         """Reload the active admin; optionally lock their row until the caller ends the transaction."""
@@ -127,11 +176,9 @@ class AdminAccountService:
         """Update supplied account fields, revoke reset sessions, and audit atomically."""
         try:
             body = UpdateAccountRequest.model_validate(command.model_dump(exclude_unset=True))
-            # Serialize role demotions before authorization/row locks. The actor role is
-            # reloaded after acquiring this lock, so concurrent cross-demotions cannot
-            # both pass with stale admin identities.
-            if body.system_role == "user" and self.session.bind.dialect.name == "postgresql":
-                self.session.execute(select(func.pg_advisory_xact_lock(0x52555649, 13)))
+            # Serialize account writes before actor/target row locks. Re-read the actor
+            # after the lock so simultaneous demotions and deactivations cannot race.
+            self._lock_account_updates()
             actor = self.require_admin(actor_user_id, lock=True)
             if not body.model_fields_set:
                 raise ValueError("empty_update")

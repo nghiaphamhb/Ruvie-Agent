@@ -41,6 +41,14 @@ try {
     executablePath: process.env.RUVIE_BROWSER_PATH || undefined,
   });
   const page = await browser.newPage({ viewport: { width: 1366, height: 768 }, locale: 'vi-VN' });
+  // The auth UI exposes modes through URL/history; the old switch links were removed.
+  const navigateAuth = (mode) =>
+    page.evaluate((value) => {
+      const url = new URL(location.href);
+      url.searchParams.set('form', value);
+      history.pushState({}, '', url);
+      dispatchEvent(new PopStateEvent('popstate'));
+    }, mode);
   const exceptions = [];
   page.on('pageerror', (e) => exceptions.push(e.message));
   let current = null,
@@ -205,10 +213,10 @@ try {
     'decorative artwork must retain the blue Figma appearance',
   );
   await page.getByRole('button', { name: 'Đăng nhập', exact: true }).waitFor();
-  await page.getByRole('link', { name: 'Tạo tài khoản quản trị viên', exact: true }).click();
+  await navigateAuth('register');
   await page.getByLabel('Tên hiển thị', { exact: true }).waitFor();
   assert.equal(new URL(page.url()).searchParams.get('form'), 'register');
-  await page.getByRole('button', { name: 'Tạo tài khoản quản trị viên', exact: true }).click();
+  await page.locator('form .auth-submit').click();
   assert.equal(calls, 0);
   assert.equal(await page.evaluate(() => document.activeElement.id), 'display_name');
   const name = page.getByLabel('Tên hiển thị', { exact: true }),
@@ -221,7 +229,7 @@ try {
   await confirmation.fill('🔒'.repeat(12));
   await page.getByRole('button', { name: 'Hiện mật khẩu', exact: true }).click();
   assert.equal(await password.getAttribute('type'), 'text');
-  await page.getByRole('link', { name: 'Đăng nhập', exact: true }).click();
+  await navigateAuth('login');
   assert.equal(await password.inputValue(), '');
   await page.goBack();
   await name.waitFor();
@@ -240,7 +248,7 @@ try {
   await confirmation.fill('registered-password');
   await confirmation.fill('different-password');
   const beforeMismatch = calls;
-  await page.getByRole('button', { name: 'Tạo tài khoản quản trị viên', exact: true }).click();
+  await page.locator('form .auth-submit').click();
   await page.getByText('Mật khẩu nhập lại chưa khớp.', { exact: true }).waitFor();
   assert.equal(calls, beforeMismatch, 'mismatched confirmation must never call the API');
   assert.equal(await page.evaluate(() => document.activeElement.id), 'password_confirmation');
@@ -254,7 +262,7 @@ try {
   await confirmation.fill('registered-password');
   checks += 3;
   status = 409;
-  await page.getByRole('button', { name: 'Tạo tài khoản quản trị viên', exact: true }).click();
+  await page.locator('form .auth-submit').click();
   await page
     .getByText('Hệ thống đã được khởi tạo. Hãy đăng nhập.', { exact: true })
     .first()
@@ -273,7 +281,7 @@ try {
   await email.fill('an@example.test');
   await password.fill('registered-password-new');
   await confirmation.fill('registered-password-new');
-  await page.getByRole('button', { name: 'Tạo tài khoản quản trị viên', exact: true }).click();
+  await page.locator('form .auth-submit').click();
   await page
     .locator('#password-error')
     .getByText('Mật khẩu phải có 12–128 ký tự.', { exact: true })
@@ -283,7 +291,7 @@ try {
   status = 500;
   await password.fill('registered-password-newer');
   await confirmation.fill('registered-password-newer');
-  await page.getByRole('button', { name: 'Tạo tài khoản quản trị viên', exact: true }).click();
+  await page.locator('form .auth-submit').click();
   await page.getByText('Không thể tạo tài khoản. Vui lòng thử lại.', { exact: true }).waitFor();
   assert.equal((await page.locator('body').innerText()).includes('private SQL'), false);
   assert.equal(
@@ -302,7 +310,7 @@ try {
   await name.fill('Nguyễn An');
   await password.fill(' registered-password ');
   await confirmation.fill(' registered-password ');
-  await page.getByRole('button', { name: 'Tạo tài khoản quản trị viên', exact: true }).click();
+  await page.locator('form .auth-submit').click();
   await page.waitForFunction(
     () => document.querySelector('form')?.getAttribute('aria-busy') === 'true',
   );
@@ -310,10 +318,9 @@ try {
     await page.getByRole('button', { name: 'Đang tạo tài khoản…', exact: true }).isDisabled(),
     true,
   );
-  assert.equal(
-    await page.getByRole('link', { name: 'Đăng nhập', exact: true }).getAttribute('aria-disabled'),
-    'true',
-  );
+  await navigateAuth('login');
+  assert.equal(new URL(page.url()).searchParams.get('form'), 'register');
+  assert.equal(await password.isDisabled(), true);
   const before = calls;
   await page.locator('form').press('Enter');
   assert.equal(calls, before);
@@ -342,7 +349,7 @@ try {
   await password.fill('unknown-password');
   await confirmation.fill('unknown-password');
   const beforeLostResponse = calls;
-  await page.getByRole('button', { name: 'Tạo tài khoản quản trị viên', exact: true }).click();
+  await page.locator('form .auth-submit').click();
   await page.getByRole('button', { name: 'Đăng nhập', exact: true }).waitFor();
   await page
     .getByText(
@@ -649,6 +656,7 @@ try {
   );
   await page.route('**/auth/session', (route) => route.abort('failed'));
   await page.goto(origin + '/?form=login');
+  await page.locator('#login-language').selectOption('vi-VN');
   await toast.getByRole('button', { name: 'Thử lại', exact: true }).waitFor();
   await page.unroute('**/auth/session');
   await page.route('**/auth/session', (route) => route.fulfill({ status: 401 }));

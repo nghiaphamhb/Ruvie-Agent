@@ -244,7 +244,8 @@ try {
   assert.equal(await page.locator('.workspace-sidebar').isVisible(), true);
   assert.equal(await page.locator('#question').isVisible(), false);
   assert.equal(await page.locator('dialog[open]').count(), 0);
-  assert.equal(await page.getByRole('tab').count(), 1);
+  assert.equal(await page.getByRole('tab').count(), 2);
+  assert.equal(await page.getByRole('tab', { name: 'Tài khoản', exact: true }).isVisible(), true);
   assert.equal(await page.getByRole('tab', { name: 'Giao diện', exact: true }).isVisible(), true);
   assert.equal(await page.locator('#llm-url').count(), 0);
   await page.getByRole('radio', { name: 'Sáng', exact: true }).check();

@@ -3,6 +3,28 @@ import type { AuthField, AuthFieldErrors } from './auth-form.ts';
 export type AuthUser = { id: string; display_name: string; system_role: 'user' | 'admin' };
 export type AuthSession = { user: AuthUser; csrf_token: string };
 export type AuthSetup = { requires_initial_admin: boolean };
+export type PasswordChangeField = 'current_password' | 'new_password' | 'password_confirmation';
+export type PasswordChangeFieldErrors = Partial<Record<PasswordChangeField, UiMessage>>;
+
+/** One safe response from POST /auth/password; never retains its request or raw body. */
+export class PasswordChangeApiError extends Error {
+  readonly status?: number;
+  readonly code: string;
+  readonly uiMessage: UiMessage;
+  readonly fieldErrors: PasswordChangeFieldErrors;
+  constructor(
+    code: string,
+    uiMessage: UiMessage,
+    status?: number,
+    fieldErrors: PasswordChangeFieldErrors = {},
+  ) {
+    super('Password change request failed');
+    this.code = code;
+    this.uiMessage = uiMessage;
+    this.status = status;
+    this.fieldErrors = fieldErrors;
+  }
+}
 
 /** Preserve HTTP status and safe translation keys; never expose raw backend detail. */
 export class AuthApiError extends Error {
@@ -171,4 +193,103 @@ export async function logout(csrfToken: string): Promise<void> {
     headers: { 'X-CSRF-Token': csrfToken },
   });
   if (!response.ok) throw new AuthApiError(message('auth.errors.logout'), response.status);
+}
+
+/** POST /auth/password changes only the signed-in user's password; never retries. */
+export async function changePassword(
+  csrfToken: string,
+  command: {
+    current_password: string;
+    new_password: string;
+    password_confirmation: string;
+  },
+  signal?: AbortSignal,
+): Promise<void> {
+  let response: Response;
+  try {
+    response = await request('/auth/password', {
+      method: 'POST',
+      body: JSON.stringify(command),
+      signal,
+      cache: 'no-store',
+      headers: { 'X-CSRF-Token': csrfToken },
+    });
+  } catch {
+    throw new PasswordChangeApiError(
+      'result_unknown',
+      message('account.password.errors.resultUnknown'),
+    );
+  }
+  if (response.status === 204) return;
+
+  const detail = await response.json().catch(() => null);
+  const serverCode = typeof detail?.detail?.code === 'string' ? detail.detail.code : '';
+  const rawFields = detail?.detail?.fields;
+  const fieldErrors: PasswordChangeFieldErrors = {};
+  const errorKeys = {
+    required: 'required',
+    invalid_type: 'invalid',
+    password_length: 'length',
+    current_password_incorrect: 'currentIncorrect',
+    password_confirmation_mismatch: 'mismatch',
+    password_unchanged: 'unchanged',
+  } as const;
+  if (rawFields && typeof rawFields === 'object' && !Array.isArray(rawFields)) {
+    for (const field of ['current_password', 'new_password', 'password_confirmation'] as const) {
+      const fieldCode = rawFields[field];
+      if (typeof fieldCode === 'string' && fieldCode in errorKeys) {
+        fieldErrors[field] = message(
+          `account.password.errors.${errorKeys[fieldCode as keyof typeof errorKeys]}`,
+        );
+      }
+    }
+  }
+
+  if (response.status === 401) {
+    throw new PasswordChangeApiError(
+      'authentication_required',
+      message('account.password.errors.sessionExpired'),
+      response.status,
+    );
+  }
+  if (response.status === 403) {
+    throw new PasswordChangeApiError(
+      serverCode === 'origin_not_allowed' ? serverCode : 'csrf_invalid',
+      message('account.password.errors.forbidden'),
+      response.status,
+    );
+  }
+  if (response.status === 422) {
+    const code = [
+      'validation_error',
+      'current_password_incorrect',
+      'password_confirmation_mismatch',
+      'password_unchanged',
+    ].includes(serverCode)
+      ? serverCode
+      : 'validation_error';
+    if (Object.keys(fieldErrors).length === 0 && code !== 'validation_error') {
+      if (code === 'current_password_incorrect') {
+        fieldErrors.current_password = message('account.password.errors.currentIncorrect');
+      } else if (code === 'password_confirmation_mismatch') {
+        fieldErrors.password_confirmation = message('account.password.errors.mismatch');
+      } else if (code === 'password_unchanged') {
+        fieldErrors.new_password = message('account.password.errors.unchanged');
+      }
+    }
+    const uiMessage =
+      code === 'current_password_incorrect'
+        ? message('account.password.errors.currentIncorrect')
+        : code === 'password_confirmation_mismatch'
+          ? message('account.password.errors.mismatch')
+          : code === 'password_unchanged'
+            ? message('account.password.errors.unchanged')
+            : message('account.password.errors.invalid');
+    throw new PasswordChangeApiError(code, uiMessage, response.status, fieldErrors);
+  }
+  throw new PasswordChangeApiError(
+    serverCode === 'password_change_unavailable' ? serverCode : 'password_change_unavailable',
+    message('account.password.errors.unavailable'),
+    response.status,
+  );
 }

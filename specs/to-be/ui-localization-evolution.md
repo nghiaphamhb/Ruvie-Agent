@@ -45,7 +45,7 @@ Mã active để tái sử dụng:
   persistent settings, dùng PostgreSQL và Alembic khi cần thay schema.
 
 Phần giao diện/quyền quản trị được ghi tại
-[kế hoạch trang quản trị hiện có](llm-proxy-admin-settings.md).
+[kế hoạch quản trị](admin-roadmap.md).
 
 ### 2. Định dạng ngày giờ — khi UI có dữ liệu thời gian
 

@@ -1,5 +1,6 @@
 <script lang="ts">
   import { onDestroy, onMount, tick } from 'svelte';
+  import { toast } from 'svelte-sonner';
   import { i18n } from '../../i18n/index.ts';
   import CreateAccountForm from './CreateAccountForm.svelte';
   import EditUserModal from './EditUserModal.svelte';
@@ -10,13 +11,20 @@
   let {
     state: adminState,
     active = true,
-  }: { state: ReturnType<typeof createAdminState>; active?: boolean } = $props();
+    actorUserId,
+  }: {
+    state: ReturnType<typeof createAdminState>;
+    active?: boolean;
+    actorUserId: string;
+  } = $props();
   let opener: HTMLButtonElement;
   let search = $state('');
   let page = $state(1);
   const pageSize = 20;
   let searchTimer: ReturnType<typeof setTimeout>;
   let editing = $state<AccountSummary | null>(null);
+  let activityTarget = $state<AccountSummary | null>(null);
+  let activityDesired = $state(false);
   let editOpener: HTMLButtonElement | null = null;
   const displayed = $derived(adminState.created ?? adminState.found);
   const notices = {
@@ -31,10 +39,55 @@
     account_update_unavailable: 'admin.errors.account_update_unavailable',
     account_not_found: 'admin.errors.account_not_found',
     last_active_admin: 'admin.errors.last_active_admin',
+    self_deactivation_forbidden: 'admin.errors.self_deactivation_forbidden',
+    account_activity_unavailable: 'admin.errors.account_activity_unavailable',
     unknown: 'admin.errors.unknown',
   } as const;
   onMount(() => void adminState.loadUsers({ q: '', page: 1, page_size: pageSize }));
   onDestroy(() => clearTimeout(searchTimer));
+  $effect(() => {
+    if (!active) {
+      activityTarget = null;
+      adminState.invalidateActivity();
+      toast.dismiss('admin-activity');
+    }
+  });
+  onDestroy(() => {
+    adminState.invalidateActivity();
+    toast.dismiss('admin-activity');
+  });
+  async function confirmActivity() {
+    const target = activityTarget;
+    if (!target || adminState.activityBusy) return;
+    const latest = adminState.users.find((user) => user.id === target.id);
+    if (!latest || latest.is_active !== target.is_active) {
+      activityTarget = null;
+      toast.error($i18n.t('admin.activityChanged'), { id: 'admin-activity' });
+      return;
+    }
+    const result = await adminState.changeActivity(target, activityDesired);
+    if (!active || activityTarget !== target || result.status === 'ignored') return;
+    activityTarget = null;
+    if (result.status === 'updated')
+      toast.success($i18n.t(activityDesired ? 'admin.activityOpened' : 'admin.activityLocked'), {
+        id: 'admin-activity',
+      });
+    else if (result.status === 'observed')
+      toast.info($i18n.t('admin.activityObserved'), { id: 'admin-activity' });
+    else if (result.status === 'uncertain')
+      toast.error($i18n.t('admin.activityUncertain'), { id: 'admin-activity' });
+    else
+      toast.error(
+        $i18n.t(
+          adminState.activityError === 'last_active_admin'
+            ? 'admin.activityLastAdmin'
+            : notices[adminState.activityError ?? 'unknown'],
+        ),
+        {
+          id: 'admin-activity',
+        },
+      );
+  }
   $effect(() => {
     if (!active) return;
     const query = { q: search, page, page_size: pageSize };
@@ -141,7 +194,10 @@
     <button
       bind:this={opener}
       type="button"
-      disabled={adminState.formOpen || adminState.busy}
+      disabled={adminState.formOpen ||
+        adminState.busy ||
+        Boolean(activityTarget) ||
+        Boolean(editing)}
       onclick={adminState.open}>{$i18n.t('admin.create')}</button
     >
   </header>
@@ -228,6 +284,7 @@
               <th scope="col">{$i18n.t('auth.name')}</th>
               <th scope="col">{$i18n.t('admin.role')}</th>
               <th scope="col">{$i18n.t('auth.email')}</th>
+              <th scope="col">{$i18n.t('admin.status')}</th>
               <th scope="col">{$i18n.t('admin.lastActive')}</th>
               <th scope="col">{$i18n.t('admin.createdAt')}</th>
               <th scope="col"><span class="sr-only">{$i18n.t('admin.actions')}</span></th>
@@ -243,6 +300,7 @@
                   )}</td
                 >
                 <td>{user.email}</td>
+                <td>{$i18n.t(user.is_active ? 'admin.active' : 'admin.locked')}</td>
                 <td
                   ><span
                     class="presence"
@@ -265,12 +323,39 @@
                     class="edit"
                     type="button"
                     aria-label={$i18n.t('admin.editUser', { name: user.display_name })}
+                    disabled={Boolean(activityTarget) ||
+                      adminState.activityBusy ||
+                      adminState.formOpen}
                     onclick={(event) => {
                       editOpener = event.currentTarget;
                       editing = user;
                     }}>✎</button
-                  ></td
-                >
+                  >
+                  <button
+                    type="button"
+                    disabled={adminState.activityBusy ||
+                      Boolean(editing) ||
+                      adminState.editBusy ||
+                      adminState.formOpen ||
+                      adminState.activityUncertainIds.includes(user.id) ||
+                      (user.id === actorUserId && user.is_active)}
+                    aria-label={$i18n.t(user.is_active ? 'admin.lockUser' : 'admin.unlockUser', {
+                      name: user.display_name,
+                    })}
+                    title={user.id === actorUserId && user.is_active
+                      ? $i18n.t('admin.selfLock')
+                      : undefined}
+                    onclick={() => {
+                      activityTarget = user;
+                      activityDesired = !user.is_active;
+                    }}
+                  >
+                    {$i18n.t(user.is_active ? 'admin.lock' : 'admin.unlock')}
+                  </button>
+                  {#if user.id === actorUserId && user.is_active}<span
+                      >{$i18n.t('admin.selfLock')}</span
+                    >{/if}
+                </td>
               </tr>
             {/each}
           </tbody>
@@ -300,6 +385,30 @@
     {/if}
   </section>
 </section>
+<SurfaceDialog
+  open={Boolean(activityTarget) && active}
+  title={$i18n.t(activityDesired ? 'admin.unlockTitle' : 'admin.lockTitle')}
+  onclose={() => {
+    activityTarget = null;
+  }}
+>
+  {#if activityTarget}
+    <p>{activityTarget.display_name} · {activityTarget.email}</p>
+    <p>{$i18n.t(activityDesired ? 'admin.unlockHelp' : 'admin.lockHelp')}</p>
+    <button
+      type="button"
+      data-dialog-initial-focus
+      onclick={() => {
+        activityTarget = null;
+      }}>{$i18n.t('admin.activityCancel')}</button
+    >
+    <button type="button" disabled={adminState.activityBusy} onclick={confirmActivity}
+      >{$i18n.t(
+        adminState.activityBusy ? 'admin.busy' : activityDesired ? 'admin.unlock' : 'admin.lock',
+      )}</button
+    >
+  {/if}
+</SurfaceDialog>
 {#if editing}
   <EditUserModal
     user={editing}

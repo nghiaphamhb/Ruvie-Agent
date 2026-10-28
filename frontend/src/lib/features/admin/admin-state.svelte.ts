@@ -5,6 +5,7 @@ import {
   listAccounts,
   lookupAccount,
   updateAccount,
+  setAccountActivity,
   type AccountListQuery,
   type AccountSummary,
   type AccountPresence,
@@ -40,6 +41,10 @@ export function createAdminState({
     listError = $state<AdminApiError['code'] | null>(null);
   let editBusy = $state(false),
     editError = $state<AdminApiError['code'] | null>(null);
+  let activityBusy = $state(false);
+  let activityError = $state<AdminApiError['code'] | null>(null);
+  let activityUncertainIds = $state<string[]>([]);
+  let activityGeneration = 0;
   let listGeneration = 0;
   let generation = 0,
     disposed = false;
@@ -125,6 +130,9 @@ export function createAdminState({
       const result = await listAccounts(query);
       if (disposed || current !== listGeneration) return;
       users = result.users;
+      activityUncertainIds = activityUncertainIds.filter(
+        (id) => !result.users.some((user) => user.id === id),
+      );
       listError = null;
       presence = result.presence ?? {};
       presenceStale = false;
@@ -147,7 +155,7 @@ export function createAdminState({
       password?: string;
     },
   ): Promise<AccountSummary | null> {
-    if (disposed || editBusy || !Object.keys(changes).length) return null;
+    if (disposed || editBusy || activityBusy || !Object.keys(changes).length) return null;
     editBusy = true;
     editError = null;
     const expectedName = changes.display_name?.trim() ?? current.display_name;
@@ -206,6 +214,66 @@ export function createAdminState({
       return null;
     } finally {
       editBusy = false;
+    }
+  }
+  function invalidateActivity() {
+    activityGeneration++;
+    activityBusy = false;
+  }
+  async function changeActivity(
+    user: AccountSummary,
+    desired: boolean,
+  ): Promise<{
+    status: 'updated' | 'observed' | 'rejected' | 'uncertain' | 'ignored';
+    user?: AccountSummary;
+  }> {
+    if (disposed || editBusy || activityBusy || activityUncertainIds.includes(user.id))
+      return { status: 'ignored' };
+    const current = ++activityGeneration;
+    activityBusy = true;
+    activityError = null;
+    listGeneration++;
+    listLoading = false;
+    const alive = () => !disposed && current === activityGeneration;
+    const apply = (value: AccountSummary) => {
+      // Discard polls started while the write or reconciliation was pending.
+      listGeneration++;
+      listLoading = false;
+      users = users.map((item) => (item.id === value.id ? value : item));
+      if (!value.is_active && presence[value.id])
+        presence = { ...presence, [value.id]: { ...presence[value.id], is_online: false } };
+      void loadUsers(lastListQuery);
+    };
+    try {
+      const updated = await setAccountActivity(user.id, desired, csrfToken);
+      if (!alive()) return { status: 'ignored' };
+      if (updated.id !== user.id || updated.is_active !== desired)
+        throw new AdminApiError('unknown');
+      apply(updated);
+      return { status: 'updated', user: updated };
+    } catch (failure) {
+      if (!alive() || denied(failure)) return { status: 'ignored' };
+      if (failure instanceof AdminApiError && [403, 404, 409, 422].includes(failure.status ?? 0)) {
+        activityError = failure.code;
+        if (failure.status === 404) void loadUsers(lastListQuery);
+        return { status: 'rejected' };
+      }
+      try {
+        const observed = await getAccount(user.id);
+        if (!alive()) return { status: 'ignored' };
+        if (observed.id !== user.id) throw new AdminApiError('unknown');
+        apply(observed);
+        return { status: 'observed', user: observed };
+      } catch (readFailure) {
+        if (!alive() || denied(readFailure)) return { status: 'ignored' };
+        listGeneration++;
+        listLoading = false;
+        activityUncertainIds = [...activityUncertainIds, user.id];
+        activityError = 'account_activity_unavailable';
+        return { status: 'uncertain' };
+      }
+    } finally {
+      if (alive()) activityBusy = false;
     }
   }
   async function lookup() {
@@ -284,15 +352,27 @@ export function createAdminState({
     get editError() {
       return editError;
     },
+    get activityBusy() {
+      return activityBusy;
+    },
+    get activityError() {
+      return activityError;
+    },
+    get activityUncertainIds() {
+      return activityUncertainIds;
+    },
     open,
     close,
     create,
     lookup,
     loadUsers,
     saveUser,
+    changeActivity,
+    invalidateActivity,
     dispose() {
       disposed = true;
       listGeneration++;
+      invalidateActivity();
       reset();
     },
   };

@@ -4,18 +4,44 @@
   import ThemeSelector from './ThemeSelector.svelte';
   import type { createThemeState } from './theme.ts';
   import LanguageSelector from '../../shared/LanguageSelector.svelte';
+  import ChangePasswordForm from './ChangePasswordForm.svelte';
+  import type { UiMessage } from '../../i18n/messages.ts';
   let {
     theme,
     system = false,
+    csrfToken = '',
+    active = false,
+    onexpired = () => {},
     children,
   }: {
     theme: ReturnType<typeof createThemeState>;
     system?: boolean;
+    csrfToken?: string;
+    active?: boolean;
+    onexpired?: (notice: UiMessage) => void;
     children?: Snippet;
   } = $props();
   const prefix = $derived(system ? 'admin-' : '');
-  const tab = $derived(system ? 'llm' : 'appearance');
+  let selected = $state<'appearance' | 'account'>('appearance');
   const heading = $derived(system ? 'admin.systemSettings' : 'workspace.settings');
+  function chooseTab(next: 'appearance' | 'account', focus = false) {
+    if (system && next === 'account') return;
+    selected = next;
+    if (focus) document.getElementById(`settings-tab-${next}`)?.focus();
+  }
+  function onTabKeydown(event: KeyboardEvent) {
+    if (system) return;
+    const order = ['appearance', 'account'] as const;
+    const index = order.indexOf(selected);
+    let next: number;
+    if (event.key === 'ArrowDown') next = (index + 1) % order.length;
+    else if (event.key === 'ArrowUp') next = (index + order.length - 1) % order.length;
+    else if (event.key === 'Home') next = 0;
+    else if (event.key === 'End') next = order.length - 1;
+    else return;
+    event.preventDefault();
+    chooseTab(order[next]!, true);
+  }
 </script>
 
 <section class="settings-embedded" aria-labelledby={prefix + 'settings-heading'}>
@@ -28,35 +54,71 @@
     <div
       class="settings-tabs"
       role="tablist"
+      tabindex="-1"
       aria-label={$i18n.t(heading)}
       aria-orientation="vertical"
+      onkeydown={onTabKeydown}
     >
       <button
-        id={prefix + 'settings-tab-' + tab}
+        id={prefix + 'settings-tab-' + (system ? 'llm' : 'appearance')}
         type="button"
         role="tab"
-        aria-selected="true"
-        aria-controls={prefix + 'settings-' + tab}
+        aria-selected={system || selected === 'appearance'}
+        aria-controls={prefix + 'settings-' + (system ? 'llm' : 'appearance')}
+        tabindex={selected === 'appearance' || system ? 0 : -1}
+        onclick={() => chooseTab('appearance')}
       >
         <span>{$i18n.t(system ? 'nav.llm' : 'theme.display')}</span>
       </button>
+      {#if !system}
+        <button
+          id="settings-tab-account"
+          type="button"
+          role="tab"
+          aria-selected={selected === 'account'}
+          aria-controls="settings-account"
+          tabindex={selected === 'account' ? 0 : -1}
+          onclick={() => chooseTab('account')}
+        >
+          <span>{$i18n.t('settings.account')}</span>
+        </button>
+      {/if}
     </div>
-    <div
-      id={prefix + 'settings-' + tab}
-      role="tabpanel"
-      tabindex="0"
-      aria-labelledby={prefix + 'settings-tab-' + tab}
-    >
-      {#if system}
+    {#if system}
+      <div
+        id="admin-settings-llm"
+        role="tabpanel"
+        tabindex="0"
+        aria-labelledby="admin-settings-tab-llm"
+      >
         {@render children?.()}
-      {:else}
+      </div>
+    {:else}
+      <div
+        id="settings-appearance"
+        role="tabpanel"
+        tabindex="0"
+        aria-labelledby="settings-tab-appearance"
+        hidden={selected !== 'appearance'}
+      >
         <ThemeSelector {theme} />
         <div class="language-setting">
           <label for="account-language">{$i18n.t('language.label')}</label>
           <LanguageSelector id="account-language" />
         </div>
-      {/if}
-    </div>
+      </div>
+      <div
+        id="settings-account"
+        role="tabpanel"
+        tabindex="0"
+        aria-labelledby="settings-tab-account"
+        hidden={selected !== 'account'}
+      >
+        {#if active && selected === 'account'}
+          <ChangePasswordForm {csrfToken} {active} {onexpired} />
+        {/if}
+      </div>
+    {/if}
   </div>
 </section>
 
@@ -111,19 +173,19 @@
     font-weight: 500;
     cursor: pointer;
   }
-  .settings-tabs button[aria-selected='true'] {
+  /* Preview only the hovered tab; restore the selected tab when the pointer leaves. */
+  .settings-tabs:not(:has(button:hover)) button[aria-selected='true'],
+  .settings-tabs button:hover {
     background: var(--soft);
   }
-  .settings-tabs button[aria-selected='true']::before {
+  .settings-tabs:not(:has(button:hover)) button[aria-selected='true']::before,
+  .settings-tabs button:hover::before {
     position: absolute;
     inset: 0 auto 0 -8px;
     width: 3px;
     border-radius: 2px;
     background: var(--settings-accent);
     content: '';
-  }
-  .settings-tabs button:hover {
-    background: var(--soft);
   }
   button:focus-visible {
     outline: 2px solid var(--focus-color, var(--accent));
@@ -156,5 +218,15 @@
     padding: 0;
     border: 0;
     background: transparent;
+  }
+  @media (max-width: 640px) {
+    .settings-layout {
+      grid-template-columns: minmax(0, 1fr);
+      grid-template-rows: auto 1fr;
+      gap: 16px;
+    }
+    [role='tabpanel'] {
+      padding: 8px 0;
+    }
   }
 </style>

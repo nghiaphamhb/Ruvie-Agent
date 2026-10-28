@@ -103,7 +103,8 @@ try {
       await page.locator('#settings-tab-appearance').getAttribute('aria-selected'),
       'true',
     );
-    assert.equal(await page.getByRole('tab').count(), 1);
+    assert.equal(await page.getByRole('tab').count(), 2);
+    assert.equal(await page.getByRole('tab', { name: 'Tài khoản', exact: true }).isVisible(), true);
     assert.equal(await page.getByRole('tab', { name: 'Kết nối LLM', exact: true }).count(), 0);
     assert.equal(await page.locator('#settings-appearance #account-language').isVisible(), true);
     assert.ok(

@@ -99,6 +99,17 @@ field errors; admin responses forbid caching. Neither creation flow adds members
 or grants. Losing all active administrators does not reopen bootstrap; recovery
 is a separate, unimplemented operation.
 
+`PATCH /admin/users/{id}/activity` accepts a strict desired account status and
+requires an active administrator, Origin and CSRF. The account service uses the
+same PostgreSQL transaction advisory lock as account updates, then reloads and
+locks the actor and target. It prevents self-deactivation and loss of the last
+active administrator. Deactivation removes all target sessions and records an
+`account.deactivate` audit event in the same transaction. Reactivation records
+`account.activate` and requires a new login; it does not restore old sessions.
+Existing memberships, grants and account data are retained. Already authenticated
+requests or streams are not cancelled by this operation. The admin directory
+shows account status separately from presence and confirms both actions.
+
 Document access is default-deny. `DocumentAccessService` permits a document only
 when either the user's database-backed project membership has a role allowed by
 that document, or the user has a direct read grant that has not expired. Project
@@ -188,7 +199,7 @@ handles navigation, focus and the page lifecycle. Layouts do not import pages.
 | `lib/features/chat/` | Draft/turn/stream ownership, composer, Markdown, Retry/Stop and citations |
 | `lib/features/documents/` | Projects, upload/status, passage search and their API/state owner |
 | `lib/features/llm/` | Catalog/connection/model API and shared LLM state owner |
-| `lib/features/settings/` | Embedded personal appearance and administrator LLM settings panels |
+| `lib/features/settings/` | Personal Appearance/Account tabs, password form validation/lifecycle, and administrator LLM settings panel |
 | `lib/shared/` | Reusable components without feature-specific business rules |
 | `lib/i18n/` | Locale resolution, translation utilities and vi-VN/en-US/ru-RU catalogs |
 | `lib/assets/`, `styles/` | Local brand/auth assets, shared theme and workspace styles |
@@ -198,6 +209,24 @@ Settings and language changes preserve drafts, selected files and running work.
 Logout or a current protected request's 401 disposes owners, invalidates stale
 responses and clears account state. Chat history/drafts exist only in page memory;
 saved provider settings/model selection return from PostgreSQL after reload.
+
+Personal Settings includes an Account tab for both user and admin. The
+`ChangePasswordForm` mounts only while Settings and Account are active. It clears
+passwords and visibility toggles on completion, server/network failure or leaving
+the form. Generation checks and request cancellation ignore late responses.
+Success and errors use translated toasts; a current 401 passes its safe notice
+through `WorkspacePage` to `App`, whose auth toast survives workspace disposal.
+
+`POST /auth/password` checks the trusted cookie identity, Origin and CSRF, then
+calls `AuthService.change_password`. The service locks the user before the current
+session, rechecks activity/expiry after waiting, validates the old password and
+the new 12–128-character password, and preserves whitespace. One transaction
+updates the scrypt hash, revokes the actor's other sessions and records
+`account.password_change`; failure rolls everything back. The current cookie,
+CSRF and session expiry remain unchanged. Responses contain safe codes only and
+use `Cache-Control: no-store`; secrets are absent from audit/validation output.
+No schema migration is required. Administrator password reset remains a separate
+use case that revokes all sessions of the target account.
 
 Administration is an `admin-users` view selected by `?view=admin-users`. Only admin
 sessions see its account-menu entry. Entering the view re-reads the server session
