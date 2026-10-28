@@ -1,7 +1,8 @@
 import re
 from typing import Literal
 
-from pydantic import BaseModel, ConfigDict, Field, field_validator
+from pydantic import BaseModel, ConfigDict, Field, field_validator, model_validator
+from pydantic_core import PydanticCustomError
 
 
 SystemRole = Literal["user", "admin"]
@@ -12,6 +13,24 @@ class LoginRequest(BaseModel):
     model_config = ConfigDict(extra="forbid")
     email: str = Field(min_length=3, max_length=320)
     password: str = Field(min_length=1, max_length=1024)
+
+
+class ChangePasswordRequest(BaseModel):
+    """Strict self-service password change payload; repr and validation hide input."""
+    model_config = ConfigDict(extra="forbid", strict=True, hide_input_in_errors=True)
+
+    current_password: str = Field(min_length=1, max_length=1024, repr=False)
+    new_password: str = Field(min_length=12, max_length=128, repr=False)
+    password_confirmation: str = Field(min_length=12, max_length=128, repr=False)
+
+    @model_validator(mode="after")
+    def confirm_new_password(self):
+        """Reject a mismatched confirmation without including either password in the error."""
+        if self.new_password != self.password_confirmation:
+            raise PydanticCustomError(
+                "password_confirmation_mismatch", "Password confirmation does not match"
+            )
+        return self
 
 
 class RegisterRequest(BaseModel):

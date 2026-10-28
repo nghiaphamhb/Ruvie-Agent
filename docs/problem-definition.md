@@ -232,6 +232,6 @@ Tài liệu này dựa trên mẫu đề bài và phần làm rõ bối cảnh, 
 - [README](../README.md): chức năng và cấu hình đang sử dụng.
 - Mã active: `backend/ruvie/services/{projects,access,retrieval,chat,llm}.py`, `backend/ruvie/services/documents/`, `backend/ruvie/api/documents.py`, `backend/ruvie/models/projects.py` và `frontend/src/lib/i18n/`.
 - [Visual specifications](../specs/visual/README.md): kiến trúc runtime, ERD và sequence.
-- [Locale backlog](../specs/to-be/ui-localization-evolution.md) và [admin settings backlog](../specs/to-be/llm-proxy-admin-settings.md): yêu cầu tương lai đã ghi nhận.
+- [Locale backlog](../specs/to-be/ui-localization-evolution.md) và [kế hoạch quản trị](../specs/to-be/admin-roadmap.md): yêu cầu tương lai đã ghi nhận.
 
 Tài liệu định hình bài toán không thay thế feature spec, API contract hoặc kế hoạch triển khai chi tiết. Mọi khả năng mới cần được cụ thể hóa và kiểm chứng trước khi ghi nhận là đã hoàn thành.

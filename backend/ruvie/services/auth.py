@@ -8,7 +8,7 @@ from uuid import uuid4
 from sqlalchemy import func, or_, select, update
 from sqlalchemy.orm import Session
 
-from ruvie.contracts.auth import RegisterRequest
+from ruvie.contracts.auth import ChangePasswordRequest, RegisterRequest
 
 from ruvie.models import AuthSession, User
 from ruvie.services.audit import AuditEventWriter
@@ -68,6 +68,19 @@ class SetupAlreadyCompleted(ValueError):
         super().__init__("setup_already_completed")
 
 
+class PasswordChangeError(ValueError):
+    """A safe self-service password failure identified by a stable internal code."""
+    def __init__(self, code: str):
+        self.code = code
+        super().__init__(code)
+
+
+@dataclass(frozen=True)
+class ChangedPasswordResult:
+    """Safe result for the actor; contains no credential or session secret."""
+    user_id: str
+
+
 class AuthService:
     def __init__(self, session: Session):
         self.session = session
@@ -91,6 +104,67 @@ class AuthService:
         user.password_hash = hash_password(password)
         self.session.commit()
         return True
+
+    def change_password(
+        self,
+        actor_user_id: str,
+        session_token: str,
+        command: ChangePasswordRequest,
+    ) -> ChangedPasswordResult:
+        """Change the actor's password, preserve this active session and revoke their others."""
+        try:
+            # Match login, presence and admin-reset lock order: account, then session.
+            actor = self.session.scalar(
+                select(User).where(User.id == actor_user_id)
+                .execution_options(populate_existing=True).with_for_update()
+            )
+            if actor is None or not actor.is_active:
+                raise PasswordChangeError("authentication_required")
+
+            token_hash = hashlib.sha256(session_token.encode()).hexdigest()
+            current_session = self.session.scalar(
+                select(AuthSession).where(
+                    AuthSession.user_id == actor_user_id,
+                    AuthSession.token_hash == token_hash,
+                ).execution_options(populate_existing=True).with_for_update()
+            )
+            if current_session is None:
+                raise PasswordChangeError("authentication_required")
+
+            expires_at = current_session.expires_at
+            if expires_at.tzinfo is None:
+                expires_at = expires_at.replace(tzinfo=timezone.utc)
+            if expires_at <= datetime.now(timezone.utc):
+                raise PasswordChangeError("authentication_required")
+
+            # Revalidate even when an internal caller bypasses the HTTP contract.
+            body = ChangePasswordRequest.model_validate(command.model_dump())
+            if not actor.password_hash or not verify_password(body.current_password, actor.password_hash):
+                raise PasswordChangeError("current_password_incorrect")
+            if body.new_password == body.current_password:
+                raise PasswordChangeError("password_unchanged")
+
+            actor.password_hash = hash_password(body.new_password)
+            self.session.execute(
+                AuthSession.__table__.delete().where(
+                    AuthSession.user_id == actor_user_id,
+                    AuthSession.id != current_session.id,
+                )
+            )
+            AuditEventWriter.append(
+                self.session,
+                actor_user_id,
+                action="account.password_change",
+                resource_type="user",
+                resource_id=actor_user_id,
+                outcome="allow",
+                reason="self_service",
+            )
+            self.session.commit()
+            return ChangedPasswordResult(user_id=actor_user_id)
+        except Exception:
+            self.session.rollback()
+            raise
 
     def get_setup_status(self) -> bool:
         """Return whether there are no accounts; database errors propagate to the caller."""

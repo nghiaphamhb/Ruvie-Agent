@@ -36,6 +36,12 @@ class AccountListRequest(BaseModel):
     page_size: int = Field(default=20, ge=1, le=100)
 
 
+class SetAccountActivityRequest(BaseModel):
+    """The administrator's desired enabled state for one account."""
+    model_config = ConfigDict(extra="forbid", strict=True, hide_input_in_errors=True)
+    is_active: bool
+
+
 class UpdateAccountRequest(BaseModel):
     """Partial identity, role and optional password reset; activity stays server-owned."""
     model_config = ConfigDict(extra="forbid", strict=True, hide_input_in_errors=True)

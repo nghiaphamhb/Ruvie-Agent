@@ -30,6 +30,8 @@ const safeCodes = [
   'account_update_unavailable',
   'account_not_found',
   'last_active_admin',
+  'self_deactivation_forbidden',
+  'account_activity_unavailable',
 ] as const;
 type AdminErrorCode = (typeof safeCodes)[number] | 'unknown';
 
@@ -174,6 +176,21 @@ export async function updateAccount(
 /** GET by immutable ID to reconcile an update whose response may have been lost. */
 export async function getAccount(id: string): Promise<AccountSummary> {
   const response = await request(`/admin/users/${encodeURIComponent(id)}`);
+  const value = await body(response);
+  return summary(value?.user);
+}
+
+/** Set one account's desired activity; a lost response is reconciled by the caller. */
+export async function setAccountActivity(
+  id: string,
+  isActive: boolean,
+  csrfToken: string,
+): Promise<AccountSummary> {
+  const response = await request(`/admin/users/${encodeURIComponent(id)}/activity`, {
+    method: 'PATCH',
+    headers: { 'Content-Type': 'application/json', 'X-CSRF-Token': csrfToken },
+    body: JSON.stringify({ is_active: isActive }),
+  });
   const value = await body(response);
   return summary(value?.user);
 }

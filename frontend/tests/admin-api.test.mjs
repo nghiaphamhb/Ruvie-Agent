@@ -303,3 +303,21 @@ test('unrecognized failures and invalid success bodies remain uncertain and POST
     globalThis.fetch = previous;
   }
 });
+
+test('activity client sends only the desired state with CSRF', async () => {
+  const { setAccountActivity } = await api();
+  assert.equal(typeof setAccountActivity, 'function');
+  const previous = globalThis.fetch;
+  try {
+    globalThis.fetch = async (url, init) => {
+      assert.equal(url, '/admin/users/a%2Fb/activity');
+      assert.equal(init.method, 'PATCH');
+      assert.equal(init.headers['X-CSRF-Token'], 'csrf');
+      assert.deepEqual(JSON.parse(init.body), { is_active: false });
+      return json({ user: { ...account, id: 'a/b', is_active: false } });
+    };
+    assert.equal((await setAccountActivity('a/b', false, 'csrf')).is_active, false);
+  } finally {
+    globalThis.fetch = previous;
+  }
+});

@@ -2,6 +2,7 @@
   import { onDestroy } from 'svelte';
   import { i18n } from '../../i18n/index.ts';
   import eyeHide from '../../assets/auth/eye-hide.svg';
+  import type { MessageKey } from '../../i18n/messages.ts';
   let {
     id = 'password',
     value = $bindable(''),
@@ -9,6 +10,9 @@
     invalid = false,
     describedby,
     autocomplete = 'current-password',
+    resetKey = '',
+    toggleLabel,
+    toggleHideLabel,
   }: {
     id?: string;
     value?: string;
@@ -16,9 +20,15 @@
     invalid?: boolean;
     describedby?: string;
     autocomplete?: 'current-password' | 'new-password';
+    resetKey?: string | number;
+    toggleLabel?: MessageKey;
+    toggleHideLabel?: MessageKey;
   } = $props();
   // Ported interaction from references/src/lib/components/common/SensitiveInput.svelte.
   let show = $state(false);
+  $effect(() => {
+    if (resetKey !== undefined) show = false;
+  });
   onDestroy(() => {
     value = '';
     show = false;
@@ -44,13 +54,17 @@
     {disabled}
     aria-pressed={show}
     aria-label={$i18n.t(
-      id === 'password_confirmation'
-        ? show
-          ? 'auth.hideConfirmPassword'
-          : 'auth.showConfirmPassword'
-        : show
-          ? 'auth.hidePassword'
-          : 'auth.showPassword',
+      show && toggleHideLabel
+        ? $i18n.t(toggleHideLabel)
+        : !show && toggleLabel
+          ? $i18n.t(toggleLabel)
+          : id === 'password_confirmation'
+            ? show
+              ? 'auth.hideConfirmPassword'
+              : 'auth.showConfirmPassword'
+            : show
+              ? 'auth.hidePassword'
+              : 'auth.showPassword',
     )}
     onclick={() => {
       show = !show;

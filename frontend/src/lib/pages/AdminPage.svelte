@@ -5,6 +5,7 @@
   import { createAdminState } from '../features/admin/admin-state.svelte.ts';
   let {
     csrfToken,
+    actorUserId,
     onexpired,
     onforbidden,
     view = 'admin-users',
@@ -13,6 +14,7 @@
     active = true,
   }: {
     csrfToken: string;
+    actorUserId: string;
     onexpired: () => void;
     onforbidden: () => void;
     view?: 'admin-users' | 'admin-settings';
@@ -64,7 +66,7 @@
     aria-labelledby="admin-tab-users"
     hidden={view !== 'admin-users'}
   >
-    {#if view === 'admin-users'}<AccountsPanel {state} {active} />{/if}
+    {#if view === 'admin-users'}<AccountsPanel {state} {active} {actorUserId} />{/if}
   </div>
   <div
     id="admin-panel-setting"

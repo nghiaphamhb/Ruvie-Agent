@@ -54,6 +54,96 @@ test('session treats 401 as signed out and logout sends CSRF header', async () =
   );
 });
 
+test('password change sends only its fields with same-origin cookie and CSRF', async () => {
+  const api = await import('../src/lib/features/auth/auth-api.ts');
+  assert.equal(typeof api.changePassword, 'function');
+  let calls = 0;
+  const command = {
+    current_password: ' current-password ',
+    new_password: ' new-password-123 ',
+    password_confirmation: ' new-password-123 ',
+  };
+  await withFetch(
+    async (url, init) => {
+      calls++;
+      assert.equal(url, '/auth/password');
+      assert.equal(init.method, 'POST');
+      assert.equal(init.credentials, 'same-origin');
+      assert.equal(init.cache, 'no-store');
+      assert.equal(init.headers['X-CSRF-Token'], 'csrf-token');
+      assert.deepEqual(JSON.parse(init.body), command);
+      return new Response(null, { status: 204 });
+    },
+    async () => {
+      await api.changePassword('csrf-token', command);
+      assert.equal(calls, 1);
+    },
+  );
+});
+
+test('password change maps safe field errors without exposing server text or retrying', async () => {
+  const api = await import('../src/lib/features/auth/auth-api.ts');
+  assert.equal(typeof api.changePassword, 'function');
+  let calls = 0;
+  await withFetch(
+    async () => {
+      calls++;
+      return Response.json(
+        {
+          detail: {
+            code: 'current_password_incorrect',
+            fields: { current_password: 'current_password_incorrect', arbitrary: 'secret-marker' },
+            input: 'secret-marker',
+          },
+        },
+        { status: 422 },
+      );
+    },
+    async () => {
+      await assert.rejects(
+        api.changePassword('csrf-token', {
+          current_password: 'secret-marker',
+          new_password: 'new-password-123',
+          password_confirmation: 'new-password-123',
+        }),
+        (error) => {
+          assert.equal(error.status, 422);
+          assert.equal(error.code, 'current_password_incorrect');
+          assert.deepEqual(Object.keys(error.fieldErrors), ['current_password']);
+          assert.doesNotMatch(error.message, /secret-marker/);
+          assert.doesNotMatch(error.uiMessage.key, /secret-marker/);
+          return true;
+        },
+      );
+      assert.equal(calls, 1);
+    },
+  );
+});
+
+test('network failure on password change is marked as an uncertain result', async () => {
+  const api = await import('../src/lib/features/auth/auth-api.ts');
+  assert.equal(typeof api.changePassword, 'function');
+  await withFetch(
+    async () => {
+      throw new TypeError('secret-marker');
+    },
+    async () => {
+      await assert.rejects(
+        api.changePassword('csrf-token', {
+          current_password: 'current-password',
+          new_password: 'new-password-123',
+          password_confirmation: 'new-password-123',
+        }),
+        (error) => {
+          assert.equal(error.code, 'result_unknown');
+          assert.doesNotMatch(error.message, /secret-marker/);
+          return true;
+        },
+      );
+    },
+  );
+});
+
 test('register sends only three fields and preserves password whitespace using cookies', async () => {
   const api = await import('../src/lib/features/auth/auth-api.ts');
   assert.equal(typeof api.register, 'function', 'registration client is required');

@@ -188,6 +188,12 @@
     void readSetup(generation);
   }
 
+  /** Keep an expiry notice in the auth layer after Workspace unmounts. */
+  function expireWorkspace(notice?: UiMessage) {
+    if (notice) notifyAuth('error', notice);
+    clearSession();
+  }
+
   /** End the cookie session; a protected 401 also discards local account data. */
   async function signOut() {
     const generation = ++authGeneration;
@@ -238,7 +244,7 @@
         {authBusy}
         {authError}
         onlogout={signOut}
-        onexpired={clearSession}
+        onexpired={expireWorkspace}
       />
     {/key}
   {/if}
