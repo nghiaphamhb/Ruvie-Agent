@@ -114,7 +114,7 @@ class SystemRolePostgresTests(unittest.TestCase):
         with self.engine.connect() as db:
             return {
                 table: list(db.execute(text(
-                    "SELECT to_jsonb(entry) - 'system_role' - 'last_active_at' - 'last_seen_at' FROM " + table + " AS entry "
+                    "SELECT to_jsonb(entry) - 'system_role' - 'last_active_at' - 'last_seen_at' - 'base_url' - 'api_key' - 'models' FROM " + table + " AS entry "
                     "ORDER BY " + ("user_id" if table == "user_llm_settings" else "id")
                 )).scalars())
                 for table in tables

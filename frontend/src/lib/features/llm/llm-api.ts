@@ -1,16 +1,15 @@
 import { llmErrorMessage, type UiMessage } from '../../i18n/messages.ts';
 export type LlmConnection = {
-  source: 'personal' | 'server' | 'none';
-  base_url: string | null;
-  has_api_key: boolean;
+  configured: boolean;
+  configuration_version: number;
   selected_model_id: string | null;
 };
 export type ModelsResult = {
   models: { id: string; name: string }[];
   selected_model_id: string | null;
   selection_required: boolean;
+  configuration_version: number;
 };
-export type ConnectionInput = { base_url: string; api_key?: string };
 
 /** Carry a safe message key; translate only when the UI renders it. */
 export class LlmApiError extends Error {
@@ -28,7 +27,7 @@ export class LlmApiError extends Error {
 async function request(path: string, init?: RequestInit): Promise<Response> {
   let response: Response;
   try {
-    response = await fetch(path, { ...init, credentials: 'same-origin' });
+    response = await fetch(path, { ...init, credentials: 'same-origin', cache: 'no-store' });
   } catch {
     throw new LlmApiError();
   }
@@ -36,7 +35,7 @@ async function request(path: string, init?: RequestInit): Promise<Response> {
   return response;
 }
 
-/** GET metadata only: the response has has_api_key, never the saved key. */
+/** Employee metadata contains no provider URL or credential presence. */
 export async function getLlmConnection(): Promise<LlmConnection> {
   return (await request('/llm/connection')).json();
 }
@@ -44,30 +43,11 @@ export async function getModels(): Promise<ModelsResult> {
   return (await request('/models')).json();
 }
 
-/** PUT {base_url, api_key?}: omitted key keeps the personal key; empty key deletes it. */
-export async function saveLlmConnection(
-  csrfToken: string,
-  input: ConnectionInput,
-): Promise<ModelsResult> {
-  return (
-    await request('/llm/connection', {
-      method: 'PUT',
-      headers: { 'Content-Type': 'application/json', 'X-CSRF-Token': csrfToken },
-      body: JSON.stringify(input),
-    })
-  ).json();
-}
-
-/** DELETE personal settings, then the caller reloads the server fallback. */
-export async function deleteLlmConnection(csrfToken: string): Promise<void> {
-  await request('/llm/connection', { method: 'DELETE', headers: { 'X-CSRF-Token': csrfToken } });
-}
-
 /** PATCH {model_id}: verify/save one preference; keep the previous UI ID until this succeeds. */
 export async function selectLlmModel(
   csrfToken: string,
   modelId: string,
-): Promise<{ selected_model_id: string }> {
+): Promise<{ selected_model_id: string; configuration_version: number }> {
   return (
     await request('/llm/connection/model', {
       method: 'PATCH',

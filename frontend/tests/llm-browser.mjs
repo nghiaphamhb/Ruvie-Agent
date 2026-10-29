@@ -322,7 +322,8 @@ try {
     const chatBodies = [];
     const bodies = [];
     let metadata = {
-      source: 'server',
+      configured: true,
+      configuration_version: 1,
       base_url: 'https://server.test/v1',
       has_api_key: true,
       selected_model_id: 'a',
@@ -411,7 +412,8 @@ try {
           const body = req.postDataJSON();
           const same = metadata.source === 'personal' && metadata.base_url === body.base_url;
           metadata = {
-            source: 'personal',
+            configured: true,
+            configuration_version: 1,
             base_url: body.base_url,
             has_api_key:
               body.api_key === undefined ? same && metadata.has_api_key : Boolean(body.api_key),
@@ -421,7 +423,8 @@ try {
         }
         if (req.method() === 'DELETE') {
           metadata = {
-            source: 'server',
+            configured: true,
+            configuration_version: 1,
             base_url: 'https://server.test/v1',
             has_api_key: true,
             selected_model_id: 'a',

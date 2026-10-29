@@ -35,6 +35,9 @@ from ruvie.config import (
 from ruvie.models import DocumentChunk, DocumentRevision, IngestionJob, Membership, Project, Role, RoleCode, User
 from ruvie.services.documents.ingestion import DocumentIngestionWorker
 from ruvie.services.auth import hash_password
+from ruvie.models import OrganizationLlmSettings
+from ruvie.services.llm_secrets import LlmSecretStore
+from cryptography.fernet import Fernet
 
 
 POSTGRES_IMAGE = "pgvector/pgvector:0.8.6-pg16-bookworm"
@@ -210,6 +213,7 @@ class F005007EndToEndTests(unittest.TestCase):
             llm=LlmProviderSettings(provider_url, "fake-chat-model", "e2e-llm-key"),
             auth_allowed_origins=(ORIGIN,),
             llm_allowed_local_origins=(provider_url,),
+            llm_settings_encryption_key=Fernet.generate_key().decode(),
         )
         self.blob_directory = TemporaryDirectory()
 
@@ -245,112 +249,66 @@ class F005007EndToEndTests(unittest.TestCase):
             cursor.execute(f'DROP DATABASE "{self.database}" WITH (FORCE)')
         admin.close()
 
-    def test_user_llm_settings_persist_and_enforce_account_constraints(self):
-        from sqlalchemy import inspect
+    def test_user_llm_preferences_persist_and_enforce_account_constraints(self):
         from sqlalchemy.exc import IntegrityError
-        from ruvie import models
-
-        model = getattr(models, "UserLlmSettings", None)
-        self.assertIsNotNone(model, "Per-user LLM settings must be available after migration")
+        from ruvie.models import UserLlmSettings
         factory = self.client.app.state.session_factory
-        with factory() as session:
-            session.add_all([
-                model(user_id="alpha", base_url="https://alpha.example.test/v1", api_key="alpha-key", models=[{"id": "a", "name": "A"}], selected_model_id="a"),
-                model(user_id="beta", selected_model_id="server-model"),
-            ])
-            session.commit()
-        with factory() as session:
-            alpha = session.get(model, "alpha")
-            alpha.models = [{"id": "a2", "name": "A2"}]
-            alpha.selected_model_id = "a2"
-            session.commit()
-        with factory() as session:
-            alpha, beta = session.get(model, "alpha"), session.get(model, "beta")
-            self.assertEqual((alpha.base_url, alpha.api_key, alpha.selected_model_id, alpha.models), ("https://alpha.example.test/v1", "alpha-key", "a2", [{"id": "a2", "name": "A2"}]))
-            self.assertEqual((beta.base_url, beta.api_key, beta.selected_model_id, beta.models), (None, None, "server-model", []))
-            beta.api_key = "invalid-without-url"
-            beta.selected_model_id = "wrong-model"
-            with self.assertRaises(IntegrityError):
-                session.commit()
-            session.rollback()
-            self.assertEqual(session.get(model, "beta").selected_model_id, "server-model")
-        for user_id in ("alpha", "missing-user"):
-            with self.subTest(user_id=user_id), factory() as session:
-                session.add(model(user_id=user_id))
+        with factory() as db:
+            db.add_all([UserLlmSettings(user_id="alpha", selected_model_id="a"),
+                        UserLlmSettings(user_id="beta", selected_model_id="b")])
+            db.commit()
+            db.get(UserLlmSettings,"alpha").selected_model_id="b"
+            db.commit()
+        for actor in ("alpha","missing-user"):
+            with factory() as db:
+                db.add(UserLlmSettings(user_id=actor))
                 with self.assertRaises(IntegrityError):
-                    session.commit()
-        with factory() as session:
-            session.add(User(id="temporary", email="temporary@example.test", display_name="Temporary"))
-            session.commit()
-            session.add(model(user_id="temporary"))
-            session.commit()
-            session.delete(session.get(User, "temporary"))
-            session.commit()
-            self.assertIsNone(session.get(model, "temporary"))
-            self.assertIsNotNone(session.get(model, "alpha"))
+                    db.commit()
+        with factory() as db:
+            self.assertEqual(db.get(UserLlmSettings,"alpha").selected_model_id,"b")
+            self.assertEqual(db.get(UserLlmSettings,"beta").selected_model_id,"b")
+            self.assertFalse(hasattr(db.get(UserLlmSettings,"alpha"),"api_key"))
 
-        config = Config(str(BACKEND / "alembic.ini"))
-        with patch.dict(os.environ, {"DATABASE_URL": self.database_url, "LLM_BASE_URL": "", "LLM_MODEL": "", "LLM_API_KEY": ""}):
-            command.downgrade(config, "0007_audit_event_immutability")
-            self.assertNotIn("user_llm_settings", inspect(self.client.app.state.engine).get_table_names())
-            command.upgrade(config, "head")
-        with factory() as session:
-            session.add(model(user_id="beta", selected_model_id="restored-model"))
-            session.commit()
-            self.assertEqual(session.get(model, "beta").selected_model_id, "restored-model")
-
-    def test_llm_connection_api_isolates_accounts_and_preserves_data_on_errors(self):
-        from dataclasses import replace
+    def test_organization_api_shares_provider_but_preserves_preferences_on_errors(self):
         from ruvie.models import UserLlmSettings
         from sqlalchemy.exc import SQLAlchemyError
-
-        self.assertTrue(hasattr(self.settings, "llm_allowed_local_origins"), "Local LLM origin settings are missing")
-        provider_url = self.settings.llm.base_url
-        self.client.app.state.settings = replace(self.settings, llm_allowed_local_origins=(provider_url,))
-        alpha_login = self.client.post("/auth/login", headers={"Origin": ORIGIN}, json={"email": "alpha@example.test", "password": TEST_PASSWORD})
-        self.assertEqual(alpha_login.status_code, 200, alpha_login.text)
-        alpha = {"Origin": ORIGIN, "X-CSRF-Token": alpha_login.json()["csrf_token"], "Cookie": "ruvie_session=" + alpha_login.cookies["ruvie_session"]}
-        beta_login = self.client.post("/auth/login", headers={"Origin": ORIGIN}, json={"email": "beta@example.test", "password": TEST_PASSWORD})
-        beta = {"Origin": ORIGIN, "X-CSRF-Token": beta_login.json()["csrf_token"], "Cookie": "ruvie_session=" + beta_login.cookies["ruvie_session"]}
-        for headers, key in ((alpha, "alpha-provider-key"), (beta, "beta-provider-key")):
-            connected = self.client.put("/llm/connection", headers=headers, json={"base_url": provider_url, "api_key": key})
-            self.assertEqual(connected.status_code, 200, connected.text)
-        chosen = self.client.patch("/llm/connection/model", headers=alpha, json={"model_id": "b"})
-        self.assertEqual(chosen.status_code, 200, chosen.text)
-        self.assertEqual(self.client.get("/llm/connection", headers=alpha).json()["selected_model_id"], "b")
-        self.assertEqual(self.client.get("/llm/connection", headers=beta).json()["selected_model_id"], "a")
-        self.assertTrue(all("Cookie" not in headers for headers in self.provider_state.model_headers))
-        self.assertEqual([headers.get("Authorization") for headers in self.provider_state.model_headers[:2]], ["Bearer alpha-provider-key", "Bearer beta-provider-key"])
-        for headers in (alpha, beta):
-            answer = self.client.post("/chat", headers=headers, json={"message": "Question"})
-            self.assertEqual(answer.status_code, 200, answer.text)
-            self.assertIn("event: completed", answer.text)
-        self.assertEqual([body["model"] for body, _ in self.provider_state.chat_requests], ["b", "a"])
-        self.assertEqual([headers.get("Authorization") for _, headers in self.provider_state.chat_requests], ["Bearer alpha-provider-key", "Bearer beta-provider-key"])
-        self.assertTrue(all("Cookie" not in headers for _, headers in self.provider_state.chat_requests))
-        self.provider_state.models = [{"id": "a"}]
-        missing = self.client.get("/models", headers=alpha)
-        self.assertTrue(missing.json()["selection_required"])
-        before_queries = len(self.provider_state.embedding_inputs)
-        rejected_chat = self.client.post("/chat", headers=alpha, json={"message": "Question"})
-        self.assertEqual(rejected_chat.status_code, 422)
-        self.assertEqual(len(self.provider_state.embedding_inputs), before_queries)
-        self.assertEqual(len(self.provider_state.chat_requests), 2)
-        self.assertEqual(self.client.patch("/llm/connection/model", headers=alpha, json={"model_id": "b"}).status_code, 422)
-        self.provider_state.models_status = 401
-        failed = self.client.put("/llm/connection", headers=alpha, json={"base_url": provider_url, "api_key": "invalid-key"})
-        self.assertEqual(failed.status_code, 502)
-        self.assertNotIn("private-provider-error", failed.text)
-        self.provider_state.models_status = 200
-        with patch("sqlalchemy.orm.Session.commit", side_effect=SQLAlchemyError("secret-database-error")):
-            failed = self.client.put("/llm/connection", headers=alpha, json={"base_url": provider_url, "api_key": "new-key"})
-        self.assertEqual(failed.status_code, 503)
-        with self.client.app.state.session_factory() as session:
-            stored = session.get(UserLlmSettings, "alpha")
-            self.assertEqual((stored.api_key, stored.selected_model_id), ("alpha-provider-key", "b"))
-        self.assertEqual(self.client.delete("/llm/connection", headers=alpha).status_code, 204)
-        self.assertEqual(self.client.get("/llm/connection", headers=alpha).json()["source"], "server")
-        self.assertEqual(self.client.get("/llm/connection", headers=beta).json()["source"], "personal")
+        with self.client.app.state.session_factory() as db:
+            db.get(User,"alpha").system_role="admin"
+            db.commit()
+        alpha_csrf, alpha_token = self._login("alpha@example.test")
+        alpha = {"Origin":ORIGIN,"X-CSRF-Token":alpha_csrf,"Cookie":"ruvie_session="+alpha_token}
+        beta_csrf, beta_token = self._login("beta@example.test")
+        beta = {"Origin":ORIGIN,"X-CSRF-Token":beta_csrf,"Cookie":"ruvie_session="+beta_token}
+        body = dict(base_url=self.settings.llm.base_url,key_action="replace",api_key="organization-key",
+                    expected_version=1,allowed_model_ids=["a","b"],default_model_id="a")
+        self.assertEqual(self.client.put("/admin/llm/connection",headers=beta,json=body).status_code,403)
+        applied=self.client.put("/admin/llm/connection",headers=alpha,json=body)
+        self.assertEqual(applied.status_code,200,applied.text)
+        self.assertNotIn("organization-key",applied.text)
+        self.assertEqual(self.client.patch("/llm/connection/model",headers=alpha,json={"model_id":"b"}).status_code,200)
+        for headers in (alpha,beta):
+            answer=self.client.post("/chat",headers=headers,json={"message":"Question"})
+            self.assertIn("event: completed",answer.text)
+        self.assertEqual([body["model"] for body,_ in self.provider_state.chat_requests],["b","a"])
+        self.assertEqual([headers.get("Authorization") for _,headers in self.provider_state.chat_requests],
+                         ["Bearer organization-key","Bearer organization-key"])
+        self.provider_state.models=[{"id":"a"}]
+        before=len(self.provider_state.embedding_inputs)
+        self.assertEqual(self.client.post("/chat",headers=alpha,json={"message":"Question"}).status_code,422)
+        self.assertEqual(len(self.provider_state.embedding_inputs),before)
+        body.update(expected_version=2,allowed_model_ids=["a"])
+        self.provider_state.models_status=401
+        failed=self.client.put("/admin/llm/connection",headers=alpha,json=body)
+        self.assertEqual(failed.status_code,502)
+        self.assertNotIn("private-provider-error",failed.text)
+        self.provider_state.models_status=200
+        with patch("sqlalchemy.orm.Session.commit",side_effect=SQLAlchemyError("private-db-error")):
+            self.assertEqual(self.client.put("/admin/llm/connection",headers=alpha,json=body).status_code,503)
+        with self.client.app.state.session_factory() as db:
+            self.assertEqual(db.get(OrganizationLlmSettings,1).version,2)
+            self.assertEqual(db.get(UserLlmSettings,"alpha").selected_model_id,"b")
+        self.assertEqual(self.client.delete("/llm/connection",headers=alpha).status_code,410)
+        self.assertEqual(self.client.put("/llm/connection",headers=beta,json=body).status_code,403)
 
     def _seed_accounts(self) -> None:
         with self.client.app.state.session_factory() as session:
@@ -367,6 +325,15 @@ class F005007EndToEndTests(unittest.TestCase):
                 Membership(id="membership-beta", user_id="beta", project_id="project-beta", role_id="role-bim"),
             ))
             session.commit()
+
+        with self.client.app.state.session_factory() as db:
+            org=db.get(OrganizationLlmSettings,1)
+            org.version=1
+            org.base_url=self.settings.llm.base_url
+            org.api_key_ciphertext=LlmSecretStore(self.settings.llm_settings_encryption_key).encrypt("e2e-llm-key")
+            org.allowed_model_ids=["a","b"]
+            org.default_model_id="a"
+            db.commit()
 
     def _login(self, email: str) -> tuple[str, str]:
         response = self.client.post(

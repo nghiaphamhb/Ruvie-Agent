@@ -4,12 +4,14 @@ from typing import Literal
 
 import httpx
 from sqlalchemy.orm import Session
+from sqlalchemy.exc import SQLAlchemyError
 
 from ruvie.adapters.embedding import QueryEmbedder
 from ruvie.adapters.llm import LlmAdapter, LlmProviderError
 from ruvie.config import Settings
 from ruvie.contracts.chat import ChatStreamEvent
-from ruvie.services.llm import LlmConnectionService, LlmNotConfiguredError
+from ruvie.services.llm import LlmConnectionService, LlmNotConfiguredError, LlmStorageError
+from ruvie.services.llm_secrets import LlmSecretError
 from ruvie.services.retrieval import AuthorizedRetrievalService, RetrievalHit
 
 
@@ -52,7 +54,7 @@ class ChatService:
         try:
             with self.session_factory() as session:
                 llm = LlmConnectionService(session, self.settings).resolve_chat_adapter(user_id, model_id)
-        except (LlmNotConfiguredError, LlmProviderError, httpx.HTTPError) as error:
+        except (LlmNotConfiguredError, LlmStorageError, LlmSecretError, SQLAlchemyError, LlmProviderError, httpx.HTTPError) as error:
             raise ProviderUnavailableError from error
         # Model validation errors remain HTTP 422; bad vectors are provider failures.
         try:

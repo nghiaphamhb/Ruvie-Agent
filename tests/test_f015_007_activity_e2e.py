@@ -44,7 +44,7 @@ class ActivityEndToEndTests(unittest.TestCase):
             db.add(User(id='gamma', email='gamma@example.test', display_name='Gamma',
                         system_role='user', is_active=True, password_hash=hash_password(password)))
             db.add(Document(id='preserved-doc', project_id='project-beta', title='Preserved guide'))
-            db.add(UserLlmSettings(user_id='beta', models=[], selected_model_id=None))
+            db.add(UserLlmSettings(user_id='beta', selected_model_id=None))
             db.commit()
             target_hash = target.password_hash
             memberships = list(db.execute(select(Membership.__table__)))

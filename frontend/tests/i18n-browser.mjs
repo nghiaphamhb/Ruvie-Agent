@@ -71,7 +71,8 @@ async function fixture(browser, origin, options = {}) {
     loggedIn: options.loggedIn ?? false,
     loginStatus: 200,
     llmStatus: 200,
-    source: 'server',
+    configured: true,
+    configuration_version: 1,
     ready: false,
     uploadGate: null,
     loginGate: null,
@@ -84,7 +85,7 @@ async function fixture(browser, origin, options = {}) {
   await page.route('**/*', async (route) => {
     const request = route.request();
     const api = new URL(request.url()).pathname;
-    if (!/^\/(auth|projects|models|llm|documents|chat)(\/|$)/.test(api)) {
+    if (!/^\/(auth|admin|projects|models|llm|documents|chat)(\/|$)/.test(api)) {
       await route.continue();
       return;
     }

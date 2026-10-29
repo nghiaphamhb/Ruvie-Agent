@@ -10,7 +10,9 @@ from fastapi import FastAPI, Request
 from fastapi.testclient import TestClient
 import test_f004_005_chat as fixtures
 from ruvie.config import LlmProviderSettings
-from ruvie.models import UserLlmSettings, AuditEvent
+from ruvie.models import UserLlmSettings, OrganizationLlmSettings, AuditEvent
+from ruvie.services.llm_secrets import LlmSecretStore
+from cryptography.fernet import Fernet
 from ruvie.api.chat import router
 from sqlalchemy import select
 
@@ -22,6 +24,12 @@ class ChatModelTests(unittest.TestCase):
         self.factory = self.fixture.session_factory
         self.embedder = fixtures.FakeEmbedder()
         self.settings = SimpleNamespace(llm=LlmProviderSettings("https://server.test/v1", "a", "server-key"), llm_allowed_local_origins=())
+        self.settings.llm_settings_encryption_key = Fernet.generate_key().decode()
+        with self.factory() as db:
+            db.add(OrganizationLlmSettings(id=1,version=1,base_url="https://server.test/v1",
+                api_key_ciphertext=LlmSecretStore(self.settings.llm_settings_encryption_key).encrypt("server-key"),
+                allowed_model_ids=["a","b"],default_model_id="a"))
+            db.commit()
         app = FastAPI()
         app.include_router(router)
         app.state.settings = self.settings
@@ -57,19 +65,19 @@ class ChatModelTests(unittest.TestCase):
 
     def save(self, user="alpha", model="b"):
         with self.factory() as db:
-            db.merge(UserLlmSettings(user_id=user, base_url=f"https://{user}.test/v1", api_key=f"{user}-key", selected_model_id=model, models=[{"id": "b", "name": "B"}]))
+            db.merge(UserLlmSettings(user_id=user, selected_model_id=model))
             db.commit()
 
     def chat(self, user="alpha", **body):
         return self.client.post("/chat", json={"message": "Install plugin", **body}, headers={"x-test-user": user})
 
-    def test_saved_models_and_keys_are_isolated_between_accounts(self):
+    def test_shared_credentials_keep_preferences_and_document_context_isolated(self):
         self.save()
         self.save("beta", "a")
         first, second = self.chat(), self.chat("beta")
         self.assertEqual([name for name, _ in fixtures.parse_events(first)], ["delta", "citations", "completed"])
         self.assertEqual(fixtures.parse_events(second)[0][1]["text"], "a")
-        self.assertEqual([(url, key, body["model"]) for url, key, body in self.calls], [("https://alpha.test/v1/chat/completions", "Bearer alpha-key", "b"), ("https://beta.test/v1/chat/completions", "Bearer beta-key", "a")])
+        self.assertEqual([(url, key, body["model"]) for url, key, body in self.calls], [("https://server.test/v1/chat/completions", "Bearer server-key", "b"), ("https://server.test/v1/chat/completions", "Bearer server-key", "a")])
         self.assertNotIn("beta-private-text", str(self.calls[0]))
         self.assertNotIn("alpha-private-text", str(self.calls[1]))
 
@@ -91,11 +99,13 @@ class ChatModelTests(unittest.TestCase):
         with self.factory() as db:
             self.assertEqual(list(db.scalars(select(AuditEvent))), [])
 
-    def test_server_default_or_first_model_is_used_without_writing_preferences(self):
+    def test_organization_default_is_used_without_writing_preferences(self):
         self.chat()
-        self.settings.llm = replace(self.settings.llm, model="")
+        with self.factory() as db:
+            db.get(OrganizationLlmSettings,1).default_model_id="b"
+            db.commit()
         self.chat()
-        self.assertEqual([body["model"] for _, _, body in self.calls], ["a", "a"])
+        self.assertEqual([body["model"] for _, _, body in self.calls], ["a", "b"])
         with self.factory() as db:
             self.assertIsNone(db.get(UserLlmSettings, "alpha"))
 
@@ -115,13 +125,16 @@ class ChatModelTests(unittest.TestCase):
         service = ChatService(self.embedder, self.settings, self.factory)
         prepared = service.prepare("alpha", "Install plugin")
         with self.factory() as db:
-            row = db.get(UserLlmSettings, "alpha")
-            row.base_url, row.api_key, row.selected_model_id = "https://changed.test/v1", "changed-key", "a"
+            row = db.get(OrganizationLlmSettings, 1)
+            row.base_url = "https://changed.test/v1"
+            row.api_key_ciphertext = LlmSecretStore(self.settings.llm_settings_encryption_key).encrypt("changed-key")
+            row.default_model_id = "a"
+            row.version += 1
             db.commit()
         events = list(service.stream("Install plugin", prepared))
         self.assertTrue(all(isinstance(event, ChatStreamEvent) for event in events))
         self.assertEqual(events[0].data, {"text": "b"})
-        self.assertEqual(self.calls[0][:2], ("https://alpha.test/v1/chat/completions", "Bearer alpha-key"))
+        self.assertEqual(self.calls[0][:2], ("https://server.test/v1/chat/completions", "Bearer server-key"))
         self.assertEqual([event.event for event in events], ["delta", "citations", "completed"])
 
     def test_server_model_preference_uses_server_key_without_copying_it(self):
@@ -133,8 +146,8 @@ class ChatModelTests(unittest.TestCase):
         self.assertEqual(self.calls[0][2]["model"], "b")
         with self.factory() as db:
             row = db.get(UserLlmSettings, "alpha")
-            self.assertIsNone(row.base_url)
-            self.assertIsNone(row.api_key)
+            self.assertFalse(hasattr(row, "base_url"))
+            self.assertFalse(hasattr(row, "api_key"))
 
     def test_explicit_valid_id_can_replace_a_missing_saved_model_for_one_request(self):
         self.save(model="gone")

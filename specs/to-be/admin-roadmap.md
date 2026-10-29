@@ -21,7 +21,7 @@ Cập nhật: 2026-10-26. Trạng thái: Backlog; các hành vi dưới đây ch
 
 Đã có khởi tạo admin đầu tiên và đóng đăng ký công khai; tạo, xem, tìm kiếm và sửa tài khoản; cấp/thu hồi vai trò admin với bảo vệ admin hoạt động cuối cùng; reset mật khẩu, tự đổi mật khẩu và trạng thái hoạt động tài khoản. Admin có thể [khóa hoặc mở lại tài khoản](../feat/F015-account-activation.md); khóa thu hồi các session, bảo vệ admin hoạt động cuối cùng và giữ dữ liệu.
 
-Backend đã có kiểm tra quyền tài liệu, cấu hình proxy phía server và ghi audit cho một số thao tác. Cấu hình LLM hiện vẫn theo tài khoản; chưa đáp ứng quản trị tập trung dùng chung.
+Backend đã có kiểm tra quyền tài liệu, cấu hình proxy phía server và ghi audit cho một số thao tác. F016 đã bổ sung cấu hình LLM tổ chức và chính sách model chung trong working tree. Xem [spec F016](../feat/F016-centralized-llm-management.md).
 
 ## Ưu tiên đề xuất
 

@@ -13,13 +13,14 @@ from .documents import (
 )
 from .access import AccessGrant
 from .audit import AuditEvent
-from .llm import UserLlmSettings
+from .llm import OrganizationLlmSettings, UserLlmSettings
 
 __all__ = [
     "Base",
     "AuthSession",
     "User",
     "UserLlmSettings",
+    "OrganizationLlmSettings",
     "Membership",
     "Project",
     "Role",

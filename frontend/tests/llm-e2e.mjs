@@ -72,13 +72,12 @@ try {
   async function showView(name) {
     await showWorkspaceView(page, name);
   }
-  async function connect(key) {
+  async function rejectPersonalConnection(key) {
     await openSettings(page, 'appearance');
     assert.equal(await page.getByRole('tab', { name: 'Giao diện', exact: true }).count(), 1);
     assert.equal(await page.getByRole('tab', { name: 'Kết nối LLM', exact: true }).count(), 0);
     assert.equal(await page.locator('#llm-key').count(), 0);
-    // Seed each user's existing connection through the real API: regular-user settings
-    // intentionally no longer expose provider editing. Keep account-isolation coverage.
+    // Direct personal mutations must also be rejected; both accounts use the seeded organization provider.
     const status = await page.evaluate(
       async ({ baseUrl, apiKey }) => {
         const session = await (await fetch('/auth/session')).json();
@@ -91,7 +90,7 @@ try {
       },
       { baseUrl: process.env.RUVIE_E2E_PROVIDER_URL, apiKey: key },
     );
-    assert.equal(status, 200);
+    assert.equal(status, 403);
     await page.reload();
     await showView('Chat');
     await picker.waitFor();
@@ -135,7 +134,7 @@ try {
   }
   const logout = () => logoutFromMenu(page);
   await login('alpha');
-  await connect('alpha-provider-key');
+  await rejectPersonalConnection('alpha-provider-key');
   await showView('Chat');
   await picker.click();
   await page.getByRole('option', { name: /^B b/ }).click();
@@ -150,7 +149,7 @@ try {
   await logout();
   await login('beta');
   assert.ok((await picker.innerText()).trim() === 'A', 'Beta must not inherit Alpha selection');
-  await connect('beta-provider-key');
+  await rejectPersonalConnection('beta-provider-key');
   await page.setViewportSize({ width: 1024, height: 600 });
   await chat('Beta guide', 'Alpha guide');
   await logout();

@@ -100,7 +100,7 @@ test('documents search keeps the newest query and disposal ignores an old accoun
   }
 });
 
-test('LLM initialization is idempotent and failed save preserves the confirmed model', async () => {
+test('LLM initialization is idempotent and failed preference change preserves the confirmed model', async () => {
   const module = await loadState('../src/lib/features/llm/llm-state.svelte.ts');
   assert.ok(module, 'LLM feature owner must exist');
   const originalFetch = globalThis.fetch;
@@ -108,13 +108,12 @@ test('LLM initialization is idempotent and failed save preserves the confirmed m
   try {
     globalThis.fetch = async (path, init = {}) => {
       calls.push({ path, init });
-      if (init.method === 'PUT') return json({ detail: 'secret provider detail' }, 503);
+      if (init.method === 'PATCH') return json({ detail: 'secret provider detail' }, 503);
       return path === '/models'
         ? json(catalog)
         : json({
-            source: 'personal',
-            base_url: 'https://provider.test/v1',
-            has_api_key: true,
+            configured: true,
+            configuration_version: 1,
             selected_model_id: 'one',
           });
     };
@@ -127,13 +126,12 @@ test('LLM initialization is idempotent and failed save preserves the confirmed m
     });
     await Promise.all([llm.initialize(), llm.initialize()]);
     assert.equal(calls.filter((c) => c.path === '/models').length, 1);
-    llm.apiKey = 'typed-secret';
-    await llm.save();
+    await llm.chooseModel('two');
     assert.equal(llm.catalog.selected_model_id, 'one');
-    assert.ok(llm.error);
-    assert.ok(!JSON.stringify(llm.error).includes('secret provider detail'));
+    assert.ok(llm.modelError);
+    assert.ok(!JSON.stringify(llm.modelError).includes('secret provider detail'));
     llm.dispose();
-    assert.equal(llm.apiKey, '');
+    assert.equal(llm.apiKey, undefined);
     assert.equal(llm.catalog, null);
   } finally {
     globalThis.fetch = originalFetch;

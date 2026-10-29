@@ -101,7 +101,8 @@ try {
     if (pathname === '/models') return json(catalog);
     if (pathname === '/llm/connection')
       return json({
-        source: 'personal',
+        configured: true,
+        configuration_version: 1,
         base_url: 'https://provider.test/v1',
         has_api_key: true,
         selected_model_id: 'one',

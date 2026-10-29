@@ -115,9 +115,20 @@ try {
       return route.fulfill({ status: 204 });
     }
     if (api === '/projects') return json({ items: [{ id: 'p', name: 'Project', code: 'P' }] });
+    if (api === '/admin/llm/connection')
+      return json({
+        configured: true,
+        base_url: 'https://example.test',
+        has_api_key: true,
+        allowed_model_ids: ['one'],
+        default_model_id: 'one',
+        version: 1,
+        updated_at: null,
+      });
     if (api === '/llm/connection')
       return json({
-        source: 'server',
+        configured: true,
+        configuration_version: 1,
         base_url: 'https://example.test',
         has_api_key: true,
         selected_model_id: 'one',
@@ -722,7 +733,11 @@ try {
   await page.goForward();
   await settingsHeading.waitFor();
   await page.locator('#admin-settings-tab-llm').click();
-  assert.equal(await settings.locator('#llm-url').inputValue(), 'https://draft.example.test/v1');
+  assert.equal(
+    await settings.locator('#llm-url').inputValue(),
+    'https://example.test',
+    'Leaving the form clears unsaved organization drafts',
+  );
   checks++;
 
   // A fresh URL restores the selected admin view.

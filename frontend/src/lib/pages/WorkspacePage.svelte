@@ -11,6 +11,7 @@
   import { createChatState } from '../features/chat/chat-state.svelte.ts';
   import { createDocumentsState } from '../features/documents/documents-state.svelte.ts';
   import { createLlmState } from '../features/llm/llm-state.svelte.ts';
+  import { createOrganizationLlmState } from '../features/llm/organization-llm-state.svelte.ts';
   import LlmConnectionForm from '../features/llm/LlmConnectionForm.svelte';
   import ProjectsPage from '../features/documents/ProjectsPage.svelte';
   import DocumentsPage from '../features/documents/DocumentsPage.svelte';
@@ -108,6 +109,16 @@
     onexpired: clearSession,
     isLocked: () => chat.busy || authBusy,
   });
+  const organizationLlm = createOrganizationLlmState({
+    csrfToken: sessionCsrf,
+    onexpired: clearSession,
+    onforbidden: () => {
+      void lostAdminAccess();
+    },
+    onapplied: () => {
+      void llm.reloadConnection();
+    },
+  });
   const chat = createChatState({
     onexpired: clearSession,
     getCatalog: () => llm.catalog,
@@ -125,6 +136,7 @@
     chat.dispose();
     documents.dispose();
     llm.dispose();
+    organizationLlm.dispose();
     theme.dispose();
   }
   function clearSession(notice?: UiMessage) {
@@ -294,9 +306,11 @@
         <button
           class="chat-model-shortcut"
           type="button"
-          disabled={!canAdmin}
-          onclick={() => selectView('admin-settings')}
-          title={selectedModel?.name ?? $i18n.t('chat.modelNotSelected')}
+          disabled={llm.loading || llm.modelBusy}
+          onclick={() => (canAdmin ? selectView('admin-settings') : llm.reloadConnection())}
+          title={canAdmin
+            ? (selectedModel?.name ?? $i18n.t('chat.modelNotSelected'))
+            : $i18n.t('model.connectFirst')}
           aria-label={$i18n.t('chat.configureModelLabel', {
             model: selectedModel?.name ?? $i18n.t('chat.modelNotSelected'),
           })}
@@ -340,14 +354,10 @@
       >
         {#snippet settings()}
           <SettingsPanel {theme} system>
-            <LlmConnectionForm state={llm} disabled={chat.busy || authBusy} />
-            <ModelSelector
-              catalog={llm.catalog}
-              loading={llm.loading || llm.modelBusy}
+            <LlmConnectionForm
+              state={organizationLlm}
+              active={activeView === 'admin-settings' && canAdmin}
               disabled={chat.busy || authBusy}
-              error={llm.modelError}
-              onselect={llm.chooseModel}
-              onreload={llm.reloadModels}
             />
           </SettingsPanel>
         {/snippet}

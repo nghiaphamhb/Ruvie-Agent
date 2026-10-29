@@ -72,7 +72,8 @@ try {
       });
     if (api === '/llm/connection')
       return json({
-        source: 'server',
+        configured: true,
+        configuration_version: 1,
         base_url: 'https://example.test/v1',
         has_api_key: true,
         selected_model_id: 'nvidia/test:free',

@@ -15,7 +15,7 @@ Updated against the active source tree for F012 on 2026-10-22. Keep this section
 | Database | PostgreSQL with pgvector; system of record for identity, permissions, document metadata/content, vectors, jobs, LLM settings and audit |
 | Private blob storage | API and worker currently share `LocalBlobStore` at repository-root `data/uploads/`; original upload bytes stay outside public web assets |
 | Embedding provider | Server-configured provider used by the worker for chunks and by the API for queries |
-| LLM provider | OpenAI-compatible model catalog/chat endpoints, resolved from account settings or server fallback through the guarded adapter |
+| LLM provider | OpenAI-compatible model catalog/chat endpoints, resolved from versioned organization settings in PostgreSQL through the guarded adapter |
 
 During development, Vite proxies `/auth`, `/admin`, `/projects`, `/documents`, `/llm`,
 `/models` and `/chat` to the API at `127.0.0.1:8000`. The API and worker run on
@@ -41,7 +41,7 @@ All paths in the following table are under `backend/ruvie/`.
 | `services/documents/` | Upload authorization, immutable revisions, ingestion lifecycle, safe status and stable citation metadata |
 | `services/retrieval.py` | Authorized retrieval, SQL chunk search, READY-revision filtering, cosine ranking, citations and retrieval audit |
 | `services/chat.py` | Model resolution, authorized context preparation, prompt assembly and structured streaming events |
-| `services/llm.py` | Account connection/model persistence, catalog validation and server fallback resolution |
+| `services/llm.py` | Organization connection/policy, encrypted credential persistence, version conflicts and per-user model preferences |
 | `services/audit.py` | Access-decision audit records |
 | `adapters/` | Embedding/LLM transport and private blob-storage implementations |
 | `models/`, `database.py` | SQLAlchemy data model and database/session setup |
@@ -55,7 +55,7 @@ into new routes. Do not add layers or move unrelated modules just for convention
 
 ### Data model and durable state
 
-The current domain has 12 tables, in addition to Alembic bookkeeping:
+The current domain has 13 tables, in addition to Alembic bookkeeping:
 
 | Tables | Stored state |
 | --- | --- |
@@ -64,7 +64,8 @@ The current domain has 12 tables, in addition to Alembic bookkeeping:
 | `documents`, `document_revisions` | Document metadata, original revision identity/hash, private blob reference and ingestion state |
 | `ingestion_jobs` | Worker job state, attempts, heartbeat and safe failure codes |
 | `document_chunks` | Revision-linked immutable text, offsets, software metadata and 1024-dimensional embedding vectors |
-| `user_llm_settings` | Per-account provider connection, API key and model selection |
+| `organization_llm_settings` | One organization connection, encrypted API key, allowed model IDs, default and version |
+| `user_llm_settings` | Per-account selected model ID only; a preference never grants access |
 | `audit_events` | Append-only access decisions protected against update/delete |
 
 Persistent schema changes use `backend/migrations/` and Alembic. Never alter an
@@ -175,11 +176,17 @@ text; it does not guarantee cancellation of provider-side computation.
 
 #### Provider settings and transport
 
-Users can save a personal connection and selected model through dedicated settings
-endpoints. The backend stores them per account and validates provider/model
-availability. It never repopulates API keys into the browser or localStorage.
-Without a personal connection, optional server `LLM_*` settings supply a fallback.
-A failed personal connection does not silently switch to that fallback.
+Administrators read, verify and apply shared settings through `/admin/llm/connection`.
+Apply probes the provider before opening a write transaction, reloads/locks the
+actor, compares the expected version and commits settings plus audit atomically.
+API keys are write-only and encrypted with a server-owned Fernet key outside the DB.
+Employee metadata omits provider URL/key presence. Catalog, selection and chat
+use the intersection of organization allowlist and fresh provider catalog.
+Invalid saved preferences require reselection; absent preferences use the default
+only if available. Personal PUT/DELETE are retired; no personal or environment
+fallback exists. Already resolved chats retain their provider/model snapshot.
+The standalone legacy adapter factory has no runtime callers; application chat
+must resolve through `LlmConnectionService`, never through that factory.
 
 The guarded LLM adapter rejects redirects and prohibited destinations, verifies
 TLS and pins DNS results. HTTP/private endpoints require an exact origin in the
@@ -675,3 +682,5 @@ generation parameters để kết quả tái lập được.
 - External integrations are adapters so mock services can support experiments.
 - No arbitrary shell commands, dynamic DB-stored Python tools/filters or
   unreviewed user-supplied tool servers in the MVP.
+
+F016 implementation is under validation; see [F016](feat/F016-centralized-llm-management.md) for completion evidence and remaining regression failures.

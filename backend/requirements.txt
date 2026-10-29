@@ -1,4 +1,5 @@
 alembic>=1.14,<2.0
+cryptography>=46,<47
 fastapi>=0.115,<1.0
 httpx[socks]>=0.27,<1.0
 psycopg[binary]>=3.2,<4.0

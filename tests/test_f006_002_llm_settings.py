@@ -28,34 +28,14 @@ class LlmSettingsConfigurationTests(unittest.TestCase):
         with patch.dict(os.environ, {**ENVIRONMENT, **values}, clear=True), patch("ruvie.config.load_dotenv"):
             return load_settings()
 
-    def test_url_only_does_not_require_a_model_or_key(self):
-        provider = self.load_with(LLM_BASE_URL=" https://llm.example.test/v1/ ").llm
-        self.assertEqual(provider.base_url, "https://llm.example.test/v1")
-        self.assertEqual(provider.model, "")
-        self.assertEqual(provider.api_key, "")
+    def test_environment_fallback_is_retired_even_for_partial_values(self):
+        for values in ({"LLM_BASE_URL":"https://obsolete.test"}, {"LLM_API_KEY":"obsolete"},
+                       {"LLM_MODEL":"old"}):
+            self.assertIsNone(self.load_with(**values).llm)
 
-    def test_provider_settings_constructor_accepts_url_only(self):
-        provider = LlmProviderSettings(base_url="https://llm.example.test/v1")
-        self.assertEqual(provider.model, "")
-        self.assertEqual(provider.api_key, "")
-
-    def test_optional_model_and_key_are_loaded_independently(self):
-        for model, key in (("model-a", ""), ("", "test-secret"), ("model-a", "test-secret")):
-            with self.subTest(model=model, has_key=bool(key)):
-                provider = self.load_with(LLM_BASE_URL="https://llm.example.test/v1", LLM_MODEL=model, LLM_API_KEY=key).llm
-                self.assertEqual(provider.model, model)
-                self.assertEqual(provider.api_key, key)
-
-    def test_no_llm_values_disables_server_fallback(self):
-        self.assertIsNone(self.load_with(LLM_BASE_URL=" ", LLM_MODEL=" ", LLM_API_KEY=" ").llm)
-
-    def test_model_or_key_without_url_is_rejected(self):
-        for values in ({"LLM_MODEL": "model-a"}, {"LLM_API_KEY": "test-secret"}):
-            with self.subTest(values=tuple(values)):
-                with self.assertRaisesRegex(RuntimeError, "LLM_BASE_URL"):
-                    self.load_with(**values)
-        with self.assertRaisesRegex(RuntimeError, "LLM_BASE_URL"):
-            LlmProviderSettings(base_url=" ")
+    def test_low_level_provider_settings_still_accept_url_only(self):
+        provider = LlmProviderSettings("https://provider.test/v1")
+        self.assertEqual((provider.model, provider.api_key), ("", ""))
 
 
 class UserLlmSettingsTests(unittest.TestCase):
@@ -73,35 +53,21 @@ class UserLlmSettingsTests(unittest.TestCase):
             ])
             session.commit()
 
-    def test_two_users_keep_independent_connections_after_update(self):
+    def test_two_users_keep_independent_preferences_after_update(self):
         with Session(self.engine) as session:
-            session.add_all([
-                self.model(user_id="user-a", base_url="https://a.example.test/v1", api_key="key-a", models=[{"id": "a", "name": "A"}], selected_model_id="a"),
-                self.model(user_id="user-b", base_url="https://b.example.test/v1", api_key="key-b", models=[{"id": "b", "name": "B"}], selected_model_id="b"),
-            ])
+            session.add_all([self.model(user_id="user-a", selected_model_id="a"),
+                             self.model(user_id="user-b", selected_model_id="b")])
+            session.commit()
+            session.get(self.model,"user-a").selected_model_id="a2"
             session.commit()
         with Session(self.engine) as session:
-            record = session.get(self.model, "user-a")
-            record.models = [{"id": "a2", "name": "A2"}]
-            record.selected_model_id = "a2"
-            session.commit()
-        with Session(self.engine) as session:
-            first, second = session.get(self.model, "user-a"), session.get(self.model, "user-b")
-            self.assertEqual((first.base_url, first.api_key, first.selected_model_id, first.models), ("https://a.example.test/v1", "key-a", "a2", [{"id": "a2", "name": "A2"}]))
-            self.assertEqual((second.base_url, second.api_key, second.selected_model_id, second.models), ("https://b.example.test/v1", "key-b", "b", [{"id": "b", "name": "B"}]))
-            self.assertIsNotNone(first.created_at)
-            self.assertIsNotNone(first.updated_at)
+            self.assertEqual(session.get(self.model,"user-a").selected_model_id,"a2")
+            self.assertEqual(session.get(self.model,"user-b").selected_model_id,"b")
 
-    def test_server_model_preference_stores_no_server_url_or_key(self):
-        with Session(self.engine) as session:
-            session.add(self.model(user_id="user-a", selected_model_id="server-model"))
-            session.commit()
-        with Session(self.engine) as session:
-            record = session.get(self.model, "user-a")
-            self.assertEqual(record.selected_model_id, "server-model")
-            self.assertIsNone(record.base_url)
-            self.assertIsNone(record.api_key)
-            self.assertEqual(record.models, [])
+    def test_preference_cannot_store_credentials(self):
+        for field in ("base_url","api_key","models"):
+            with self.assertRaises(TypeError):
+                self.model(user_id="user-a", **{field:"forbidden"})
 
     def test_duplicate_user_settings_are_rejected(self):
         with Session(self.engine) as session:
@@ -118,23 +84,16 @@ class UserLlmSettingsTests(unittest.TestCase):
             with self.assertRaises(IntegrityError):
                 session.commit()
 
-    def test_key_without_personal_url_is_rejected(self):
+    def test_failed_write_preserves_previous_preference(self):
         with Session(self.engine) as session:
-            session.add(self.model(user_id="user-a", api_key="personal-key"))
-            with self.assertRaises(IntegrityError):
-                session.commit()
-
-    def test_failed_write_preserves_previous_settings(self):
-        with Session(self.engine) as session:
-            session.add(self.model(user_id="user-a", selected_model_id="old-model"))
+            session.add(self.model(user_id="user-a",selected_model_id="old"))
             session.commit()
-            record = session.get(self.model, "user-a")
-            record.selected_model_id = "new-model"
-            record.api_key = "invalid-without-url"
+            session.get(self.model,"user-a").selected_model_id="new"
+            session.add(self.model(user_id="missing"))
             with self.assertRaises(IntegrityError):
                 session.commit()
             session.rollback()
-            self.assertEqual(session.get(self.model, "user-a").selected_model_id, "old-model")
+            self.assertEqual(session.get(self.model,"user-a").selected_model_id,"old")
 
     def test_deleting_user_removes_only_their_settings(self):
         with Session(self.engine) as session:

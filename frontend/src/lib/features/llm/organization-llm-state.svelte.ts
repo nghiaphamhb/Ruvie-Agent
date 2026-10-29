@@ -1,0 +1,278 @@
+import {
+  getOrganizationConnection,
+  verifyOrganizationConnection,
+  applyOrganizationConnection,
+  OrganizationLlmApiError,
+  type OrganizationMetadata,
+  type OrganizationDraft,
+} from './organization-llm-api.ts';
+
+/** Draft and request lifecycle for one mounted administrator settings panel. */
+export function createOrganizationLlmState({
+  csrfToken,
+  onexpired,
+  onforbidden,
+  onapplied,
+}: {
+  csrfToken: string;
+  onexpired: () => void;
+  onforbidden: () => void;
+  onapplied: () => void;
+}) {
+  let metadata = $state<OrganizationMetadata | null>(null);
+  let baseUrl = $state(''),
+    apiKey = $state('');
+  let keyAction = $state<OrganizationDraft['key_action']>('clear');
+  let catalog = $state<{ id: string; name: string }[]>([]),
+    allowed = $state<string[]>([]);
+  let defaultId = $state<string | null>(null);
+  let verified = $state(false),
+    busy = $state(false),
+    uncertain = $state(false);
+  let errorCode = $state<string | null>(null),
+    saved = $state(false);
+  let active = false,
+    disposed = false,
+    generation = 0;
+  function invalidate() {
+    verified = false;
+    catalog = [];
+    saved = false;
+    generation++;
+    busy = false;
+  }
+  function clearSecret() {
+    apiKey = '';
+    keyAction = metadata?.configured ? 'keep' : 'clear';
+  }
+  function failure(error: unknown) {
+    clearSecret();
+    verified = false;
+    catalog = [];
+    const safe = error instanceof OrganizationLlmApiError ? error : null;
+    errorCode = safe?.code ?? 'network';
+    uncertain = Boolean(safe?.uncertain);
+    if (safe?.status === 401) {
+      close();
+      onexpired();
+    } else if (safe?.code === 'admin_required') {
+      close();
+      onforbidden();
+    }
+  }
+  function draft(): OrganizationDraft {
+    return {
+      base_url: baseUrl.trim().replace(/\/+$/, ''),
+      key_action: keyAction,
+      expected_version: metadata?.version ?? 0,
+      ...(keyAction === 'replace' ? { api_key: apiKey } : {}),
+    };
+  }
+  async function open() {
+    if (disposed) return;
+    active = true;
+    const current = ++generation;
+    busy = true;
+    errorCode = null;
+    saved = false;
+    clearSecret();
+    verified = false;
+    catalog = [];
+    try {
+      const result = await getOrganizationConnection();
+      if (!active || disposed || current !== generation) return;
+      if (metadata && result.version < metadata.version) return;
+      metadata = result;
+      baseUrl = result.base_url ?? '';
+      allowed = [...result.allowed_model_ids];
+      defaultId = result.default_model_id;
+      uncertain = false;
+      clearSecret();
+      return true;
+    } catch (error) {
+      if (active && !disposed && current === generation) {
+        failure(error);
+        return false;
+      }
+    } finally {
+      if (current === generation) busy = false;
+    }
+  }
+  async function verify() {
+    if (!active || disposed || busy || !metadata || !baseUrl.trim()) return false;
+    const input = draft(),
+      current = ++generation;
+    busy = true;
+    errorCode = null;
+    saved = false;
+    verified = false;
+    try {
+      const result = await verifyOrganizationConnection(csrfToken, input);
+      if (!active || disposed || current !== generation) return false;
+      if (result.version !== metadata.version) {
+        errorCode = 'configuration_conflict';
+        clearSecret();
+        return false;
+      }
+      catalog = result.models;
+      verified = true;
+      return true;
+    } catch (error) {
+      if (active && !disposed && current === generation) failure(error);
+      return false;
+    } finally {
+      if (current === generation) busy = false;
+    }
+  }
+  async function apply() {
+    if (
+      !active ||
+      disposed ||
+      busy ||
+      !verified ||
+      !metadata ||
+      !defaultId ||
+      !allowed.length ||
+      !allowed.includes(defaultId) ||
+      allowed.some((id) => !catalog.some((m) => m.id === id))
+    )
+      return false;
+    const input = { ...draft(), allowed_model_ids: [...allowed], default_model_id: defaultId };
+    const current = ++generation;
+    busy = true;
+    errorCode = null;
+    saved = false;
+    try {
+      const result = await applyOrganizationConnection(csrfToken, input);
+      if (!active || disposed || current !== generation) return false;
+      if (result.version <= input.expected_version) {
+        failure(new OrganizationLlmApiError(undefined, 'network', true));
+        return false;
+      }
+      metadata = result;
+      baseUrl = result.base_url ?? '';
+      allowed = [...result.allowed_model_ids];
+      defaultId = result.default_model_id;
+      clearSecret();
+      verified = false;
+      saved = true;
+      uncertain = false;
+      onapplied();
+      return true;
+    } catch (error) {
+      if (active && !disposed && current === generation) failure(error);
+      return false;
+    } finally {
+      if (current === generation) busy = false;
+    }
+  }
+  function close() {
+    active = false;
+    generation++;
+    busy = false;
+    apiKey = '';
+    baseUrl = '';
+    keyAction = 'clear';
+    catalog = [];
+    allowed = [];
+    defaultId = null;
+    verified = false;
+    metadata = null;
+    errorCode = null;
+    uncertain = false;
+    saved = false;
+  }
+  return {
+    get metadata() {
+      return metadata;
+    },
+    get busy() {
+      return busy;
+    },
+    get verified() {
+      return verified;
+    },
+    get uncertain() {
+      return uncertain;
+    },
+    get errorCode() {
+      return errorCode;
+    },
+    get saved() {
+      return saved;
+    },
+    get baseUrl() {
+      return baseUrl;
+    },
+    set baseUrl(value: string) {
+      if (value !== baseUrl) {
+        invalidate();
+        baseUrl = value;
+        apiKey = '';
+        keyAction = 'clear';
+      }
+    },
+    get apiKey() {
+      return apiKey;
+    },
+    set apiKey(value: string) {
+      if (value !== apiKey) {
+        invalidate();
+        apiKey = value;
+        keyAction = 'replace';
+      }
+    },
+    get keyAction() {
+      return keyAction;
+    },
+    set keyAction(value: OrganizationDraft['key_action']) {
+      if (value !== keyAction) {
+        invalidate();
+        keyAction = value;
+        if (value !== 'replace') apiKey = '';
+      }
+    },
+    get allowedModelIds() {
+      return allowed;
+    },
+    get defaultModelId() {
+      return defaultId;
+    },
+    get models() {
+      return [
+        ...catalog.map((m) => ({ ...m, available: true })),
+        ...allowed
+          .filter((id) => !catalog.some((m) => m.id === id))
+          .map((id) => ({ id, name: id, available: false })),
+      ];
+    },
+    get canApply() {
+      return (
+        verified &&
+        !busy &&
+        !!defaultId &&
+        allowed.includes(defaultId) &&
+        allowed.length > 0 &&
+        allowed.every((id) => catalog.some((m) => m.id === id))
+      );
+    },
+    get canKeep() {
+      return !!metadata?.configured && baseUrl.trim().replace(/\/+$/, '') === metadata.base_url;
+    },
+    setPolicy(next: { allowedModelIds: string[]; defaultModelId: string | null }) {
+      if (!busy && verified) {
+        allowed = next.allowedModelIds.filter((id, index, ids) => ids.indexOf(id) === index);
+        defaultId = next.defaultModelId;
+        saved = false;
+      }
+    },
+    open,
+    verify,
+    apply,
+    close,
+    dispose() {
+      close();
+      disposed = true;
+    },
+  };
+}

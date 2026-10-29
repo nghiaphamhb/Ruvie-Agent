@@ -1,5 +1,5 @@
 import os
-from dataclasses import dataclass
+from dataclasses import dataclass, field
 from pathlib import Path
 from urllib.parse import urlsplit
 
@@ -32,7 +32,7 @@ class LlmProviderSettings:
     """LLM endpoint with optional model/key; settings stay on the server."""
     base_url: str
     model: str = ""
-    api_key: str = ""
+    api_key: str = field(default="", repr=False)
 
     def __post_init__(self) -> None:
         if not self.base_url.strip():
@@ -62,9 +62,15 @@ class Settings:
     llm_allowed_local_origins: tuple[str, ...] = ()
     llm_proxy_url: str | None = None
     embedding_proxy_url: str | None = None
+    llm_settings_encryption_key: str | None = field(default=None, repr=False)
 
     def __post_init__(self) -> None:
         """Accept only an explicit server-owned SOCKS5 endpoint, without API paths."""
+        if self.llm_settings_encryption_key is not None:
+            from ruvie.services.llm_secrets import LlmSecretStore
+
+            # Validate without retaining or logging the server secret in public metadata.
+            LlmSecretStore(self.llm_settings_encryption_key)
         for name, value in (("LLM_PROXY_URL", self.llm_proxy_url),
                             ("EMBEDDING_PROXY_URL", self.embedding_proxy_url)):
             if value is None:
@@ -97,14 +103,8 @@ def load_settings() -> Settings:
         EmbeddingProviderSettings(embedding_values[0].rstrip("/"), embedding_values[1])
         if any(embedding_values) else None
     )
-    llm_values = tuple(
-        os.getenv(name, "").strip()
-        for name in ("LLM_BASE_URL", "LLM_MODEL", "LLM_API_KEY")
-    )
-    llm = (
-        LlmProviderSettings(llm_values[0].rstrip("/"), llm_values[1], llm_values[2])
-        if any(llm_values) else None
-    )
+    # Obsolete personal/server fallback variables must never bypass organization policy.
+    llm = None
     origins = tuple(
         value.strip().rstrip("/")
         for value in os.getenv(
@@ -131,4 +131,5 @@ def load_settings() -> Settings:
         local_origins,
         os.getenv("LLM_PROXY_URL", "").strip() or None,
         os.getenv("EMBEDDING_PROXY_URL", "").strip() or None,
+        os.getenv("LLM_SETTINGS_ENCRYPTION_KEY", "").strip() or None,
     )
