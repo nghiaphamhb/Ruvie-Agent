@@ -1,13 +1,6 @@
 import { message } from '../../i18n/messages.ts';
-import {
-  LlmApiError,
-  getLlmConnection,
-  getModels,
-  saveLlmConnection,
-  deleteLlmConnection,
-  selectLlmModel,
-} from './llm-api.ts';
-import type { LlmConnection, ModelsResult, ConnectionInput } from './llm-api.ts';
+import { LlmApiError, getLlmConnection, getModels, selectLlmModel } from './llm-api.ts';
+import type { LlmConnection, ModelsResult } from './llm-api.ts';
 
 /** One confirmed model catalog and connection owner for the authenticated workspace. */
 export function createLlmState({
@@ -21,9 +14,6 @@ export function createLlmState({
 }) {
   let catalog = $state<ModelsResult | null>(null),
     connection = $state<LlmConnection | null>(null);
-  let baseUrl = $state(''),
-    apiKey = $state(''),
-    clearKey = $state(false);
   let loading = $state(false),
     modelBusy = $state(false),
     error = $state<ReturnType<typeof message> | null>(null);
@@ -32,15 +22,11 @@ export function createLlmState({
   let sequence = 0,
     disposed = false,
     initial: Promise<void> | null = null;
-  const normalize = (url: string) => url.trim().replace(/\/+$/, '');
   async function metadata(current: number) {
     const result = await getLlmConnection();
     if (disposed || current !== sequence) return;
     connection = result;
-    baseUrl = result.base_url ?? '';
-    apiKey = '';
-    clearKey = false;
-    if (result.source !== 'none') {
+    if (result.configured) {
       const models = await getModels();
       if (!disposed && current === sequence) catalog = models;
     } else catalog = null;
@@ -67,33 +53,6 @@ export function createLlmState({
   function initialize() {
     if (!initial) initial = run(metadata, true);
     return initial;
-  }
-  async function save(event?: SubmitEvent) {
-    event?.preventDefault();
-    if (!baseUrl.trim()) return;
-    const input: ConnectionInput = { base_url: normalize(baseUrl) };
-    if (clearKey) input.api_key = '';
-    else if (apiKey.trim()) input.api_key = apiKey.trim();
-    await run(async (current) => {
-      const result = await saveLlmConnection(csrfToken, input);
-      if (disposed || current !== sequence) return;
-      catalog = result;
-      apiKey = '';
-      clearKey = false;
-      const resultMetadata = await getLlmConnection();
-      if (disposed || current !== sequence) return;
-      connection = resultMetadata;
-      baseUrl = resultMetadata.base_url ?? '';
-      notice = message('llm.saved');
-    });
-  }
-  async function disconnect() {
-    await run(async (current) => {
-      await deleteLlmConnection(csrfToken);
-      if (disposed || current !== sequence) return;
-      await metadata(current);
-      if (!disposed && current === sequence) notice = message('llm.removed');
-    });
   }
   async function reloadModels() {
     if (disposed || isLocked() || loading || modelBusy) return;
@@ -155,9 +114,6 @@ export function createLlmState({
   function dispose() {
     disposed = true;
     ++sequence;
-    apiKey = '';
-    baseUrl = '';
-    clearKey = false;
     catalog = null;
     connection = null;
   }
@@ -183,36 +139,6 @@ export function createLlmState({
     get notice() {
       return notice;
     },
-    get baseUrl() {
-      return baseUrl;
-    },
-    set baseUrl(value: string) {
-      if (value !== baseUrl) {
-        apiKey = '';
-        clearKey = false;
-      }
-      baseUrl = value;
-    },
-    get apiKey() {
-      return apiKey;
-    },
-    set apiKey(value: string) {
-      apiKey = value;
-      clearKey = false;
-    },
-    get clearKey() {
-      return clearKey;
-    },
-    set clearKey(value: boolean) {
-      clearKey = value;
-      if (value) apiKey = '';
-    },
-    get samePersonalUrl() {
-      return (
-        connection?.source === 'personal' &&
-        normalize(baseUrl) === normalize(connection.base_url ?? '')
-      );
-    },
     get modelReady() {
       return Boolean(
         catalog &&
@@ -221,8 +147,6 @@ export function createLlmState({
       );
     },
     initialize,
-    save,
-    disconnect,
     reloadModels,
     chooseModel,
     reloadConnection: () => run(metadata),

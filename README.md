@@ -68,7 +68,7 @@ npm --prefix frontend run lint
 
 Copy [`.env.example`](.env.example) to `.env` and replace its placeholders with
 your database and embedding-provider settings. The example also documents browser
-origins, optional server LLM fallback, local provider access and proxy settings.
+origins, organization credential encryption, local provider access and proxy settings.
 Keep real credentials in your local `.env`.
 
 ~~~powershell
@@ -105,8 +105,4 @@ Set-Location backend
 ..\.venv\Scripts\python.exe -m ruvie.worker_cli
 ~~~
 
-Open the frontend URL printed by Vite. Check the API at
-<http://127.0.0.1:8000/health>. With no users, create the first administrator;
-otherwise sign in using an account provisioned by an administrator. Project membership
-and document permissions must be assigned separately. In Settings, connect an
-LLM provider and select a model if no server fallback is configured.
+Open the frontend URL printed by Vite. Check API availability at http://127.0.0.1:8000/health, then sign in or create the first administrator. See [database setup](docs/database-setup.md) before upgrading an existing deployment.

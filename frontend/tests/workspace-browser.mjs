@@ -84,7 +84,7 @@ try {
   };
   await page.route('**/*', async (route) => {
     const api = new URL(route.request().url()).pathname;
-    if (!/^\/(auth|projects|models|llm|chat)(\/|$)/.test(api)) return route.continue();
+    if (!/^\/(auth|admin|projects|models|llm|chat)(\/|$)/.test(api)) return route.continue();
     const method = route.request().method();
     calls.push({ api, method, body: route.request().postData() });
     const json = (data, status = 200) =>
@@ -114,16 +114,26 @@ try {
       });
     }
     if (api === '/models') return json(model);
-    if (api === '/llm/connection' && method === 'PUT') {
+    if (api === '/admin/llm/connection' && method === 'GET')
+      return json({
+        configured: true,
+        base_url: 'https://example.test/v1',
+        has_api_key: true,
+        allowed_model_ids: ['one', 'two'],
+        default_model_id: 'one',
+        version: 1,
+        updated_at: null,
+      });
+    if (api === '/admin/llm/connection/verify') {
       await new Promise((resolve) => {
         saveRelease = resolve;
       });
-      model.selected_model_id = 'two';
-      return json(model);
+      return json({ models: model.models, version: 1 });
     }
     if (api === '/llm/connection')
       return json({
-        source: 'personal',
+        configured: true,
+        configuration_version: 1,
         base_url: 'https://example.test/v1',
         has_api_key: true,
         selected_model_id: model.selected_model_id,
@@ -319,27 +329,29 @@ try {
     await closeSettings(page);
     assert.equal(await page.locator('dialog[open]').count(), 0);
     await openSettings(page, 'llm');
-    assert.equal(await page.locator('#llm-key').inputValue(), '');
+    assert.equal(await page.locator('#llm-key').count(), 0);
     assert.equal(
       calls.filter((c) => c.method === 'GET' && c.api.startsWith('/llm')).length,
       initialGets,
       'settings navigation does not reload catalog',
     );
     checks++;
+    await page.locator('#llm-key-action').selectOption('replace');
     await page.locator('#llm-key').fill('draft-secret');
-    await page.getByRole('button', { name: 'Kết nối', exact: true }).click();
-    await page.getByRole('button', { name: 'Đang xử lý…', exact: true }).waitFor();
-    await closeSettings(page);
-    assert.equal(
-      await page.getByRole('button', { name: 'Chọn model', exact: true }).isDisabled(),
-      true,
+    await page.getByRole('button', { name: 'Kiểm tra kết nối', exact: true }).click();
+    await page.waitForFunction(
+      () => document.querySelector('.llm-panel')?.getAttribute('aria-busy') === 'true',
     );
+    await closeSettings(page);
     saveRelease();
+    await page.getByRole('button', { name: 'Chọn model', exact: true }).click();
+    await page.getByRole('option', { name: /^Second model/ }).click();
     await page.locator('.workspace-toolbar').getByText('Second model', { exact: true }).waitFor();
+    assert.equal(calls.filter((c) => c.api === '/admin/llm/connection/verify').length, 1);
     assert.equal(
       calls.filter((c) => c.method === 'PUT').length,
-      1,
-      'save keeps ownership across close',
+      0,
+      'Verification never persists a connection',
     );
     checks++;
     await page.getByRole('button', { name: 'Gửi câu hỏi', exact: true }).click();

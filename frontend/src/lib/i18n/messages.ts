@@ -21,3 +21,19 @@ export function llmErrorMessage(status?: number): UiMessage {
   };
   return message(keys[status ?? 0] ?? 'common.errors.network');
 }
+
+/** Map only known server codes; never render raw validation/provider detail. */
+export function organizationLlmErrorMessage(code: string): UiMessage {
+  const keys: Record<string, MessageKey> = {
+    configuration_conflict: 'llm.org.conflict',
+    authentication_required: 'common.errors.session',
+    admin_required: 'admin.errors.admin_required',
+    csrf_invalid: 'llm.errors.csrf',
+    origin_invalid: 'llm.errors.csrf',
+    invalid_llm_request: 'llm.errors.invalid',
+    llm_provider_unavailable: 'llm.errors.providerUnavailable',
+    llm_settings_unavailable: 'llm.errors.settings',
+    llm_not_configured: 'llm.org.unconfigured',
+  };
+  return message(keys[code] ?? 'common.errors.network');
+}

@@ -86,8 +86,8 @@ class F006008BrowserEndToEndTests(unittest.TestCase):
         requests = fixture.provider_state.chat_requests
         self.assertEqual(len(requests), 2)
         for (body, headers), model, key, private, forbidden in (
-            (requests[0], "b", "alpha-provider-key", "ALPHA_PRIVATE_GUIDE", "BETA_PRIVATE_GUIDE"),
-            (requests[1], "a", "beta-provider-key", "BETA_PRIVATE_GUIDE", "ALPHA_PRIVATE_GUIDE"),
+            (requests[0], "b", "e2e-llm-key", "ALPHA_PRIVATE_GUIDE", "BETA_PRIVATE_GUIDE"),
+            (requests[1], "a", "e2e-llm-key", "BETA_PRIVATE_GUIDE", "ALPHA_PRIVATE_GUIDE"),
         ):
             self.assertEqual(body["model"], model)
             self.assertEqual(headers["Authorization"], f"Bearer {key}")
