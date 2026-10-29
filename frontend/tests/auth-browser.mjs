@@ -54,6 +54,7 @@ try {
   let current = null,
     status = 201,
     loginStatus = 200,
+    loginCode = null,
     release,
     slow = false,
     calls = 0,
@@ -104,7 +105,11 @@ try {
       return json(current, 201);
     }
     if (api === '/auth/login') {
-      if (loginStatus !== 200) return json({ detail: 'private login details' }, loginStatus);
+      if (loginStatus !== 200)
+        return json(
+          { detail: loginCode ? { code: loginCode } : 'private login details' },
+          loginStatus,
+        );
       current = {
         user: { id: 'new', display_name: 'Nguyễn An', system_role: 'admin' },
         csrf_token: 'csrf',
@@ -650,6 +655,22 @@ try {
     timeout: 8000,
   });
   checks += 5;
+  loginStatus = 403;
+  loginCode = 'account_disabled';
+  for (const [locale, text] of [
+    ['vi-VN', 'Tài khoản này đã bị vô hiệu hóa.'],
+    ['en-US', 'This account has been disabled.'],
+    ['ru-RU', 'Эта учётная запись отключена.'],
+  ]) {
+    await page.locator('#login-language').selectOption(locale);
+    await page.locator('.auth-submit').click();
+    await toast.getByText(text, { exact: true }).waitFor();
+    assert.equal(await toast.count(), 1);
+    assert.equal(await page.locator('.workspace-shell').count(), 0);
+    await page.waitForFunction(() => !document.querySelector('.auth-submit')?.matches(':disabled'));
+  }
+  loginCode = null;
+  checks += 3;
   await page.unroute('**/*');
   await page.route('**/auth/setup', (route) =>
     route.fulfill({ json: { requires_initial_admin: false } }),

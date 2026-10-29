@@ -122,7 +122,9 @@ class ActivityConcurrencyTests(unittest.TestCase):
             self.assertFalse(locked.result(timeout=20).is_active)
         with factory() as db:
             self.assertIsNone(AuthService(db).resolve_session(token))
-            self.assertIsNone(AuthService(db).authenticate('beta@example.test', 'race-password-123'))
+            from ruvie.services.auth import AccountDisabledError
+            with self.assertRaises(AccountDisabledError):
+                AuthService(db).authenticate('beta@example.test', 'race-password-123')
             self.assertEqual(db.query(AuthSession).filter_by(user_id='beta').count(), 0)
 
     def test_actor_is_rechecked_after_waiting_for_advisory_lock(self):
@@ -319,7 +321,9 @@ class ActivityConcurrencyTests(unittest.TestCase):
                 finally:
                     release.set()
                 self.assertFalse(first.result(timeout=20).is_active)
-                self.assertIsNone(second.result(timeout=20))
+                from ruvie.services.auth import AccountDisabledError
+                with self.assertRaises(AccountDisabledError):
+                    second.result(timeout=20)
 
     def test_concurrent_lock_then_unlock_keeps_old_token_revoked(self):
         from threading import Event

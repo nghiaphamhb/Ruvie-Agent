@@ -13,7 +13,7 @@ ROOT = Path(__file__).resolve().parents[1]
 sys.path.insert(0, str(ROOT / "backend"))
 
 from ruvie.models import AuthSession, Base, User
-from ruvie.services.auth import AuthService, hash_password, verify_password
+from ruvie.services.auth import AccountDisabledError, AuthService, hash_password, verify_password
 from ruvie.api.auth import router as auth_router
 from ruvie.dependencies import get_authenticated_user_id
 
@@ -43,7 +43,8 @@ class AuthServiceTests(unittest.TestCase):
             self.assertEqual(service.authenticate(" PERSON@example.test ", "long-password").id, "user-1")
             db.get(User, "user-1").is_active = False
             db.commit()
-            self.assertIsNone(service.authenticate("person@example.test", "long-password"))
+            with self.assertRaises(AccountDisabledError):
+                service.authenticate("person@example.test", "long-password")
 
     def test_session_token_is_hashed_and_session_resolves_then_revokes(self):
         with self.factory() as db:

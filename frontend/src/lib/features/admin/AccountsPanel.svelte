@@ -25,6 +25,19 @@
   let editing = $state<AccountSummary | null>(null);
   let activityTarget = $state<AccountSummary | null>(null);
   let activityDesired = $state(false);
+  let actionTooltip = $state<{ triggerId: string; text: string; left: number; top: number } | null>(
+    null,
+  );
+  /** Position outside the scrolling table so the tooltip is not clipped. */
+  function showActionTooltip(event: MouseEvent | FocusEvent, text: string) {
+    const bounds = (event.currentTarget as HTMLElement).getBoundingClientRect();
+    actionTooltip = {
+      triggerId: (event.currentTarget as HTMLElement).id,
+      text,
+      left: Math.min(window.innerWidth - 140, Math.max(140, bounds.left + bounds.width / 2)),
+      top: bounds.top - 8,
+    };
+  }
   let editOpener: HTMLButtonElement | null = null;
   const displayed = $derived(adminState.created ?? adminState.found);
   const notices = {
@@ -47,6 +60,7 @@
   onDestroy(() => clearTimeout(searchTimer));
   $effect(() => {
     if (!active) {
+      actionTooltip = null;
       activityTarget = null;
       adminState.invalidateActivity();
       toast.dismiss('admin-activity');
@@ -176,6 +190,18 @@
     void restoreFocus();
   }
 </script>
+
+<svelte:window
+  onkeydown={(event) => {
+    if (event.key === 'Escape') actionTooltip = null;
+  }}
+  onresize={() => {
+    actionTooltip = null;
+  }}
+  onscroll={() => {
+    actionTooltip = null;
+  }}
+/>
 
 <section class="accounts-panel" aria-labelledby="admin-users-heading">
   <header>
@@ -320,7 +346,7 @@
                 >
                 <td
                   ><button
-                    class="edit"
+                    class="row-action edit"
                     type="button"
                     aria-label={$i18n.t('admin.editUser', { name: user.display_name })}
                     disabled={Boolean(activityTarget) ||
@@ -332,29 +358,77 @@
                     }}>✎</button
                   >
                   <button
+                    class="row-action account-action"
+                    id={'account-action-' + user.id}
+                    class:deactivate={user.is_active}
+                    class:reactivate={!user.is_active}
                     type="button"
                     disabled={adminState.activityBusy ||
                       Boolean(editing) ||
                       adminState.editBusy ||
                       adminState.formOpen ||
-                      adminState.activityUncertainIds.includes(user.id) ||
-                      (user.id === actorUserId && user.is_active)}
+                      adminState.activityUncertainIds.includes(user.id)}
+                    aria-disabled={user.id === actorUserId && user.is_active}
                     aria-label={$i18n.t(user.is_active ? 'admin.lockUser' : 'admin.unlockUser', {
                       name: user.display_name,
                     })}
-                    title={user.id === actorUserId && user.is_active
-                      ? $i18n.t('admin.selfLock')
+                    aria-describedby={actionTooltip?.triggerId === 'account-action-' + user.id
+                      ? 'account-action-tooltip'
                       : undefined}
+                    onmouseenter={(event) =>
+                      showActionTooltip(
+                        event,
+                        $i18n.t(
+                          user.id === actorUserId && user.is_active
+                            ? 'admin.selfLock'
+                            : user.is_active
+                              ? 'admin.lock'
+                              : 'admin.unlock',
+                        ),
+                      )}
+                    onmouseleave={() => {
+                      actionTooltip = null;
+                    }}
+                    onfocus={(event) =>
+                      showActionTooltip(
+                        event,
+                        $i18n.t(
+                          user.id === actorUserId && user.is_active
+                            ? 'admin.selfLock'
+                            : user.is_active
+                              ? 'admin.lock'
+                              : 'admin.unlock',
+                        ),
+                      )}
+                    onblur={() => {
+                      actionTooltip = null;
+                    }}
                     onclick={() => {
+                      if (user.id === actorUserId && user.is_active) return;
+                      actionTooltip = null;
                       activityTarget = user;
                       activityDesired = !user.is_active;
                     }}
                   >
-                    {$i18n.t(user.is_active ? 'admin.lock' : 'admin.unlock')}
+                    <svg
+                      width="22"
+                      height="22"
+                      viewBox="0 0 24 24"
+                      fill="none"
+                      stroke="currentColor"
+                      stroke-width="1.8"
+                      stroke-linecap="round"
+                      stroke-linejoin="round"
+                      aria-hidden="true"
+                    >
+                      <circle cx="9" cy="6" r="4" />
+                      <path d="M12 20H3v-2a6 6 0 0 1 10-4.5" />
+                      <circle cx="17.5" cy="17.5" r="5" />
+                      {#if user.is_active}<path d="m16 16 3 3m0-3-3 3" />{:else}<path
+                          d="m15.5 17.5 1.3 1.3 2.7-2.7"
+                        />{/if}
+                    </svg>
                   </button>
-                  {#if user.id === actorUserId && user.is_active}<span
-                      >{$i18n.t('admin.selfLock')}</span
-                    >{/if}
                 </td>
               </tr>
             {/each}
@@ -385,6 +459,17 @@
     {/if}
   </section>
 </section>
+{#if actionTooltip}
+  <div
+    id="account-action-tooltip"
+    role="tooltip"
+    class="action-tooltip"
+    style:left={`${actionTooltip.left}px`}
+    style:top={`${actionTooltip.top}px`}
+  >
+    {actionTooltip.text}
+  </div>
+{/if}
 <SurfaceDialog
   open={Boolean(activityTarget) && active}
   title={$i18n.t(activityDesired ? 'admin.unlockTitle' : 'admin.lockTitle')}
@@ -402,7 +487,12 @@
         activityTarget = null;
       }}>{$i18n.t('admin.activityCancel')}</button
     >
-    <button type="button" disabled={adminState.activityBusy} onclick={confirmActivity}
+    <button
+      type="button"
+      class:destructive={!activityDesired}
+      class:positive={activityDesired}
+      disabled={adminState.activityBusy}
+      onclick={confirmActivity}
       >{$i18n.t(
         adminState.activityBusy ? 'admin.busy' : activityDesired ? 'admin.unlock' : 'admin.lock',
       )}</button
@@ -420,6 +510,66 @@
 {/if}
 
 <style>
+  .row-action {
+    display: inline-grid;
+    place-items: center;
+    vertical-align: middle;
+    width: 40px;
+    height: 40px;
+    min-height: 40px;
+    padding: 0;
+  }
+  .account-action {
+    margin-left: 4px;
+  }
+  .account-action.deactivate {
+    color: #b91c1c;
+  }
+  .account-action.reactivate {
+    color: #15803d;
+  }
+  :global([data-theme='dark']) .account-action.deactivate {
+    color: #fda4af;
+  }
+  :global([data-theme='dark']) .account-action.reactivate {
+    color: #86efac;
+  }
+  .account-action[aria-disabled='true'] {
+    color: var(--muted);
+    opacity: 0.6;
+    cursor: not-allowed;
+  }
+  button.destructive {
+    background: #b91c1c;
+    border-color: #b91c1c;
+    color: #fff;
+  }
+  button.destructive:hover:not(:disabled) {
+    background: #991b1b;
+    border-color: #991b1b;
+  }
+  button.positive {
+    background: #15803d;
+    border-color: #15803d;
+    color: #fff;
+  }
+  button.positive:hover:not(:disabled) {
+    background: #166534;
+    border-color: #166534;
+  }
+  .action-tooltip {
+    position: fixed;
+    z-index: 1000;
+    transform: translate(-50%, -100%);
+    max-width: min(260px, calc(100vw - 24px));
+    padding: 8px 12px;
+    border-radius: 6px;
+    background: #172b3a;
+    color: #fff;
+    font-size: 13px;
+    line-height: 1.4;
+    pointer-events: none;
+  }
   .accounts-panel {
     width: 100%;
     padding: 1rem clamp(1rem, 3vw, 2rem);
@@ -570,9 +720,6 @@
   }
   .edit {
     font-size: 1.15rem;
-    min-width: 40px;
-    min-height: 40px;
-    padding: 0.3rem;
   }
   .sr-only {
     position: absolute;
