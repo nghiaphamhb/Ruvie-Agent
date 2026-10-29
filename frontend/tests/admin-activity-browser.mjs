@@ -140,6 +140,32 @@ try {
   await page.goto(origin + '/?view=admin-users');
   await page.getByText('Directory User', { exact: true }).waitFor();
   assert.equal(await page.getByRole('button', { name: 'Khóa tài khoản Admin' }).isDisabled(), true);
+  const ownAction = page.getByRole('button', { name: 'Khóa tài khoản Admin' });
+  const targetAction = page.getByRole('button', { name: 'Khóa tài khoản Directory User' });
+  const actionSizes = await targetAction
+    .locator('..')
+    .locator('button')
+    .evaluateAll((buttons) =>
+      buttons.map((button) => {
+        const { width, height } = button.getBoundingClientRect();
+        return { width, height };
+      }),
+    );
+  assert.deepEqual(actionSizes, [
+    { width: 40, height: 40 },
+    { width: 40, height: 40 },
+  ]);
+  assert.equal(await targetAction.innerText(), '');
+  assert.equal(await targetAction.locator('svg[aria-hidden="true"]').count(), 1);
+  await ownAction.hover();
+  await page.getByRole('tooltip', { name: 'Không thể tự khóa' }).waitFor();
+  await page.mouse.move(0, 0);
+  await ownAction.focus();
+  await page.getByRole('tooltip', { name: 'Không thể tự khóa' }).waitFor();
+  await page.keyboard.press('Enter');
+  assert.equal(await page.getByRole('dialog').count(), 0);
+  await page.keyboard.press('Escape');
+  await page.getByRole('tooltip').waitFor({ state: 'hidden' });
   const cdp = await page.context().newCDPSession(page);
   await cdp.send('Emulation.setPageScaleFactor', { pageScaleFactor: 1.25 });
   assert.equal(await page.evaluate(() => window.visualViewport.scale), 1.25);
@@ -147,6 +173,17 @@ try {
   await page.keyboard.press('Enter');
   let dialog = page.getByRole('dialog', { name: 'Khóa tài khoản?' });
   await dialog.waitFor();
+  const destructiveColor = await dialog
+    .getByRole('button', { name: 'Khóa tài khoản', exact: true })
+    .evaluate((button) => getComputedStyle(button).backgroundColor);
+  const channels = destructiveColor.match(/\d+/g).map(Number);
+  assert.ok(
+    channels[0] > channels[1] * 2 && channels[0] > channels[2] * 2,
+    'deactivation confirmation has a red background',
+  );
+  await page.screenshot({
+    path: fileURLToPath(new URL('../../logs/f015-actions-light.png', import.meta.url)),
+  });
   assert.equal(
     await dialog
       .getByRole('button', { name: 'Hủy' })
@@ -159,9 +196,21 @@ try {
   await page.getByRole('button', { name: 'Khóa tài khoản Directory User' }).click();
   await dialog.getByRole('button', { name: 'Khóa tài khoản', exact: true }).click();
   await page.getByRole('button', { name: 'Mở lại tài khoản Directory User' }).waitFor();
+  assert.equal(
+    await page.getByRole('button', { name: 'Mở lại tài khoản Directory User' }).innerText(),
+    '',
+  );
   assert.equal(patches, 1);
   await page.getByRole('button', { name: 'Mở lại tài khoản Directory User' }).click();
   dialog = page.getByRole('dialog', { name: 'Mở lại tài khoản?' });
+  const reactivateColor = await dialog
+    .getByRole('button', { name: 'Mở lại', exact: true })
+    .evaluate((button) => getComputedStyle(button).backgroundColor);
+  const greenChannels = reactivateColor.match(/\d+/g).map(Number);
+  assert.ok(
+    greenChannels[1] > greenChannels[0] * 2 && greenChannels[1] > greenChannels[2],
+    'reactivation confirmation has a green background',
+  );
   await dialog.getByRole('button', { name: 'Mở lại', exact: true }).click();
   await page.getByRole('button', { name: 'Khóa tài khoản Directory User' }).waitFor();
   assert.equal(patches, 2);
@@ -246,6 +295,14 @@ try {
     await page.keyboard.press('Escape');
     await localizedDialog.waitFor({ state: 'hidden' });
     assert.equal(await page.locator('.workspace-shell').getAttribute('data-theme'), 'dark');
+    if (locale === 'en-US') {
+      await page.getByRole('button', { name: 'Deactivate Admin', exact: true }).focus();
+      await page.getByRole('tooltip', { name: 'You cannot deactivate yourself' }).waitFor();
+      await page.screenshot({
+        path: fileURLToPath(new URL('../../logs/f015-actions-dark.png', import.meta.url)),
+      });
+      await page.keyboard.press('Escape');
+    }
   }
   slow = true;
   await page.getByRole('button', { name: 'Разблокировать Directory User' }).click();
@@ -304,7 +361,7 @@ try {
     .click();
   await page.locator('#email').waitFor();
   assert.deepEqual(errors, []);
-  console.log('F015 activity browser: 41 checks passed');
+  console.log('F015 activity browser: 51 checks passed');
 } finally {
   await browser?.close();
   await new Promise((resolve) => server.close(resolve));

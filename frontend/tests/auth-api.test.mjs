@@ -335,3 +335,50 @@ test('session rejects missing or unknown server roles', async () => {
     );
   }
 });
+
+test('disabled login is recognized only for the exact 403 code', async () => {
+  const { login } = await loadClient();
+  for (const [status, payload, expected] of [
+    [403, { detail: { code: 'account_disabled' } }, 'auth.errors.accountDisabled'],
+    [401, { detail: { code: 'account_disabled' } }, 'auth.errors.credentials'],
+    [403, { detail: { code: 'origin_not_allowed' } }, 'auth.errors.request'],
+    [403, {}, 'auth.errors.request'],
+  ]) {
+    let calls = 0;
+    await withFetch(
+      async () => {
+        calls++;
+        return Response.json(payload, { status });
+      },
+      async () => {
+        await assert.rejects(
+          login('user@example.test', 'secret'),
+          (error) => error.uiMessage.key === expected && error.status === status,
+        );
+      },
+    );
+    assert.equal(calls, 1);
+  }
+  await withFetch(
+    async () => new Response('{', { status: 403 }),
+    async () => {
+      await assert.rejects(
+        login('user@example.test', 'secret'),
+        (error) => error.uiMessage.key === 'auth.errors.request',
+      );
+    },
+  );
+  await withFetch(
+    async () => {
+      throw new Error('private network detail');
+    },
+    async () => {
+      await assert.rejects(
+        login('user@example.test', 'secret'),
+        (error) =>
+          error.uiMessage.key === 'common.errors.network' &&
+          !JSON.stringify(error).includes('private network detail'),
+      );
+    },
+  );
+});

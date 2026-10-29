@@ -118,12 +118,23 @@ export async function getAuthSetup(): Promise<AuthSetup> {
 }
 
 export async function login(email: string, password: string): Promise<AuthSession> {
-  return readSession(
-    await request('/auth/login', {
-      method: 'POST',
-      body: JSON.stringify({ email, password }),
-    }),
-  );
+  const response = await request('/auth/login', {
+    method: 'POST',
+    body: JSON.stringify({ email, password }),
+  });
+  if (response.status === 403) {
+    let code = '';
+    try {
+      const body = await response.json();
+      code = body?.detail?.code ?? '';
+    } catch {
+      /* safe fallback */
+    }
+    if (code === 'account_disabled') {
+      throw new AuthApiError(message('auth.errors.accountDisabled'), 403, {}, 'account_disabled');
+    }
+  }
+  return readSession(response);
 }
 
 /** POST only registration identity; one attempt avoids accidental account creation retries. */

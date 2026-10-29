@@ -62,6 +62,10 @@ class RegisteredAccount:
     created_session: CreatedSession
 
 
+class AccountDisabledError(ValueError):
+    """Login rejected because the account exists but is deactivated."""
+
+
 class SetupAlreadyCompleted(ValueError):
     """Any existing account closes public bootstrap, regardless of role or activity."""
     def __init__(self):
@@ -86,13 +90,23 @@ class AuthService:
         self.session = session
 
     def authenticate(self, email: str, password: str) -> User | None:
-        """Return an active user with a matching password, or None for invalid credentials."""
+        """Return an active user with a matching password, or None for invalid credentials.
+
+        Raises AccountDisabledError when the password is correct but the account
+        is deactivated.  The password check runs first so that an incorrect
+        password never reveals whether the email exists (anti-enumeration).
+        """
         # Hold the account row through create_session's commit so an admin reset
         # cannot race a successful login and leave a freshly minted old-password session.
         user = self.session.scalar(
             select(User).where(func.lower(User.email) == email.strip().casefold()).with_for_update()
         )
-        if not user or not user.is_active or not user.password_hash:
+        if not user or not user.password_hash:
+            return None
+        if not user.is_active:
+            # Only reveal disabled status when the password is correct.
+            if verify_password(password, user.password_hash):
+                raise AccountDisabledError()
             return None
         return user if verify_password(password, user.password_hash) else None
 

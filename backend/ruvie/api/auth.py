@@ -12,7 +12,8 @@ from ruvie.contracts.auth import (
 from ruvie.dependencies import get_authenticated_user_id, get_session
 from ruvie.api.security import AccountCreationRoute, check_origin, verify_csrf
 from ruvie.services.auth import (
-    AuthService, PasswordChangeError, SetupAlreadyCompleted, SESSION_HOURS,
+    AccountDisabledError, AuthService, PasswordChangeError, SetupAlreadyCompleted,
+    SESSION_HOURS,
 )
 
 
@@ -135,7 +136,12 @@ def login(
     """POST /auth/login: {email, password} -> user/CSRF and secure session cookie."""
     check_origin(request, request.app.state.settings)
     service = AuthService(db)
-    user = service.authenticate(body.email, body.password)
+    try:
+        user = service.authenticate(body.email, body.password)
+    except AccountDisabledError:
+        raise HTTPException(
+            status_code=403, detail={"code": "account_disabled"},
+        ) from None
     if user is None:
         raise HTTPException(status_code=401, detail="email or password is incorrect")
     created = service.create_session(user.id)

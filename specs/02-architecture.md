@@ -88,6 +88,12 @@ PostgreSQL advisory lock serializes bootstrap before the emptiness check. The
 transaction creates an active administrator, session and audit together; the
 cookie is set after commit. Any existing user closes public registration.
 
+`POST /auth/login` verifies the password before reporting a disabled account.
+Correct credentials for a disabled account return 403 `account_disabled` without
+creating a session or setting a cookie. Incorrect credentials retain the generic
+401 response. The frontend displays a localized disabled-account message only for
+that specific 403 code; revoked sessions still receive 401.
+
 `users.system_role` is `user` or `admin`, separate from project roles. Migration
 defaults existing accounts to `user`. `POST /admin/users` requires an active admin,
 Origin and CSRF; the service reloads and locks the actor before creating an active

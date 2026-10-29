@@ -81,6 +81,32 @@ try {
     .getByRole('button', { name: 'Khóa tài khoản', exact: true })
     .click();
   await row.getByRole('button', { name: /Mở lại tài khoản/ }).waitFor();
+  const probeContext = await browser.newContext({ locale: 'vi-VN' });
+  contexts.push(probeContext);
+  const probe = await probeContext.newPage();
+  await probe.goto(origin);
+  const disabled = await probe.evaluate(async (password) => {
+    const response = await fetch('/auth/login', {
+      method: 'POST',
+      headers: { 'Content-Type': 'application/json' },
+      body: JSON.stringify({ email: 'beta@example.test', password }),
+    });
+    return { status: response.status, body: await response.json() };
+  }, currentPassword);
+  assert.equal(disabled.status, 403);
+  assert.equal(disabled.body.detail.code, 'account_disabled');
+  const wrong = await probe.evaluate(
+    async () =>
+      (
+        await fetch('/auth/login', {
+          method: 'POST',
+          headers: { 'Content-Type': 'application/json' },
+          body: JSON.stringify({ email: 'beta@example.test', password: 'wrong-password' }),
+        })
+      ).status,
+  );
+  assert.equal(wrong, 401);
+  assert.equal(await probe.evaluate(async () => (await fetch('/auth/session')).status), 401);
   assert.equal(await target1.page.evaluate(async () => (await fetch('/auth/session')).status), 401);
   assert.equal(await target2.page.evaluate(async () => (await fetch('/auth/session')).status), 401);
   assert.equal(await other.page.evaluate(async () => (await fetch('/auth/session')).status), 200);

@@ -1,6 +1,7 @@
 # F015 - Khóa và mở lại tài khoản
 
 Trạng thái: F015-001 đến F015-008 đã triển khai và kiểm chứng ngày 2026-10-28.
+F015-009 đã hoàn tất và nghiệm thu thông báo đăng nhập cho tài khoản bị khóa ngày 2026-10-29.
 Ngày lập: 2026-10-28.
 
 ## Goal
@@ -104,11 +105,11 @@ lưu hội thoại bền vững. Giữ quyền không có nghĩa quyền hết h
 
 1. Admin mở danh sách tài khoản. Mỗi hàng có **Đang hoạt động** hoặc **Đã khóa**.
 2. Trạng thái không dùng cùng ý nghĩa với Online/Last active. Không chỉ dùng màu.
-3. Với tài khoản active khác mình, hiển thị **Khóa tài khoản**. Với inactive, hiển thị **Mở lại tài khoản**.
-4. Hàng của actor không cho tự khóa; hiển thị giải thích. Backend vẫn bắt buộc kiểm tra.
+3. Với tài khoản active khác mình, hiển thị nút icon người kèm dấu X trong vòng tròn cho **Khóa tài khoản**; với inactive, dùng icon người kèm dấu check trong vòng tròn cho **Mở lại tài khoản**. Nút giữ accessible name gồm thao tác và tài khoản đích; tooltip giải thích khi hover/focus.
+4. Hàng của actor không cho tự khóa; dùng aria-disabled và chặn thao tác, vẫn nhận focus để hiển thị giải thích qua tooltip thay vì text cố định. Tooltip đóng khi Escape hoặc rời nút. Backend vẫn bắt buộc kiểm tra.
 5. Chọn thao tác mở dialog có tên/email tài khoản và thao tác đích rõ ràng.
 6. Khóa: thông báo mọi phiên sẽ hết hiệu lực, dữ liệu/quyền được giữ. Mở lại: thông báo cần đăng nhập mới và giữ quyền còn hiệu lực.
-7. Có nút Hủy và nút xác nhận cụ thể. Focus ban đầu ở Hủy; hỗ trợ Escape và trả focus khi đóng. Không dùng `window.confirm`.
+7. Có nút Hủy và nút xác nhận cụ thể. Nút xác nhận khóa có nền đỏ, chữ trắng ở cả theme sáng/tối. Focus ban đầu ở Hủy; hỗ trợ Escape và trả focus khi đóng. Không dùng `window.confirm`.
 8. Chỉ sau xác nhận mới gửi PATCH. Pending khóa nút gửi để tránh lặp; hiển thị trạng thái đang xử lý. Không đồng thời mở dialog sửa/tạo và dialog trạng thái.
 9. Thành công: dùng summary server, cập nhật hàng, đóng dialog, một toast thành công; refresh giữ search/page hiện tại. Khóa đặt presence hiển thị offline ngay.
 10. Lỗi nghiệp vụ: một toast lỗi, giữ trạng thái đã xác minh; không đổi optimistic `is_active` trước server.
@@ -252,6 +253,14 @@ quyền vẫn phải qua predicate DB hiện tại và thời hạn grant hiện
 - [x] AC-13: Không sửa dữ liệu ngoài phạm vi; không migration/dependency mới; không port role pending hoặc runtime legacy.
 - [x] AC-14: Required backend/frontend/browser checks đạt; báo số pass/fail/skip thực tế. Skip hoặc failure chưa giải quyết không được tick nghiệm thu đầy đủ.
 
+Các tiêu chí bổ sung dưới đây thuộc F015-009. Kết quả nghiệm thu 001–008 không chứng minh các tiêu chí này đã đạt.
+
+- [x] AC-15: Tài khoản bị khóa và mật khẩu đúng nhận HTTP 403 với `detail.code=account_disabled`; không tạo session hoặc Set-Cookie, response có no-store.
+- [x] AC-16: Sai mật khẩu, email không tồn tại hoặc tài khoản không có password hash vẫn nhận lỗi credentials chung. Chỉ mật khẩu đúng mới làm lộ trạng thái khóa; quy tắc này không cam kết thời gian phản hồi bằng nhau.
+- [x] AC-17: Frontend chỉ dùng thông báo tài khoản bị khóa cho đúng cặp HTTP 403/account_disabled. 401 vẫn báo sai thông tin đăng nhập; 403 khác hoặc body hỏng dùng lỗi chung an toàn, không hiển thị raw body.
+- [x] AC-18: Login hiển thị đúng một toast lỗi đã dịch ở vi-VN/en-US/ru-RU; giữ form đăng nhập, không mở workspace và không tự gửi lại request. Mở lại tài khoản cho phép đăng nhập mới; session cũ vẫn 401.
+- [x] AC-19: Hai test PostgreSQL bị ảnh hưởng được cập nhật theo contract mới và vẫn chứng minh chờ khóa thật. Full backend, frontend và browser liên quan đạt; báo pass/fail/skip mới, không dùng số liệu cũ để tick task.
+
 ## Tasks
 
 Thực thi theo thứ tự 001 → 008. Mỗi lượt chỉ thực hiện task được yêu cầu.
@@ -357,9 +366,9 @@ dưới là đề xuất. Không tick task chỉ vì đã viết test hoặc cod
 **Work:**
 
 1. Đọc mục Minh họa giao diện đích và kiểm tra giao diện admin hiện có; dùng ảnh để hiểu hành vi, kết hợp với bối cảnh UI thực tế. Truyền actorUserId qua page composition; không fetch identity riêng trong AccountsPanel và không lấy actor từ row đang chọn.
-2. Thêm cột trạng thái bằng text; giữ presence/last active riêng. Nút có accessible name chứa thao tác và tài khoản đích, không chỉ icon.
+2. Thêm cột trạng thái bằng text; giữ presence/last active riêng. Nút dùng icon người kèm dấu X/check trong vòng tròn và có accessible name chứa thao tác và tài khoản đích.
 3. Thêm dialog xác nhận cho cả khóa và mở. Bind target ID + desired state khi mở; không tự đảo desired theo polling. Nếu refresh cho biết state đã đổi, yêu cầu xem lại trước confirm thay vì đổi ý nghĩa nút.
-4. Disable tự khóa ở UI kèm giải thích. Không đoán số admin toàn hệ thống từ một trang danh sách để quyết định quyền; server trả last_active_admin.
+4. Ngăn tự khóa ở UI bằng aria-disabled và guard thao tác; giữ focus để đọc giải thích trong tooltip khi hover/focus, đóng bằng Escape hoặc rời nút. Không đoán số admin toàn hệ thống từ một trang danh sách để quyết định quyền; server trả last_active_admin.
 5. Dùng SurfaceDialog focus Hủy, Escape/Tab/restore; pending chống double click/Enter. Đóng và invalidate UI khi active=false; chỉ một dialog tạo/sửa/trạng thái mở.
 6. Nối changeActivity với một toast success/error/neutral tương ứng result. Dismiss toast feature khi rời view; response cũ không tạo toast lên view/actor mới.
 7. Dịch mọi nội dung, gồm lỗi mới và trạng thái chưa xác định. Giữ key tương đương ba catalog; dùng token hiện có, không bọc trang bằng card mới.
@@ -405,6 +414,76 @@ dưới là đề xuất. Không tick task chỉ vì đã viết test hoặc cod
 
 **Done:** Tài liệu khớp code đã kiểm chứng; không mất backlog hoặc thổi phồng mức hoàn tất.
 
+### F015-009 — Hoàn thiện thông báo đăng nhập cho tài khoản bị khóa
+
+- [x] Hoàn thành F015-009.
+
+**User story:** Là nhân viên có tài khoản đã bị admin khóa, tôi muốn biết tài khoản
+đang bị khóa khi nhập đúng thông tin đăng nhập, để liên hệ admin thay vì liên tục
+thử lại mật khẩu. Người nhập sai mật khẩu chỉ nhận lỗi credentials chung.
+
+**Baseline trước nghiệm thu F015-009:**
+
+- `backend/ruvie/services/auth.py::AccountDisabledError` và nhánh xử lý trong `AuthService.authenticate` đã có trong working tree do lượt làm trước. Password được kiểm tra trước khi raise cho tài khoản inactive.
+- `backend/ruvie/api/auth.py::login` đã bắt exception và trả 403/account_disabled trước khi gọi create_session.
+- `frontend/src/lib/features/auth/auth-api.ts::login` đã ánh xạ mã lỗi sang `auth.errors.accountDisabled`. Ba catalog đã có key này.
+- Chưa tìm thấy test riêng cho account_disabled trong backend hoặc frontend. Đây là code nháp chưa nghiệm thu; cần giữ và kiểm chứng, không viết lại mặc định.
+- `test_login_and_lock_are_serialized_on_target_row` trong `tests/test_f015_004_activity_concurrency.py` vẫn assert authenticate trả None sau khóa. `test_lock_before_login_rejects_login_after_waiting` cũng vẫn kỳ vọng future trả None. Cả hai kỳ vọng không còn khớp exception mới; chưa coi là lỗi production khi chỉ test cũ sai contract.
+- Nhánh `references/backend/ruvie/routers/auths.py::signin` đã được đối chiếu: xác thực rồi tạo session hoặc trả lỗi credentials chung. Không có contract tương đương cần port. Dùng active service, cookie và PostgreSQL; không port role pending, JWT hoặc trusted-header auth.
+
+**Where — phạm vi triển khai dự kiến:**
+
+| Tệp | Thao tác và trách nhiệm |
+| --- | --- |
+| `backend/ruvie/services/auth.py` | Giữ/hoàn thiện AccountDisabledError và authenticate; chỉ sửa production nếu kiểm thử chứng minh còn thiếu |
+| `backend/ruvie/api/auth.py` | Giữ/hoàn thiện ánh xạ 403/account_disabled trong login, no-store và đường lỗi không tạo session |
+| `frontend/src/lib/features/auth/auth-api.ts` | Giữ/hoàn thiện parse lỗi login và fallback an toàn |
+| `frontend/src/lib/i18n/locales/{vi-VN,en-US,ru-RU}/translation.json` | Kiểm tra key/thông báo đã có; chỉ chỉnh khi chưa khớp hành vi |
+| `tests/test_f015_009_disabled_login.py` | Tạo test service và HTTP riêng cho thông báo khóa |
+| `tests/test_f005_003_auth.py` | Cập nhật test auth cũ theo exception mới; tệp bổ sung đã được người dùng duyệt |
+| `tests/test_f015_004_activity_concurrency.py` | Sửa đúng hai kỳ vọng None bị ảnh hưởng; giữ event, lock observation, timeout, cleanup và kiểm tra session |
+| `frontend/tests/auth-api.test.mjs` | Thêm test ánh xạ đúng cặp status/code và fallback |
+| `frontend/tests/auth-browser.mjs` | Mở rộng HTTP giả cho toast đăng nhập bị khóa ở ba locale |
+| `frontend/tests/admin-activity-e2e.mjs` | Bổ sung login bị khóa vào luồng khóa/mở thật; reuse Python wrapper `tests/test_f015_007_activity_e2e.py` |
+| `specs/02-architecture.md`, spec F015 này | Đồng bộ contract đăng nhập và kết quả nghiệm thu sau khi test đạt |
+
+Không cần sửa `App.svelte`, auth toast owner, schema hoặc thêm dependency theo
+thiết kế này. Nếu phát hiện cần thay ownership hoặc mở thêm tệp, báo scope mới
+trước khi sửa theo AGENTS.md. Yêu cầu viết task này chỉ cho phép sửa spec.
+
+**Hợp đồng yêu cầu:**
+
+| Trạng thái tài khoản và password | Service | POST /auth/login | Kết quả frontend |
+| --- | --- | --- | --- |
+| Active, password đúng | Trả User | 200 + session theo contract cũ | Vào workspace |
+| Inactive, password đúng | Raise AccountDisabledError | 403, `{"detail":{"code":"account_disabled"}}` | Toast tài khoản bị khóa |
+| Active/inactive, password sai | Trả None | 401 credentials chung hiện có | Toast sai email hoặc mật khẩu |
+| Email không có hoặc hash thiếu | Trả None | 401 credentials chung hiện có | Toast sai email hoặc mật khẩu |
+
+Thông báo thống nhất: vi-VN “Tài khoản này đã bị vô hiệu hóa.”; en-US “This account
+has been disabled.”; ru-RU “Эта учётная запись отключена.”. Đây là key login riêng,
+không dùng để đổi thông báo hết phiên hoặc thay contract GET /auth/session.
+Mở lại giữ password hiện tại; cookie cũ vẫn không có hiệu lực.
+
+**Work — thực hiện theo thứ tự:**
+
+1. Đọc README, AGENTS, diff sáu tệp Claude đã sửa và caller của authenticate. Giữ user work. Báo phạm vi production/test/docs và dist/log trước khi xin duyệt triển khai; không sửa code chỉ vì task đã có trong spec.
+2. Viết test service/HTTP trong test_f015_009_disabled_login.py. Dùng password hash thật và DB tạm/bộ nhớ cho test đơn giản. Đọc mẫu test_f005_003_auth.py nhưng không override authenticate hoặc dependency quyền ở ca HTTP chính. Test code nháp hiện có có thể đã pass; không xóa code để tạo RED giả. Với hành vi thiếu, viết test thất bại trước khi bổ sung fix.
+3. Ma trận service: active đúng/sai; inactive đúng/sai; email thiếu; hash thiếu. Với inactive đúng phải raise đúng lớp; trường hợp còn lại thất bại phải trả None. Kiểm tra số session trước/sau, hash/role/activity không đổi sau thất bại.
+4. Ma trận HTTP: dùng cookie boundary thật. Inactive + đúng password phải 403/account_disabled, no-store, không Set-Cookie hoặc session mới. Inactive + sai password và email không tồn tại phải cùng 401 contract chung. Origin sai vẫn bị chặn trước xác thực; không phản chiếu password/hash/token/email tùy ý trong lỗi. Không đổi 401 của cookie đã bị thu hồi trên GET /auth/session.
+5. Rà authenticate: giữ SELECT FOR UPDATE và transaction tồn tại đến create_session commit. Không trả disabled trước verify_password. Rà route: chỉ bắt AccountDisabledError cho login, không nuốt lỗi DB thành account_disabled hoặc gọi create_session ở nhánh lỗi. Không đổi các API admin, reset hay tự đổi mật khẩu.
+6. Cập nhật đúng hai test cạnh tranh nêu trên để bắt AccountDisabledError: ở ca thứ nhất assertRaises quanh authenticate sau khóa; ở ca thứ hai assertRaises quanh future.result khi login chờ khóa. Không bắt mọi Exception. Giữ kiểm tra PostgreSQL thật đang chờ lock, user → session, không session sống lại và release trong finally. Chạy lại cả file concurrency.
+7. Thêm auth-api.test.mjs: 403/account_disabled tạo AuthApiError đúng key/status/code; 401 vẫn credentials; 403 mã khác, thiếu detail, JSON hỏng hoặc lỗi mạng dùng fallback hiện có. 200 hợp lệ vẫn parse session; không tự retry POST. Test 401 kèm body giả account_disabled không được hiển thị thông báo khóa. Không serialize raw body. Chỉ parse body một lần trên mỗi đường thực thi; readSession hiện kiểm tra non-ok trước khi đọc body, nên không cần refactor nếu fallback đã an toàn.
+8. Mở rộng mock /auth/login trong auth-browser.mjs để cấu hình được status và code. Test một submit nhận một toast đúng ba locale, vẫn ở login và không có workspace. Không lộ raw server detail; nút pending được mở lại, người dùng được sửa thông tin rồi thử lại có chủ ý. Không mở rộng layout hoặc thêm toast owner.
+9. Bổ sung E2E thật vào admin-activity-e2e.mjs: sau admin khóa T, dùng context chưa đăng nhập thử đúng password nhận 403/account_disabled và sai password nhận 401; không có session mới. Sau mở, login mới 200; cookie T1/T2 cũ vẫn 401. Giữ các kiểm tra admin/U, hash, role và dữ liệu hiện có. Không mock login/session/DB ở E2E này. Chỉ chạy qua Python wrapper dùng backend/database tạm, không chạy script vào database ứng dụng.
+10. Chạy focused auth/F015 trước. Sau đó chạy full backend suite theo README/AGENTS, frontend tests/build/lint/format:check, auth browser, admin browser và admin-activity-browser. Cấu hình Docker Linux, Playwright và Chromium/Edge; không chạy hai backend suite cùng lúc. Skip phải ghi là chưa xác minh. Không dùng provider thật hoặc đổi database ứng dụng.
+11. Khi mọi kiểm tra đạt, cập nhật mô tả login trong specs/02-architecture.md và kết quả 009 trong spec này bằng lệnh đã chạy, pass/fail/skip thực tế. Giữ kết quả 001–008 như bằng chứng lịch sử; không sửa số liệu cũ thành kết quả cho contract mới. Tick task 009 và AC-15 đến AC-19 chỉ sau nghiệm thu. Không tự commit.
+
+**Done:** Service, HTTP, toast và PostgreSQL concurrency đều có bằng chứng theo
+contract mới. Tài khoản khóa không được tạo session; sai password không được lộ
+trạng thái khóa. AC-15 đến AC-19 đạt và required regression không có failure/skip
+chưa giải quyết. Nếu còn blocker, giữ checkbox mở và ghi rõ phần chưa kiểm chứng.
+
 ### Ma trận truy vết
 
 | AC | Task chính | Bằng chứng |
@@ -418,10 +497,16 @@ dưới là đề xuất. Không tick task chỉ vì đã viết test hoặc cod
 | 12 | 005, 006, 007 | Lifecycle, locale, theme, keyboard |
 | 13 | 001, 002, 008 | Diff/schema/data preservation |
 | 14 | 007, 008 | Full suite và báo cáo bằng chứng |
+| 15, 16 | 009 | Ma trận service/HTTP, Origin và kiểm tra không tạo session |
+| 17, 18 | 009 | Auth API client, toast ba locale và E2E khóa/mở |
+| 19 | 009 | PostgreSQL concurrency và lượt regression mới |
 
 ### Kết quả kiểm chứng triển khai
 
 Nghiệm thu 2026-10-28 dùng PostgreSQL/pgvector tạm, fake providers, Playwright và Edge headless. Không sử dụng database ứng dụng.
+
+Các kết quả dưới đây thuộc F015-001 đến F015-008, trước thay đổi account_disabled.
+Kết quả riêng của F015-009 được ghi sau bảng lịch sử.
 
 | Kiểm tra | Kết quả quan sát |
 | --- | --- |
@@ -445,3 +530,53 @@ bổ sung và E2E được chạy riêng sau full suite, không có lượt full
 sau khi thêm test; code backend production chỉ đổi comment sau full suite.
 Lệnh chuẩn nằm trong README.md và AGENTS.md.
 
+#### Kết quả F015-009 — 2026-10-29
+
+| Kiểm tra | Lệnh | Kết quả |
+| --- | --- | --- |
+| Backend đầy đủ với Playwright/Edge và PostgreSQL tạm | `.\.venv\Scripts\python.exe -B -m unittest discover -s tests -p 'test_*.py'` | 345 test, 0 failure/error, 0 skip; 704,024 giây. Bao gồm concurrency và E2E user/admin. |
+| Service/HTTP F015-009 tập trung | `.\.venv\Scripts\python.exe -B -m unittest test_f015_009_disabled_login` | 2 test đạt; ca mở rộng sau đó được chạy trong suite đầy đủ. |
+| Frontend | `npm --prefix frontend test` | 98 pass, 0 fail, 0 skip với Playwright/Edge. |
+| Frontend build/lint/format | `npm --prefix frontend run build`, `npm --prefix frontend run lint`, `npm --prefix frontend run format:check` | Đạt. |
+| Browser | `node frontend/tests/auth-browser.mjs`, `node frontend/tests/admin-browser.mjs`, `node frontend/tests/admin-activity-browser.mjs` | Auth 64 kiểm tra, admin 34 nhóm, activity 41 kiểm tra; đều đạt. |
+
+Lượt backend đầu có 1 lỗi do test_f005_003_auth.py còn kỳ vọng None. Sau khi
+người dùng duyệt bổ sung phạm vi, test được cập nhật theo AccountDisabledError;
+lượt đầy đủ chạy lại đạt như trên. E2E dùng login thật và DB tạm; kiểm tra 403
+khi đúng password, 401 khi sai password, không có session mới và cookie cũ vẫn
+401 sau mở khóa. Không thay schema, dependency hoặc quyền tài liệu.
+
+#### Điều chỉnh giao diện khóa/mở — 2026-10-29
+
+Đã triển khai theo yêu cầu duyệt mockup, kết hợp giao diện admin hiện có:
+
+- Nút xác nhận khóa dùng nền đỏ, chữ trắng; nút xác nhận mở lại dùng nền xanh lá, chữ trắng và hover đậm hơn ở cả theme sáng/tối. Giữ focus ban đầu ở Hủy.
+- Nút thao tác trên hàng dùng icon người kèm dấu X/check trong vòng tròn, màu đỏ/xanh và accessible name được dịch. Sau điều chỉnh kích thước, Edit và khóa/mở dùng chung CSS `row-action` cho kích thước 40×40px, căn giữa và padding; giữ riêng màu icon và khoảng cách.
+- Giải thích không thể tự khóa chuyển từ text cố định sang tooltip hỗ trợ hover, focus và Escape. Nút tự khóa không mở dialog khi nhấn Enter.
+- Giữ SurfaceDialog, layout, contract API và các guard pending/đối soát hiện có; không thêm dependency.
+
+Phạm vi: `frontend/src/lib/features/admin/AccountsPanel.svelte`,
+`frontend/tests/admin-activity-browser.mjs` và spec này. Ảnh kiểm tra thực tế
+nằm ở `logs/f015-actions-light.png` và `logs/f015-actions-dark.png` (ignored).
+
+| Kiểm tra | Kết quả |
+| --- | --- |
+| Frontend build | Đạt, 299 modules. |
+| Frontend tests với Playwright/Edge | 98 pass, 0 fail, 0 skip. |
+| Frontend lint và format:check | Đạt. |
+| `node frontend/tests/admin-activity-browser.mjs` | 49 kiểm tra đạt; gồm icon, tooltip hover/focus/Escape, chặn tự khóa, màu đỏ dialog và regression lifecycle/locale/theme. |
+| `node frontend/tests/admin-browser.mjs` | 34 nhóm đạt. |
+| Kiểm tra trực quan ảnh thực tế | Dialog sáng có nút khóa đỏ; danh sách tối có icon và tooltip đúng bối cảnh. |
+
+Các kết quả trên dành cho điều chỉnh UI. Không sửa backend trong lượt này;
+bằng chứng backend F015-009 được giữ riêng ở mục trước.
+
+Kiểm chứng sau điều chỉnh kích thước và nút mở lại (2026-10-29):
+`npm --prefix frontend run build`, `npm --prefix frontend test`,
+`npm --prefix frontend run lint`, `npm --prefix frontend run format:check` đều đạt;
+frontend 98 pass, 0 fail, 0 skip. Với Playwright/Edge,
+`node frontend/tests/admin-activity-browser.mjs` đạt 51 kiểm tra và
+`node frontend/tests/admin-browser.mjs` đạt 34 nhóm. Hai kiểm tra mới xác minh
+Edit và nút trạng thái đều 40×40px, nút xác nhận mở lại có nền xanh lá.
+Test kích thước đã thất bại trước sửa (Edit 40×40px, nút trạng thái 44×44px).
+Ảnh theme tối được xem lại sau build; hai nút đã bằng kích thước.
