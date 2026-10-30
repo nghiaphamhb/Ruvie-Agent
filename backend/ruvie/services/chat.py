@@ -8,6 +8,7 @@ from sqlalchemy.exc import SQLAlchemyError
 
 from ruvie.adapters.embedding import QueryEmbedder
 from ruvie.adapters.llm import LlmAdapter, LlmProviderError
+from ruvie.adapters.network import ProxyUnavailableError, NetworkConfigurationPendingError
 from ruvie.config import Settings
 from ruvie.contracts.chat import ChatStreamEvent
 from ruvie.services.llm import LlmConnectionService, LlmNotConfiguredError, LlmStorageError
@@ -55,7 +56,7 @@ class ChatService:
         try:
             with self.session_factory() as session:
                 llm = LlmConnectionService(session, self.settings).resolve_chat_adapter(user_id, model_id)
-        except (LlmNotConfiguredError, LlmStorageError, LlmSecretError, SQLAlchemyError, LlmProviderError, httpx.HTTPError) as error:
+        except (LlmNotConfiguredError, LlmStorageError, LlmSecretError, SQLAlchemyError, LlmProviderError, httpx.HTTPError, ProxyUnavailableError, NetworkConfigurationPendingError) as error:
             raise ProviderUnavailableError from error
         # Model validation errors remain HTTP 422; bad vectors are provider failures.
         try:
@@ -64,7 +65,7 @@ class ChatService:
                 with self.session_factory() as session:
                     embedder = EmbeddingConnectionService(session, self.settings).resolve_embedder()
             vector = embedder.embed_query(message)
-        except (httpx.HTTPError, ValueError, LlmSecretError, SQLAlchemyError) as error:
+        except (httpx.HTTPError, ValueError, LlmSecretError, SQLAlchemyError, ProxyUnavailableError, NetworkConfigurationPendingError) as error:
             raise EmbeddingUnavailableError("embedding_provider_unavailable") from error
         with self.session_factory() as session:
             hits = AuthorizedRetrievalService(session).retrieve(user_id, vector)

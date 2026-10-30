@@ -2,6 +2,7 @@
 from datetime import datetime
 from pydantic import BaseModel
 from ruvie.contracts.llm import OrganizationConnectionDraft, ModelId
+from ruvie.contracts.network import NetworkConfig
 
 
 class EmbeddingConnectionDraft(OrganizationConnectionDraft):
@@ -17,6 +18,7 @@ class EmbeddingConnectionResponse(BaseModel):
     configured: bool
     base_url: str | None
     has_api_key: bool
+    network: NetworkConfig
     model_id: str | None
     dimension: int | None
     distance_metric: str | None

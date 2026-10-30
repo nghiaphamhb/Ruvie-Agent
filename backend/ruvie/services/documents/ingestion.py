@@ -9,6 +9,7 @@ from typing import Protocol
 from uuid import uuid4
 
 import httpx
+from ruvie.adapters.network import ProxyUnavailableError, NetworkConfigurationPendingError
 from sqlalchemy import delete, or_, select, update
 from sqlalchemy.exc import OperationalError
 from sqlalchemy.orm import Session
@@ -242,8 +243,11 @@ class DocumentIngestionWorker:
         revision = self.session.get(DocumentRevision, job.document_revision_id)
         self.session.execute(delete(DocumentChunk).where(DocumentChunk.document_revision_id == revision.id))  # Remove batches committed before the failure.
         failure = error if isinstance(error, _IngestionFailure) else _IngestionFailure(
-            "database_unavailable" if isinstance(error, OperationalError) else "worker_error",
-            retryable=isinstance(error, OperationalError),
+            "network_configuration_pending" if isinstance(error, NetworkConfigurationPendingError)
+            else "proxy_unavailable" if isinstance(error, ProxyUnavailableError)
+            else "database_unavailable" if isinstance(error, OperationalError)
+            else "worker_error",
+            retryable=isinstance(error, (OperationalError, ProxyUnavailableError)),
         )
         # Retry transient failures only while the total attempt budget remains.
         retry = failure.retryable and job.attempt_count < MAX_ATTEMPTS

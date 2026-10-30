@@ -188,15 +188,16 @@ fallback exists. Already resolved chats retain their provider/model snapshot.
 The standalone legacy adapter factory has no runtime callers; application chat
 must resolve through `LlmConnectionService`, never through that factory.
 
-The guarded LLM adapter rejects redirects and prohibited destinations, verifies
-TLS and pins DNS results. HTTP/private endpoints require an exact origin in the
-server's `LLM_ALLOWED_LOCAL_ORIGINS`. Optional `LLM_PROXY_URL` configures explicit
-SOCKS5 egress for model discovery and chat, with no direct fallback on failure.
-Independent `EMBEDDING_PROXY_URL` configures SOCKS5 egress for query and ingestion
-embeddings in the API and worker. Empty means direct; ambient system/environment
-proxy settings are not used by these shared embedding clients. Neither proxy
-setting silently falls back to direct. Restart the backend and worker to apply
-changes. These policies are server-owned.
+The guarded LLM adapter rejects redirects and prohibited provider destinations,
+verifies TLS and pins DNS results. HTTP/private provider endpoints require an
+exact origin in the server's `LLM_ALLOWED_LOCAL_ORIGINS`. Since F018, both
+reply-model and embedding routes come from independent PostgreSQL snapshots,
+not `LLM_PROXY_URL` or `EMBEDDING_PROXY_URL`. Admin drafts explicitly select
+direct or SOCKS5 without credentials; proxy endpoints are validated and DNS
+pinned on the connecting backend/worker process. Ambient HTTP(S)/ALL_PROXY
+settings are not used. Proxy errors never cause direct fallback. Newly applied
+routes affect the next operation without process restart. Historical rows must
+first be converted by the operator CLI; pending configurations are unusable.
 
 ### Frontend organization and state
 
@@ -713,3 +714,22 @@ Legacy behavior references: `references/backend/ruvie/routers/retrieval.py`:
 `references/src/lib/components/admin/Settings/Documents.svelte`:
 `embeddingModelUpdateHandler`. Only the separate configuration and pending/probe
 workflow ideas are reused; no legacy runtime, key response or global cache is ported.
+
+## F018 — Network routing (implementation prepared; validation pending)
+
+The independent LLM and embedding connections now have admin draft and
+PostgreSQL snapshot network objects. Each organization singleton stores
+network_mode and proxy_url; migration 0014 leaves historical rows pending
+until one operator-confirmed atomic CLI cutover, while new rows default direct.
+Admin catalog/probe/apply use the draft; chat, employee catalog, retrieval
+embedding and ingestion resolve operation-scoped DB routes instead of
+LLM_PROXY_URL or EMBEDDING_PROXY_URL. The guarded transport retains provider
+destination DNS pinning, TLS/hostname validation, cookie stripping, redirect
+protection and trust_env=False. Proxy endpoint DNS is validated and pinned
+separately with loopback/LAN allowed; no automatic direct fallback is introduced.
+
+See [F018](feat/F018-admin-ai-network-connections.md) and the
+[cutover guide](../docs/database-setup.md#f018-ai-network-cutover).
+**Validation:** source changes and focused tests were prepared, but no actual
+full backend/frontend, browser, PostgreSQL/Docker, locale render or two-theme
+suite results are available from this connector-only implementation.

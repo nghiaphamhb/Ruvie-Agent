@@ -23,6 +23,8 @@ export function createOrganizationLlmState({
   let metadata = $state<OrganizationMetadata | null>(null);
   let baseUrl = $state(''),
     apiKey = $state('');
+  let networkMode = $state<'direct' | 'proxy'>('direct'),
+    proxyUrl = $state('');
   let keyAction = $state<OrganizationDraft['key_action']>('clear');
   let catalog = $state<{ id: string; name: string }[]>([]),
     allowed = $state<string[]>([]);
@@ -73,6 +75,7 @@ export function createOrganizationLlmState({
       base_url: baseUrl.trim().replace(/\/+$/, ''),
       key_action: keyAction,
       expected_version: metadata?.version ?? 0,
+      network: { mode: networkMode, proxy_url: networkMode === 'proxy' ? proxyUrl.trim() : null },
       ...(keyAction === 'replace' ? { api_key: apiKey } : {}),
     };
   }
@@ -93,6 +96,8 @@ export function createOrganizationLlmState({
       if (metadata && result.version < metadata.version) return;
       metadata = result;
       baseUrl = result.base_url ?? '';
+      networkMode = result.network.mode;
+      proxyUrl = result.network.proxy_url ?? '';
       allowed = [...result.allowed_model_ids];
       defaultId = result.default_model_id;
       uncertain = false;
@@ -108,7 +113,8 @@ export function createOrganizationLlmState({
     }
   }
   async function verify() {
-    if (!active || disposed || busy || !metadata || !baseUrl.trim()) return false;
+    if (!active || disposed || busy || !metadata || !baseUrl.trim() ||
+        (networkMode === 'proxy' && !proxyUrl.trim())) return false;
     const input = draft(),
       current = ++generation;
     busy = true;
@@ -140,6 +146,7 @@ export function createOrganizationLlmState({
       busy ||
       !verified ||
       !metadata ||
+      (networkMode === 'proxy' && !proxyUrl.trim()) ||
       !defaultId ||
       !allowed.length ||
       !allowed.includes(defaultId) ||
@@ -160,6 +167,8 @@ export function createOrganizationLlmState({
       }
       metadata = result;
       baseUrl = result.base_url ?? '';
+      networkMode = result.network.mode;
+      proxyUrl = result.network.proxy_url ?? '';
       allowed = [...result.allowed_model_ids];
       defaultId = result.default_model_id;
       clearSecret();
@@ -195,6 +204,8 @@ export function createOrganizationLlmState({
     busy = false;
     apiKey = '';
     baseUrl = '';
+    networkMode = 'direct';
+    proxyUrl = '';
     keyAction = 'clear';
     catalog = [];
     allowed = [];
@@ -213,6 +224,8 @@ export function createOrganizationLlmState({
           keyAction === 'replace' ||
           (keyAction === 'clear' && metadata.has_api_key) ||
           defaultId !== metadata.default_model_id ||
+          networkMode !== metadata.network.mode ||
+          (networkMode === 'proxy' && proxyUrl.trim() !== metadata.network.proxy_url) ||
           [...allowed].sort().join('\n') !== [...metadata.allowed_model_ids].sort().join('\n'))
       );
     },
@@ -243,6 +256,24 @@ export function createOrganizationLlmState({
         baseUrl = value;
         apiKey = '';
         keyAction = 'clear';
+      }
+    },
+    get networkMode() {
+      return networkMode;
+    },
+    set networkMode(value: 'direct' | 'proxy') {
+      if (value !== networkMode) {
+        invalidate();
+        networkMode = value;
+      }
+    },
+    get proxyUrl() {
+      return proxyUrl;
+    },
+    set proxyUrl(value: string) {
+      if (value !== proxyUrl) {
+        invalidate();
+        proxyUrl = value;
       }
     },
     get apiKey() {
@@ -283,6 +314,7 @@ export function createOrganizationLlmState({
       return (
         verified &&
         !busy &&
+        (networkMode === 'direct' || !!proxyUrl.trim()) &&
         !!defaultId &&
         allowed.includes(defaultId) &&
         allowed.length > 0 &&

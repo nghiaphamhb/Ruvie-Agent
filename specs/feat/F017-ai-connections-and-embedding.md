@@ -481,3 +481,9 @@ chỉ hai mục con Model trả lời/Model embedding chuyển thành tab ngang 
 Điều chỉnh cuối theo yêu cầu người dùng: trở lại menu dọc ban đầu. Hai mục con
 nằm dưới Kết nối AI, thụt vào 18px, có đường trục trái và nét nối đáy; góc menu 2px.
 Giữ cột Có hỗ trợ và các thay đổi scrollbar đã được duyệt.
+
+## Feature kế tiếp
+
+[F018 — Admin cấu hình kết nối mạng cho dịch vụ AI](F018-admin-ai-network-connections.md)
+bổ sung tuyến Direct/SOCKS5 độc lập và lưu PostgreSQL. Phần lịch sử nghiệm thu F017
+phía trên được giữ nguyên.

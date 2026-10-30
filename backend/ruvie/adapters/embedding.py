@@ -142,4 +142,5 @@ def create_query_embedder(
     """Build the adapter from server settings; reject a missing embedding provider."""
     if settings.embedding_provider is None:
         raise RuntimeError("embedding provider is not configured")
-    return OpenAICompatibleQueryEmbedder(settings.embedding_provider, settings.embedding_profile, client)
+    return OpenAICompatibleQueryEmbedder(settings.embedding_provider, settings.embedding_profile, client,
+                                        allowed_local_origins=settings.llm_allowed_local_origins, proxy_url=None)

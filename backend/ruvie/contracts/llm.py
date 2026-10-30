@@ -3,6 +3,8 @@ from datetime import datetime
 from typing import Annotated, Literal
 from pydantic import BaseModel, ConfigDict, Field, SecretStr, StrictInt, model_validator
 
+from ruvie.contracts.network import NetworkConfig
+
 ModelId = Annotated[str, Field(min_length=1, max_length=4096)]
 
 
@@ -13,6 +15,7 @@ class OrganizationConnectionDraft(BaseModel):
     key_action: Literal['keep', 'replace', 'clear']
     api_key: SecretStr | None = Field(default=None, max_length=4096)
     expected_version: StrictInt = Field(ge=0)
+    network: NetworkConfig
 
     @model_validator(mode='after')
     def validate_key_action(self):
@@ -52,6 +55,7 @@ class OrganizationConnectionResponse(BaseModel):
     configured: bool
     base_url: str | None
     has_api_key: bool
+    network: NetworkConfig
     allowed_model_ids: list[str]
     default_model_id: str | None
     version: int

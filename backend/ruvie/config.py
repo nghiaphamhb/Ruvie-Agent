@@ -122,7 +122,7 @@ def load_settings() -> Settings:
         llm,
         origins,
         local_origins,
-        os.getenv("LLM_PROXY_URL", "").strip() or None,
-        os.getenv("EMBEDDING_PROXY_URL", "").strip() or None,
+        None,  # Legacy proxy variables are read by network_settings_cli only.
+        None,
         os.getenv("LLM_SETTINGS_ENCRYPTION_KEY", "").strip() or None,
     )

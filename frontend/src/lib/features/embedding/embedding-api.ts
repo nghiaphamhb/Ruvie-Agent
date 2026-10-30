@@ -1,8 +1,16 @@
+export type NetworkConfig = { mode: 'direct' | 'proxy'; proxy_url: string | null };
+export function safeNetwork(value: unknown): value is NetworkConfig {
+  if (!value || typeof value !== 'object') return false;
+  const network = value as Partial<NetworkConfig>;
+  return (network.mode === 'direct' && network.proxy_url === null) ||
+    (network.mode === 'proxy' && typeof network.proxy_url === 'string' && network.proxy_url.startsWith('socks5://'));
+}
 /** Independent embedding HTTP contracts; never retain raw response errors or secrets. */
 export type EmbeddingMetadata = {
   configured: boolean;
   base_url: string | null;
   has_api_key: boolean;
+  network: NetworkConfig;
   model_id: string | null;
   dimension: number | null;
   distance_metric: string | null;
@@ -14,6 +22,7 @@ export type EmbeddingDraft = {
   key_action: 'keep' | 'replace' | 'clear';
   api_key?: string;
   expected_version: number;
+  network: NetworkConfig;
 };
 export type EmbeddingModel = {
   id: string;
@@ -28,6 +37,9 @@ const codes = new Set([
   'csrf_invalid',
   'origin_invalid',
   'configuration_conflict',
+  'invalid_network_configuration',
+  'proxy_unavailable',
+  'network_configuration_pending',
   'invalid_embedding_request',
   'embedding_model_unsupported',
   'embedding_dimension_unsupported',
@@ -82,6 +94,7 @@ async function request(path = '', method = 'GET', csrfToken = '', body?: object)
 function metadata(data: EmbeddingMetadata): EmbeddingMetadata {
   if (
     typeof data?.configured !== 'boolean' ||
+    !safeNetwork(data.network) ||
     typeof data.has_api_key !== 'boolean' ||
     !Number.isInteger(data.version) ||
     data.version < 0 ||
@@ -95,6 +108,7 @@ function metadata(data: EmbeddingMetadata): EmbeddingMetadata {
     configured: data.configured,
     base_url: data.base_url,
     has_api_key: data.has_api_key,
+    network: { ...data.network },
     model_id: data.model_id,
     dimension: data.dimension,
     distance_metric: data.distance_metric,

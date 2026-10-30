@@ -5,6 +5,7 @@ const metadata = {
   configured: true,
   base_url: 'https://embed.test/v1',
   has_api_key: true,
+  network: { mode: 'direct', proxy_url: null },
   model_id: 'baai/bge-m3',
   dimension: 1024,
   distance_metric: 'cosine',

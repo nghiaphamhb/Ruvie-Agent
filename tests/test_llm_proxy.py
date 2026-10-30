@@ -14,6 +14,8 @@ sys.path.insert(0, str(Path(__file__).resolve().parents[1] / "backend"))
 from ruvie.adapters.llm import InvalidLlmUrl, LlmProviderError, OpenAICompatibleLlmAdapter, PinnedLlmTransport, create_llm_adapter
 from ruvie.config import LlmProviderSettings, load_settings
 from ruvie.services.llm import LlmConnectionService
+from ruvie.contracts.network import NetworkConfig
+from ruvie.adapters.network import normalize_proxy_url, InvalidNetworkConfiguration
 
 PROXY = "socks5://127.0.0.1:12334"
 PUBLIC_IP = "93.184.216.34"
@@ -43,18 +45,18 @@ class LlmProxyTests(unittest.TestCase):
         with patch.dict(os.environ, ENVIRONMENT, clear=True), patch("ruvie.config.load_dotenv"):
             self.assertIsNone(getattr(load_settings(), "llm_proxy_url", "missing"))
             os.environ["LLM_PROXY_URL"] = " " + PROXY + " "
-            self.assertEqual(load_settings().llm_proxy_url, PROXY)
+            self.assertIsNone(load_settings().llm_proxy_url)  # DB-only runtime
 
     def test_invalid_proxy_configuration_fails_without_echoing_credentials(self):
         for value in ("http://user:secret@proxy:8080", "socks5://", "socks5://proxy:bad", "socks5://proxy:0", "socks5://proxy:1080/path", "socks5://proxy:1080?q=secret"):
-            with self.subTest(value=value), patch.dict(os.environ, {**ENVIRONMENT, "LLM_PROXY_URL": value}, clear=True), patch("ruvie.config.load_dotenv"):
-                with self.assertRaises(RuntimeError) as raised:
-                    load_settings()
+            with self.subTest(value=value):
+                with self.assertRaises(InvalidNetworkConfiguration) as raised:
+                    normalize_proxy_url(value)
                 self.assertNotIn("secret", str(raised.exception))
 
     def test_service_routes_discovery_and_chat_through_proxy_with_pinned_tls_identity(self):
         settings = SimpleNamespace(llm_allowed_local_origins=(), llm_proxy_url=PROXY)
-        adapter = LlmConnectionService(None, settings)._adapter(LlmProviderSettings("https://llm.test/v1", "a", "test-key"))
+        adapter = LlmConnectionService(None, settings)._adapter(LlmProviderSettings("https://llm.test/v1", "a", "test-key"), NetworkConfig(mode="proxy", proxy_url=PROXY))
         for operation, body in ((lambda: adapter.list_models(), b'{"data":[{"id":"a"}]}'), (lambda: list(adapter.stream([{"role": "user", "content": "hello"}])), b'data: {"choices":[{"delta":{"content":"answer"}}]}\n\ndata: [DONE]\n\n')):
             stream = RecordingStream(body)
             destinations = []

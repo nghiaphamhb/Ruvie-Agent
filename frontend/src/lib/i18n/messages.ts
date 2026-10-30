@@ -26,6 +26,9 @@ export function llmErrorMessage(status?: number): UiMessage {
 export function organizationLlmErrorMessage(code: string): UiMessage {
   const keys: Record<string, MessageKey> = {
     configuration_conflict: 'llm.org.conflict',
+    invalid_network_configuration: 'ai.network.invalid',
+    proxy_unavailable: 'ai.network.unavailable',
+    network_configuration_pending: 'ai.network.pending',
     authentication_required: 'common.errors.session',
     admin_required: 'admin.errors.admin_required',
     csrf_invalid: 'llm.errors.csrf',
