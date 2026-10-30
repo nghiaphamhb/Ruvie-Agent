@@ -62,7 +62,11 @@
   }
 </script>
 
-<section class="settings-embedded" aria-labelledby={prefix + 'settings-heading'}>
+<section
+  class="settings-embedded"
+  class:system-settings={system}
+  aria-labelledby={prefix + 'settings-heading'}
+>
   <header>
     <h2 id={prefix + 'settings-heading'} data-view-heading tabindex="-1">
       {$i18n.t(heading)}
@@ -263,6 +267,30 @@
     margin: 0;
     padding: 0;
     border: 0;
+    background: transparent;
+  }
+  .system-settings .settings-tabs button {
+    border-radius: 2px;
+  }
+  #ai-connection-tabs {
+    position: relative;
+    margin-left: 18px;
+    padding-left: 10px;
+    border-left: 1px solid var(--border);
+  }
+  #ai-connection-tabs::after {
+    position: absolute;
+    left: -1px;
+    bottom: 0;
+    width: 10px;
+    border-bottom: 1px solid var(--border);
+    content: '';
+  }
+  .settings-tabs #ai-connection-tabs .connection-child {
+    margin-left: 0;
+    width: 100%;
+  }
+  .system-settings .settings-tabs button[aria-expanded] {
     background: transparent;
   }
   @media (max-width: 640px) {

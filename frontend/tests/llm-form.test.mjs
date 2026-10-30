@@ -84,6 +84,8 @@ test('organization form exposes explicit key actions, verify/apply and controlle
     }).body;
     assert.match(embeddingHtml, /type="radio"[^>]*|<input[^>]*type="radio"/);
     assert.match(embeddingHtml, /embedding-url/);
+    assert.match(embeddingHtml, /Có hỗ trợ/);
+    assert.doesNotMatch(embeddingHtml, /<th[^>]*>Số chiều/);
     assert.doesNotMatch(embeddingHtml, /type="checkbox"/);
     state.errorCode = 'llm_settings_unavailable';
     const failureHtml = render(Form, { props: { state, active: false } }).body;

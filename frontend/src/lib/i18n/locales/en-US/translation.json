@@ -378,5 +378,8 @@
   "embedding.rateLimit": "The embedding service is rate limiting requests. Try again later.",
   "embedding.timeout": "The embedding service timed out. Try again.",
   "embedding.catalogError": "The service does not provide an embedding catalog at /embeddings/models.",
-  "embedding.profile": "Verified: baai/bge-m3 · 1024 dimensions · cosine."
+  "embedding.profile": "Verified: baai/bge-m3 · 1024 dimensions · cosine.",
+  "embedding.supported": "Supported",
+  "embedding.supportedYes": "Yes",
+  "embedding.supportedNo": "No"
 }

@@ -1,9 +1,29 @@
 # F016 - Quản lý LLM tập trung cho tổ chức
 
 Ngày lập: 2026-10-29.
-Trạng thái: Đang triển khai; chưa nghiệm thu feature hoặc hoàn tất task.
+Trạng thái: Hoàn thành bàn giao chức năng theo xác nhận của người dùng ngày 2026-10-30; còn tồn đọng kiểm chứng được ghi bên dưới.
+Commit bàn giao: `d0530fe` (`feat: admin sets up shared chat model`).
+Feature tiếp theo: [F017 - Tách kết nối AI và quản lý kết nối embedding](F017-ai-connections-and-embedding.md).
 Baseline đã kiểm tra: `96d1bb0` (`feat: admin deactive/reactive user account`).
-Các tên mới dưới đây là đề xuất triển khai, không phải thành phần đã tồn tại.
+Các phần hiện trạng, kế hoạch và tiến độ bên dưới giữ lại lịch sử tại thời điểm lập.
+Không dùng các mô tả baseline đó để suy ra trạng thái code tại commit bàn giao.
+
+### Chốt bàn giao ngày 2026-10-30
+
+- Người dùng yêu cầu đóng F016 và chuyển sang F017. Chức năng quản lý model trả lời
+  tập trung đã bàn giao tại commit nêu trên.
+- Kiểm chứng mới nhất trong phiên làm việc: frontend suite 110 pass, 0 fail/skip;
+  browser component 25 checks và browser tổ chức 13 checks đạt. Build/lint/format đạt.
+  Sau chỉnh vị trí API key, test form 1/1 và browser tổ chức 13 checks tiếp tục đạt.
+- Full backend gần nhất được ghi nhận vẫn là 355 test: 347 pass, 1 fail, 7 skip.
+  Không chạy lại full suite trong lần đóng tài liệu này. Các regression workspace,
+  LLM/i18n và bốn tệp đã bị từ chối sửa vẫn phải đối chiếu khi thực hiện F017.
+- Trạng thái hoàn thành bàn giao không có nghĩa mọi acceptance/test đã xanh.
+  Giữ các checkbox task/AC chưa đủ bằng chứng; không đánh dấu pass thay cho fail/skip.
+- Migration 0012 đã có trên application DB qua bước vận hành sau đó; khác với ghi
+  nhận lịch sử “không chạy migration” tại thời điểm kiểm chứng phía dưới.
+- F017 tách UI thành Model trả lời/Model embedding. F017 không mở lại fallback LLM
+  cá nhân hoặc môi trường và không tự thay đổi embedding profile của tài liệu.
 
 Tiến độ ngày 2026-10-29: đã code migration 0012, secret, service/API tổ chức,
 policy catalog/select/chat và UI tích hợp. Đã nhận commit Claude `da84c59` bằng
