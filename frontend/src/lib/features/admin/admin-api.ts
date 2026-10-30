@@ -9,7 +9,13 @@ export type AccountSummary = {
   is_active: boolean;
   created_at: string;
 };
-export type AccountListQuery = { q?: string; page?: number; page_size?: number };
+export type AccountListQuery = {
+  q?: string;
+  page?: number;
+  page_size?: number;
+  system_role?: 'user' | 'admin';
+  is_active?: boolean;
+};
 export type AccountPresence = { is_online: boolean; last_active_at: string | null };
 export type AccountList = {
   users: AccountSummary[];
@@ -201,6 +207,8 @@ export async function listAccounts(query: AccountListQuery = {}): Promise<Accoun
   const page = query.page ?? 1;
   const pageSize = query.page_size ?? 20;
   if (
+    (query.system_role !== undefined && !['user', 'admin'].includes(query.system_role)) ||
+    (query.is_active !== undefined && typeof query.is_active !== 'boolean') ||
     Array.from(q).length > 255 ||
     !Number.isInteger(page) ||
     page < 1 ||
@@ -211,6 +219,8 @@ export async function listAccounts(query: AccountListQuery = {}): Promise<Accoun
   )
     throw new AdminApiError('validation_error');
   const params = new URLSearchParams({ q, page: String(page), page_size: String(pageSize) });
+  if (query.system_role !== undefined) params.set('system_role', query.system_role);
+  if (query.is_active !== undefined) params.set('is_active', String(query.is_active));
   const response = await request('/admin/users/list?' + params);
   const value = await body(response);
   if (

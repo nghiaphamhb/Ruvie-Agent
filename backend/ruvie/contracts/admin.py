@@ -31,6 +31,8 @@ class AccountLookupRequest(BaseModel):
 class AccountListRequest(BaseModel):
     """Bounded admin search; URL parameters are parsed before service execution."""
     model_config = ConfigDict(extra="forbid", str_strip_whitespace=True, hide_input_in_errors=True)
+    system_role: SystemRole | None = None
+    is_active: bool | None = None
     q: str = Field(default="", max_length=255)
     page: int = Field(default=1, ge=1, le=1_000_000)
     page_size: int = Field(default=20, ge=1, le=100)

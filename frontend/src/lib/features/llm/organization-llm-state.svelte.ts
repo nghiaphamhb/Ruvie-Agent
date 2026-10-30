@@ -206,6 +206,16 @@ export function createOrganizationLlmState({
     saved = false;
   }
   return {
+    get dirty() {
+      return (
+        !!metadata &&
+        (baseUrl.trim().replace(/\/+$/, '') !== (metadata.base_url ?? '') ||
+          keyAction === 'replace' ||
+          (keyAction === 'clear' && metadata.has_api_key) ||
+          defaultId !== metadata.default_model_id ||
+          [...allowed].sort().join('\n') !== [...metadata.allowed_model_ids].sort().join('\n'))
+      );
+    },
     get metadata() {
       return metadata;
     },

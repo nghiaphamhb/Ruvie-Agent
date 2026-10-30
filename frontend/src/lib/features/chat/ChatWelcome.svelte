@@ -16,13 +16,13 @@
 <style>
   .chat-welcome {
     text-align: center;
-    margin: 0 0 32px;
+    margin: 0 0 16px;
   }
   img {
     display: block;
-    width: 220px;
+    width: 190px;
     height: auto;
-    margin: 0 auto 18px;
+    margin: 0 auto 14px;
     filter: var(--brand-filter, brightness(0) invert(1));
   }
   h1 {

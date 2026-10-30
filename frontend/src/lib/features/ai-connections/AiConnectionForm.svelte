@@ -1,4 +1,5 @@
 <script lang="ts">
+  import SurfaceDialog from '../../shared/SurfaceDialog.svelte';
   import { untrack, tick } from 'svelte';
   import { get } from 'svelte/store';
   import { toast } from 'svelte-sonner';
@@ -28,6 +29,7 @@
           .replaceAll('connection-step', 'embedding-connection-step')
           .replaceAll('policy-step', 'embedding-policy-step')
       : value;
+  let reloadConfirm = $state(false);
   let keyMenu: HTMLDivElement;
   let keyTrigger: HTMLButtonElement;
   let menuOpen = $state(false),
@@ -159,7 +161,7 @@
       class="reload"
       type="button"
       disabled={disabled || owner.busy}
-      onclick={() => notifyOperation('reload')}
+      onclick={() => (owner.dirty ? (reloadConfirm = true) : notifyOperation('reload'))}
       ><span aria-hidden="true">↻</span> {$i18n.t('common.reload')}</button
     >
   </header>
@@ -203,7 +205,7 @@
                     }
                   }}
                 >
-                  <span aria-hidden="true">!</span>
+                  <span aria-hidden="true">i</span>
                 </button>
                 <span id={id('llm-key-hint')} role="tooltip" class="key-hint">
                   <strong>{$i18n.t('llm.org.keep')}</strong><span
@@ -335,7 +337,7 @@
             {labels}
             onchange={owner.setPolicy}
           />
-        {:else}<p class="empty-policy">{$i18n.t('llm.org.empty')}</p>{/if}
+        {:else}<p class="empty-policy">{$i18n.t('ai.verifyFirst')}</p>{/if}
       </section>
       {#if (embedding && 'catalogReady' in owner && owner.catalogReady) || (!embedding && owner.verified)}
         <button
@@ -353,6 +355,9 @@
             {$i18n.t('ai.probeSuccess')}
           </p>{/if}
       {/if}
+      {#if owner.verified && !owner.canApply && !owner.busy}<p role="status">
+          {$i18n.t('ai.chooseModel')}
+        </p>{/if}
       <footer class="form-footer">
         <p role="status">
           {#if owner.saved}{$i18n.t('llm.org.saved')}{:else if embedding && owner.verified}{$i18n.t(
@@ -364,7 +369,7 @@
                 ? $i18n.t('llm.org.defaultNamed', { name: defaultModel.name })
                 : $i18n.t('llm.org.defaultMissing')}</span
             >{:else if !owner.metadata?.configured}{$i18n.t('llm.org.unconfigured')}{:else}{$i18n.t(
-              'llm.org.draft',
+              owner.dirty ? 'llm.org.draft' : 'ai.loaded',
             )}{/if}
         </p>
         <button class="primary" type="submit" disabled={!owner.canApply}
@@ -384,6 +389,28 @@
     </p>{/if}
 </section>
 
+<SurfaceDialog
+  open={reloadConfirm}
+  title={$i18n.t('ai.reloadTitle')}
+  className="reload-configuration-dialog"
+  onclose={() => (reloadConfirm = false)}
+>
+  <p>{$i18n.t('ai.reloadHelp')}</p>
+  <button
+    class="keep-editing"
+    type="button"
+    data-dialog-initial-focus
+    onclick={() => (reloadConfirm = false)}>{$i18n.t('ai.keepEditing')}</button
+  >
+  <button
+    class="discard-reload"
+    type="button"
+    onclick={() => {
+      reloadConfirm = false;
+      void notifyOperation('reload');
+    }}>{$i18n.t('ai.discardReload')}</button
+  >
+</SurfaceDialog>
 <div
   id={id('llm-key-options')}
   class="key-options"
@@ -419,6 +446,22 @@
 </div>
 
 <style>
+  :global(.reload-configuration-dialog .keep-editing) {
+    border-color: #d8e5f0;
+    background: #fff;
+    color: #073b65;
+  }
+  :global(.reload-configuration-dialog .keep-editing:hover) {
+    background: #f0f6fc;
+  }
+  :global(.reload-configuration-dialog .discard-reload) {
+    border-color: color-mix(in srgb, var(--error) 58%, var(--border));
+    background: color-mix(in srgb, var(--error-bg) 84%, var(--surface));
+    color: var(--error);
+  }
+  :global(.reload-configuration-dialog .discard-reload:hover) {
+    background: color-mix(in srgb, var(--error-bg) 72%, var(--error) 28%);
+  }
   .key-field {
     padding: 12px;
     border-radius: var(--radius);

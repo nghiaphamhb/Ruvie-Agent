@@ -171,6 +171,15 @@ export function createEmbeddingState({
     uncertain = false;
   }
   return {
+    get dirty() {
+      return (
+        !!metadata &&
+        (baseUrl.trim().replace(/\/+$/, '') !== (metadata.base_url ?? '') ||
+          keyAction === 'replace' ||
+          (keyAction === 'clear' && metadata.has_api_key) ||
+          modelId !== metadata.model_id)
+      );
+    },
     get metadata() {
       return metadata;
     },

@@ -321,3 +321,19 @@ test('activity client sends only the desired state with CSRF', async () => {
     globalThis.fetch = previous;
   }
 });
+
+test('list combines role and disabled filters without dropping false', async () => {
+  const { listAccounts } = await api();
+  const previous = globalThis.fetch;
+  try {
+    globalThis.fetch = async (url) => {
+      const query = new URL(url, 'https://test.local').searchParams;
+      assert.equal(query.get('system_role'), 'user');
+      assert.equal(query.get('is_active'), 'false');
+      return json({ users: [], total: 0, page: 1, page_size: 20 });
+    };
+    await listAccounts({ system_role: 'user', is_active: false });
+  } finally {
+    globalThis.fetch = previous;
+  }
+});

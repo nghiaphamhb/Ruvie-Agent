@@ -38,9 +38,13 @@
     onattach: () => void;
   } = $props();
   const suggestions = [
-    { label: 'chat.suggestDiagnose', prompt: 'chat.promptDiagnose' },
-    { label: 'chat.suggestInstall', prompt: 'chat.promptInstall' },
-    { label: 'chat.suggestGuide', prompt: 'chat.promptGuide' },
+    {
+      label: 'chat.suggestDiagnose',
+      example: 'chat.exampleDiagnose',
+      prompt: 'chat.promptDiagnose',
+    },
+    { label: 'chat.suggestInstall', example: 'chat.exampleInstall', prompt: 'chat.promptInstall' },
+    { label: 'chat.suggestGuide', example: 'chat.exampleGuide', prompt: 'chat.promptGuide' },
   ] as const;
   async function suggest(value: string) {
     oninput(value);
@@ -74,7 +78,8 @@
       <p>✧ {$i18n.t('workspace.suggestions')}</p>
       {#each suggestions as item (item.label)}<button
           type="button"
-          onclick={() => suggest($i18n.t(item.prompt))}>{$i18n.t(item.label)}</button
+          onclick={() => suggest($i18n.t(item.prompt))}
+          ><strong>{$i18n.t(item.label)}</strong><span>{$i18n.t(item.example)}</span></button
         >{/each}
     </div>
   {/if}
@@ -108,7 +113,10 @@
   }
   .chat-suggestions {
     flex: none;
-    width: min(100%, 700px);
+    width: min(100%, 900px);
+    display: grid;
+    grid-template-columns: repeat(auto-fit, minmax(min(100%, 220px), 1fr));
+    gap: 12px;
     margin: 24px auto 0;
     opacity: 1;
     visibility: visible;
@@ -127,7 +135,8 @@
     }
   }
   .chat-suggestions p {
-    margin: 0 0 8px;
+    grid-column: 1 / -1;
+    margin: 0;
     color: var(--muted);
     font-size: 14px;
   }
@@ -135,14 +144,31 @@
     display: block;
     min-height: 44px;
     max-width: 100%;
-    padding: 8px 12px;
+    padding: 16px;
     text-align: left;
     color: var(--ink);
-    border: 0;
+    border: 1px solid var(--border);
     border-radius: 10px;
-    background: transparent;
+    background: var(--surface);
     font-size: 16px;
     line-height: 1.5;
+  }
+  .chat-suggestions strong,
+  .chat-suggestions span {
+    display: block;
+  }
+  .chat-suggestions strong {
+    font-size: 15px;
+    font-weight: 600;
+  }
+  .chat-suggestions span {
+    margin-top: 6px;
+    color: var(--muted);
+    font-size: 14px;
+  }
+  .chat-suggestions button:focus-visible {
+    outline: 2px solid var(--accent);
+    outline-offset: 3px;
   }
   .chat-suggestions button:hover {
     background: var(--soft);
@@ -155,7 +181,7 @@
   .chat-input-hint {
     margin: 8px 12px 0;
     color: var(--muted);
-    font-size: 12px;
+    font-size: 14px;
     line-height: 1.5;
     text-align: center;
   }
