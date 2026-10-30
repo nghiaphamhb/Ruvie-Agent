@@ -1,4 +1,9 @@
 {
+  "chat.exampleDiagnose": "Revit reports an error opening a model…",
+  "chat.exampleInstall": "AutoCAD will not install…",
+  "chat.exampleGuide": "How to configure the software…",
+  "chat.keyboardHint": "Enter to send · Shift+Enter for a new line",
+  "chat.uploadDocuments": "Upload documents",
   "auth.createAdmin": "Create administrator account",
   "auth.checkingSetup": "Checking initial setup…",
   "auth.errors.setup": "Cannot check initial setup. Please retry.",
@@ -381,5 +386,15 @@
   "embedding.profile": "Verified: baai/bge-m3 · 1024 dimensions · cosine.",
   "embedding.supported": "Supported",
   "embedding.supportedYes": "Yes",
-  "embedding.supportedNo": "No"
+  "embedding.supportedNo": "No",
+  "admin.allRoles": "All roles",
+  "admin.allStatuses": "All statuses",
+  "admin.clearFilters": "Clear filters",
+  "ai.loaded": "The previous configuration is currently active.",
+  "ai.chooseModel": "Select a valid default model before applying.",
+  "ai.verifyFirst": "Check the connection in step 1 to view the model list. Checking does not save the configuration.",
+  "ai.reloadTitle": "Reload configuration",
+  "ai.reloadHelp": "Unapplied changes will be discarded.",
+  "ai.keepEditing": "Keep editing",
+  "ai.discardReload": "Discard and reload"
 }

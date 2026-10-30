@@ -17,9 +17,80 @@
     active?: boolean;
     actorUserId: string;
   } = $props();
+  let menu: HTMLDivElement;
+  let trigger: HTMLButtonElement;
+  let kind = $state<'role' | 'activity'>('role');
+  let menuOpen = $state(false);
+  let position = $state({ left: 0, top: 0 });
+  const options = {
+    role: [
+      { value: '', label: 'admin.allRoles' },
+      { value: 'admin', label: 'admin.roleAdmin' },
+      { value: 'user', label: 'admin.roleUser' },
+    ],
+    activity: [
+      { value: '', label: 'admin.allStatuses' },
+      { value: 'true', label: 'admin.active' },
+      { value: 'false', label: 'admin.locked' },
+    ],
+  } as const;
+  async function openMenu(event: MouseEvent | KeyboardEvent, next: 'role' | 'activity') {
+    const button = event.currentTarget as HTMLButtonElement;
+    if (menuOpen && trigger === button) {
+      menu.hidePopover();
+      return;
+    }
+    trigger = button;
+    kind = next;
+    const rect = button.getBoundingClientRect();
+    position = { left: Math.max(8, Math.min(rect.left, innerWidth - 240)), top: rect.bottom + 4 };
+    menu.showPopover();
+    await tick();
+    menu.querySelector<HTMLButtonElement>('[aria-checked="true"]')?.focus();
+  }
+  function menuKey(event: KeyboardEvent) {
+    const buttons = [...menu.querySelectorAll<HTMLButtonElement>('button')];
+    const index = buttons.indexOf(document.activeElement as HTMLButtonElement);
+    if (event.key === 'Escape') {
+      event.preventDefault();
+      menu.hidePopover();
+      trigger.focus();
+    } else if (['ArrowDown', 'ArrowUp', 'Home', 'End'].includes(event.key)) {
+      event.preventDefault();
+      buttons[
+        event.key === 'Home'
+          ? 0
+          : event.key === 'End'
+            ? buttons.length - 1
+            : (index + (event.key === 'ArrowDown' ? 1 : -1) + buttons.length) % buttons.length
+      ]?.focus();
+    } else if (event.key === 'Tab') menu.hidePopover();
+  }
   let opener: HTMLButtonElement;
   let search = $state('');
   let page = $state(1);
+  let role = $state('');
+  let activity = $state('');
+  function listQuery() {
+    return {
+      q: search,
+      page,
+      page_size: pageSize,
+      ...(role ? { system_role: role as 'user' | 'admin' } : {}),
+      ...(activity ? { is_active: activity === 'true' } : {}),
+    };
+  }
+  function filterChanged() {
+    page = 1;
+    clearTimeout(searchTimer);
+    void adminState.loadUsers(listQuery());
+  }
+  function clearFilters() {
+    search = '';
+    role = '';
+    activity = '';
+    filterChanged();
+  }
   const pageSize = 20;
   let searchTimer: ReturnType<typeof setTimeout>;
   let editing = $state<AccountSummary | null>(null);
@@ -104,7 +175,7 @@
   }
   $effect(() => {
     if (!active) return;
-    const query = { q: search, page, page_size: pageSize };
+    const query = listQuery();
     let timer: ReturnType<typeof setTimeout>;
     let stopped = false;
     let refreshing = false;
@@ -161,14 +232,11 @@
     search = value;
     page = 1;
     clearTimeout(searchTimer);
-    searchTimer = setTimeout(
-      () => void adminState.loadUsers({ q: search, page, page_size: pageSize }),
-      300,
-    );
+    searchTimer = setTimeout(() => void adminState.loadUsers(listQuery()), 300);
   }
   function goToPage(next: number) {
     page = next;
-    void adminState.loadUsers({ q: search, page, page_size: pageSize });
+    void adminState.loadUsers(listQuery());
   }
   async function closeEdit() {
     editing = null;
@@ -217,7 +285,13 @@
         oninput={(event) => searchChanged(event.currentTarget.value)}
       />
     </label>
+    {#if search || role || activity}<button
+        class="clear-filters"
+        type="button"
+        onclick={clearFilters}>{$i18n.t('admin.clearFilters')}</button
+      >{/if}
     <button
+      class="create-account"
       bind:this={opener}
       type="button"
       disabled={adminState.formOpen ||
@@ -292,31 +366,86 @@
     {#if adminState.listError}
       <div role="alert">
         <p>{$i18n.t(notices[adminState.listError])}</p>
-        <button
-          type="button"
-          onclick={() => adminState.loadUsers({ q: search, page, page_size: pageSize })}
+        <button type="button" onclick={() => adminState.loadUsers(listQuery())}
           >{$i18n.t('admin.retry')}</button
         >
       </div>
     {:else if adminState.listLoading && adminState.users.length === 0}
       <p role="status">{$i18n.t('admin.loadingUsers')}</p>
-    {:else if adminState.users.length === 0}
-      <p role="status">{$i18n.t(search.trim() ? 'admin.noSearchResults' : 'admin.noUsers')}</p>
     {:else}
       <div class="table-scroll" aria-busy={adminState.listLoading}>
         <table>
           <thead
             ><tr>
               <th scope="col">{$i18n.t('auth.name')}</th>
-              <th scope="col">{$i18n.t('admin.role')}</th>
+              <th scope="col"
+                ><button
+                  class="column-filter"
+                  type="button"
+                  aria-haspopup="menu"
+                  aria-expanded={menuOpen && kind === 'role'}
+                  onclick={(event) => openMenu(event, 'role')}
+                  onkeydown={(event) => {
+                    if (event.key === 'ArrowDown') {
+                      event.preventDefault();
+                      void openMenu(event, 'role');
+                    }
+                  }}
+                  >{$i18n.t(
+                    role
+                      ? options.role.find((option) => option.value === role)!.label
+                      : 'admin.role',
+                  )}<svg viewBox="0 0 16 16" aria-hidden="true"
+                    ><path
+                      d="m4 6 4 4 4-4"
+                      fill="none"
+                      stroke="currentColor"
+                      stroke-width="1.5"
+                    /></svg
+                  ></button
+                ></th
+              >
               <th scope="col">{$i18n.t('auth.email')}</th>
-              <th scope="col">{$i18n.t('admin.status')}</th>
+              <th scope="col"
+                ><button
+                  class="column-filter"
+                  type="button"
+                  aria-haspopup="menu"
+                  aria-expanded={menuOpen && kind === 'activity'}
+                  onclick={(event) => openMenu(event, 'activity')}
+                  onkeydown={(event) => {
+                    if (event.key === 'ArrowDown') {
+                      event.preventDefault();
+                      void openMenu(event, 'activity');
+                    }
+                  }}
+                  >{$i18n.t(
+                    activity
+                      ? options.activity.find((option) => option.value === activity)!.label
+                      : 'admin.status',
+                  )}<svg viewBox="0 0 16 16" aria-hidden="true"
+                    ><path
+                      d="m4 6 4 4 4-4"
+                      fill="none"
+                      stroke="currentColor"
+                      stroke-width="1.5"
+                    /></svg
+                  ></button
+                ></th
+              >
               <th scope="col">{$i18n.t('admin.lastActive')}</th>
               <th scope="col">{$i18n.t('admin.createdAt')}</th>
               <th scope="col"><span class="sr-only">{$i18n.t('admin.actions')}</span></th>
             </tr></thead
           >
           <tbody>
+            {#if adminState.users.length === 0}<tr
+                ><td colspan="7"
+                  >{$i18n.t(
+                    search || role || activity ? 'admin.noSearchResults' : 'admin.noUsers',
+                  )}</td
+                ></tr
+              >{/if}
             {#each adminState.users as user (user.id)}
               <tr>
                 <td>{user.display_name}</td>
@@ -330,6 +459,26 @@
                 <td
                   ><span
                     class="presence"
+                    role="button"
+                    tabindex={adminState.presence[user.id]?.last_active_at ? 0 : undefined}
+                    onkeydown={(event) => {
+                      if (event.key === 'Enter' || event.key === ' ') {
+                        event.preventDefault();
+                        event.currentTarget.focus();
+                      }
+                    }}
+                    onfocus={(event) => {
+                      const value = adminState.presence[user.id]?.last_active_at;
+                      if (value)
+                        showActionTooltip(
+                          event,
+                          new Intl.DateTimeFormat($i18n.locale, {
+                            dateStyle: 'full',
+                            timeStyle: 'long',
+                          }).format(new Date(value)),
+                        );
+                    }}
+                    onblur={() => (actionTooltip = null)}
                     class:online={!adminState.presenceStale &&
                       adminState.presence[user.id]?.is_online}
                     title={adminState.presence[user.id]?.last_active_at
@@ -436,7 +585,6 @@
         </table>
       </div>
       <footer class="pagination">
-        <span>{$i18n.t('admin.userCount', { count: adminState.total })}</span>
         <div>
           <button
             type="button"
@@ -509,7 +657,80 @@
   />
 {/if}
 
+<div
+  bind:this={menu}
+  popover="auto"
+  role="menu"
+  tabindex="-1"
+  class="filter-menu"
+  aria-label={$i18n.t(kind === 'role' ? 'admin.role' : 'admin.status')}
+  style:left={`${position.left}px`}
+  style:top={`${position.top}px`}
+  ontoggle={(event) => (menuOpen = event.newState === 'open')}
+  onkeydown={menuKey}
+>
+  {#each options[kind] as option (option.value)}<button
+      type="button"
+      role="menuitemradio"
+      aria-checked={(kind === 'role' ? role : activity) === option.value}
+      onclick={() => {
+        if (kind === 'role') role = option.value;
+        else activity = option.value;
+        menu.hidePopover();
+        trigger.focus();
+        filterChanged();
+      }}
+      >{$i18n.t(option.label)}<span aria-hidden="true"
+        >{(kind === 'role' ? role : activity) === option.value ? '✓' : ''}</span
+      ></button
+    >{/each}
+</div>
+
 <style>
+  .column-filter {
+    display: inline-flex;
+    align-items: center;
+    gap: 5px;
+    padding: 0;
+    border: 0;
+    border-radius: 6px;
+    background: transparent;
+    color: var(--muted);
+    font-weight: 600;
+  }
+  .column-filter svg {
+    width: 14px;
+    height: 14px;
+  }
+  .filter-menu {
+    position: fixed;
+    inset: auto;
+    margin: 0;
+    padding: 4px;
+    min-width: 200px;
+    border: 1px solid color-mix(in srgb, var(--muted) 75%, var(--border));
+    border-radius: 6px;
+    background: var(--surface);
+    color: var(--ink);
+    box-shadow: 0 8px 24px #0004;
+  }
+  .filter-menu button {
+    display: flex;
+    align-items: center;
+    justify-content: space-between;
+    gap: 16px;
+    width: 100%;
+    border: 0;
+    border-radius: 3px;
+    text-align: left;
+    background: transparent;
+  }
+  .filter-menu button:hover,
+  .filter-menu button:focus-visible,
+  .filter-menu button[aria-checked='true'] {
+    background: var(--soft);
+  }
+
   .row-action {
     display: inline-grid;
     place-items: center;
@@ -640,6 +861,8 @@
   }
   header > button {
     flex: none;
+  }
+  .create-account {
     margin-left: auto;
   }
   input {

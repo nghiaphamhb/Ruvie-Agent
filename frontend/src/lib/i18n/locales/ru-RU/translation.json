@@ -1,4 +1,9 @@
 {
+  "chat.exampleDiagnose": "Ошибка Revit при открытии модели…",
+  "chat.exampleInstall": "Не удаётся установить AutoCAD…",
+  "chat.exampleGuide": "Как настроить программу…",
+  "chat.keyboardHint": "Enter — отправить · Shift+Enter — новая строка",
+  "chat.uploadDocuments": "Загрузить документы",
   "auth.createAdmin": "Создать аккаунт администратора",
   "auth.checkingSetup": "Проверяем первоначальную настройку…",
   "auth.errors.setup": "Не удалось проверить первоначальную настройку. Повторите попытку.",
@@ -383,5 +388,15 @@
   "embedding.profile": "Проверено: baai/bge-m3 · 1024 измерения · cosine.",
   "embedding.supported": "Поддержка",
   "embedding.supportedYes": "Да",
-  "embedding.supportedNo": "Нет"
+  "embedding.supportedNo": "Нет",
+  "admin.allRoles": "Все роли",
+  "admin.allStatuses": "Все статусы",
+  "admin.clearFilters": "Сбросить фильтры",
+  "ai.loaded": "Сейчас применяется предыдущая конфигурация.",
+  "ai.chooseModel": "Выберите допустимую модель по умолчанию.",
+  "ai.verifyFirst": "Проверьте подключение на шаге 1, чтобы увидеть список моделей. Проверка не сохраняет конфигурацию.",
+  "ai.reloadTitle": "Перезагрузить настройки",
+  "ai.reloadHelp": "Несохранённые изменения будут потеряны.",
+  "ai.keepEditing": "Продолжить редактирование",
+  "ai.discardReload": "Отменить изменения и загрузить"
 }

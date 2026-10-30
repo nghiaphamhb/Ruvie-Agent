@@ -88,6 +88,7 @@
       bind:this={textarea}
       id="question"
       rows="1"
+      aria-describedby="composer-keyboard-hint"
       placeholder={$i18n.t('workspace.questionPlaceholder')}
       value={draft}
       oninput={(event) => oninput(event.currentTarget.value)}
@@ -96,8 +97,8 @@
       <button
         class="attach-trigger"
         type="button"
-        aria-label={$i18n.t('workspace.attach')}
-        title={$i18n.t('workspace.attach')}
+        aria-label={$i18n.t('chat.uploadDocuments')}
+        title={$i18n.t('chat.uploadDocuments')}
         onclick={onattach}><WorkspaceIcon name="plus" /></button
       >
 
@@ -125,6 +126,7 @@
         >{/if}
     </div>
   </form>
+  <p id="composer-keyboard-hint" class="keyboard-hint">{$i18n.t('chat.keyboardHint')}</p>
 </div>
 
 <style>
@@ -132,6 +134,22 @@
     flex: none;
     padding: 0;
     width: 100%;
+  }
+  .keyboard-hint {
+    display: none;
+    margin: 6px 12px 0;
+    color: var(--muted);
+    font-size: 12px;
+    text-align: center;
+  }
+  @media (hover: hover) and (pointer: fine) {
+    .keyboard-hint {
+      display: block;
+      visibility: hidden;
+    }
+    .composer-area:has(textarea:focus) .keyboard-hint {
+      visibility: visible;
+    }
   }
   .composer {
     display: grid;

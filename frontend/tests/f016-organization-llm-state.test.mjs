@@ -165,3 +165,33 @@ test('reload returns a result only for the current completed request', async () 
     globalThis.fetch = previous;
   }
 });
+
+test('dirty distinguishes loaded configuration, credentials and model policy', async () => {
+  const state = await owner();
+  const previous = globalThis.fetch;
+  try {
+    globalThis.fetch = async (path) =>
+      path.endsWith('/verify')
+        ? json({
+            models: [
+              { id: 'a', name: 'A' },
+              { id: 'b', name: 'B' },
+            ],
+            version: 2,
+          })
+        : json(metadata);
+    await state.open();
+    assert.equal(state.dirty, false);
+    state.apiKey = 'replacement';
+    assert.equal(state.dirty, true);
+    await state.open();
+    assert.equal(state.dirty, false);
+    await state.verify();
+    assert.equal(state.dirty, false);
+    state.setPolicy({ allowedModelIds: ['b'], defaultModelId: 'b' });
+    assert.equal(state.dirty, true);
+  } finally {
+    state.dispose();
+    globalThis.fetch = previous;
+  }
+});

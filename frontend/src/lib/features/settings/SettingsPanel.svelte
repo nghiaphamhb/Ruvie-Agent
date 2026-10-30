@@ -67,7 +67,7 @@
   class:system-settings={system}
   aria-labelledby={prefix + 'settings-heading'}
 >
-  <header>
+  <header class:visually-hidden={system}>
     <h2 id={prefix + 'settings-heading'} data-view-heading tabindex="-1">
       {$i18n.t(heading)}
     </h2>
@@ -169,6 +169,15 @@
 </section>
 
 <style>
+  .visually-hidden {
+    position: absolute;
+    width: 1px;
+    height: 1px;
+    padding: 0;
+    margin: 0;
+    overflow: hidden;
+    clip-path: inset(50%);
+  }
   .settings-embedded {
     --radius: 12px;
     --settings-accent: #258dff;
@@ -192,9 +201,9 @@
   .settings-layout {
     display: grid;
     flex: 1;
-    grid-template-columns: minmax(140px, 0.32fr) minmax(0, 1fr);
+    grid-template-columns: 220px minmax(0, 1fr);
     align-items: stretch;
-    gap: 24px;
+    gap: 16px;
   }
   .settings-tabs {
     display: flex;
@@ -251,7 +260,7 @@
   }
   #settings-appearance {
     display: grid;
-    gap: 24px;
+    gap: 16px;
   }
   .language-setting {
     max-width: 360px;

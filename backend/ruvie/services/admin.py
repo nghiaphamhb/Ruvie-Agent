@@ -244,6 +244,10 @@ class AdminAccountService:
                 User.display_name.icontains(query.q, autoescape=True),
                 User.email.icontains(query.q, autoescape=True),
             ))
+        if query.system_role is not None:
+            statement = statement.where(User.system_role == query.system_role)
+        if query.is_active is not None:
+            statement = statement.where(User.is_active == query.is_active)
         total = self.session.scalar(select(func.count()).select_from(statement.subquery()))
         rows = list(self.session.execute(
             statement.order_by(User.created_at.desc(), User.id.asc())

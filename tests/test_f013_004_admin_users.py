@@ -94,6 +94,15 @@ class AdminUserListApiTests(unittest.TestCase):
         blank = self.listing(q="   ")
         self.assertEqual((blank["total"], blank["page"], blank["page_size"]), (6, 1, 20))
 
+    def test_role_activity_filters_apply_before_count_and_pagination(self):
+        result = self.listing(system_role="user", is_active=False, page_size=1)
+        self.assertEqual(result["total"], 1)
+        self.assertEqual([row["id"] for row in result["users"]], ["b"])
+        self.assertEqual(self.listing(system_role="admin", is_active=False)["total"], 0)
+        self.assertEqual(self.listing(system_role="user", is_active=True, q="an")["total"], 2)
+        self.assertEqual(self.listing(system_role="user", is_active=False, page=2, page_size=1)["users"], [])
+        self.assertEqual(self.client.get("/admin/users/list", params={"system_role": "owner"}).status_code, 422)
+
     def test_invalid_queries_are_rejected_without_reflecting_user_input(self):
         for query in ({"page": 0}, {"page": -1}, {"page": 1000001}, {"page": "private-value"},
                       {"page": "1.5"}, {"page_size": 0}, {"page_size": 101}, {"q": "x" * 256},
