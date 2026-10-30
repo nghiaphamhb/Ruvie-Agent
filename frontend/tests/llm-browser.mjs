@@ -110,9 +110,8 @@ async function runEnterChecks(browser) {
     }
     if (api === '/llm/connection')
       return json({
-        source: connected ? 'server' : 'none',
-        base_url: connected ? 'https://example.test/v1' : null,
-        has_api_key: connected,
+        configured: connected,
+        configuration_version: 1,
         selected_model_id: connected ? catalog.selected_model_id : null,
       });
     if (api === '/chat') {
@@ -271,7 +270,7 @@ async function runEnterChecks(browser) {
   await page.locator('.chat-model-shortcut').click();
   await page.locator('#admin-settings-heading').waitFor();
   assert.equal(
-    await page.locator('#admin-settings-tab-llm').getAttribute('aria-selected'),
+    await page.locator('#admin-settings-tab-reply').getAttribute('aria-selected'),
     'true',
     'unconnected shortcut opens LLM settings',
   );

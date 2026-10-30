@@ -96,3 +96,37 @@ deleting it permanently deletes the database.
 
 
 
+
+## F017 embedding connection cutover
+
+Schedule a maintenance window and pause chat, uploads and the ingestion worker.
+Back up PostgreSQL with your normal `pg_dump` procedure and verify the backup can
+be restored to an isolated database. Back up the server's
+`LLM_SETTINGS_ENCRYPTION_KEY` separately and securely; database ciphertext is
+unreadable without that key. Never place plaintext provider credentials in backups
+of operational instructions, screenshots or command history.
+
+Review migration SQL and upgrade using the commands above. Migration 0013 creates
+an unconfigured embedding singleton. It does not import environment variables or
+chat credentials and does not change document revisions, vectors or reply policy.
+Start the backend, sign in as an administrator and open System settings > AI
+connections > Embedding model. Enter the provider URL and explicit key action,
+load the embedding catalog, select `baai/bge-m3`, test the model and apply. Only
+1024-dimensional cosine vectors are accepted. The catalog must expose
+`/embeddings/models`; `/models` is not an embedding catalog.
+
+Start the worker with the same database and encryption key, then reopen traffic.
+New requests and claimed jobs read committed configuration without restart;
+running operations keep their original connection through completion. No
+`EMBEDDING_BASE_URL` or `EMBEDDING_API_KEY` fallback is available. Proxy and
+local-origin permissions remain server settings and require process restart when
+changed. Verify with a test document readable by the signed-in account.
+
+To roll back, stop traffic and workers first, preserve a recoverable backup and
+use the Alembic downgrade command with target `0012_organization_llm_settings`.
+This drops only the embedding connection table, including its encrypted key.
+It does not export plaintext credentials or restore environment configuration.
+Run a compatible prior application version and explicitly configure its connection
+using that version's instructions before reopening traffic. A subsequent upgrade
+creates an empty singleton again. Do not downgrade a live process that expects
+F017's table.

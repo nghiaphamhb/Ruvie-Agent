@@ -1,5 +1,6 @@
 import {
   getOrganizationConnection,
+  probeOrganizationModel,
   verifyOrganizationConnection,
   applyOrganizationConnection,
   OrganizationLlmApiError,
@@ -31,10 +32,13 @@ export function createOrganizationLlmState({
     uncertain = $state(false);
   let errorCode = $state<string | null>(null),
     saved = $state(false);
+  let probeSuccess = $state(false);
+  let applying = false;
   let active = false,
     disposed = false,
     generation = 0;
   function invalidate() {
+    probeSuccess = false;
     verified = false;
     catalog = [];
     saved = false;
@@ -43,10 +47,14 @@ export function createOrganizationLlmState({
   }
   function clearSecret() {
     apiKey = '';
-    keyAction = metadata?.configured ? 'keep' : 'clear';
+    keyAction =
+      metadata?.configured && baseUrl.trim().replace(/\/+$/, '') === metadata.base_url
+        ? 'keep'
+        : 'clear';
   }
-  function failure(error: unknown) {
-    clearSecret();
+  function failure(error: unknown, preserveDraft = false) {
+    if (!preserveDraft) clearSecret();
+    probeSuccess = false;
     verified = false;
     catalog = [];
     const safe = error instanceof OrganizationLlmApiError ? error : null;
@@ -76,6 +84,7 @@ export function createOrganizationLlmState({
     errorCode = null;
     saved = false;
     clearSecret();
+    probeSuccess = false;
     verified = false;
     catalog = [];
     try {
@@ -91,7 +100,7 @@ export function createOrganizationLlmState({
       return true;
     } catch (error) {
       if (active && !disposed && current === generation) {
-        failure(error);
+        failure(error, true);
         return false;
       }
     } finally {
@@ -137,6 +146,7 @@ export function createOrganizationLlmState({
       allowed.some((id) => !catalog.some((m) => m.id === id))
     )
       return false;
+    applying = true;
     const input = { ...draft(), allowed_model_ids: [...allowed], default_model_id: defaultId };
     const current = ++generation;
     busy = true;
@@ -146,8 +156,7 @@ export function createOrganizationLlmState({
       const result = await applyOrganizationConnection(csrfToken, input);
       if (!active || disposed || current !== generation) return false;
       if (result.version <= input.expected_version) {
-        failure(new OrganizationLlmApiError(undefined, 'network', true));
-        return false;
+        throw new OrganizationLlmApiError(undefined, 'network', true);
       }
       metadata = result;
       baseUrl = result.base_url ?? '';
@@ -160,13 +169,27 @@ export function createOrganizationLlmState({
       onapplied();
       return true;
     } catch (error) {
-      if (active && !disposed && current === generation) failure(error);
+      if (active && !disposed && current === generation) {
+        failure(error);
+        if (uncertain) {
+          try {
+            const result = await getOrganizationConnection();
+            if (active && !disposed && current === generation) metadata = result;
+          } catch {
+            /* Keep the unknown result; never retry the mutation. */
+          }
+        }
+      }
       return false;
     } finally {
-      if (current === generation) busy = false;
+      if (current === generation) {
+        busy = false;
+        applying = false;
+      }
     }
   }
   function close() {
+    applying = false;
     active = false;
     generation++;
     busy = false;
@@ -263,7 +286,41 @@ export function createOrganizationLlmState({
       if (!busy && verified) {
         allowed = next.allowedModelIds.filter((id, index, ids) => ids.indexOf(id) === index);
         defaultId = next.defaultModelId;
+        probeSuccess = false;
         saved = false;
+      }
+    },
+    get probeSuccess() {
+      return probeSuccess;
+    },
+    async probe() {
+      if (!active || disposed || busy || !verified || !defaultId) return false;
+      const current = ++generation;
+      busy = true;
+      errorCode = null;
+      probeSuccess = false;
+      try {
+        await probeOrganizationModel(csrfToken, { ...draft(), model_id: defaultId });
+        if (!active || disposed || current !== generation) return false;
+        probeSuccess = true;
+        return true;
+      } catch (error) {
+        if (active && current === generation) failure(error);
+        return false;
+      } finally {
+        if (current === generation) busy = false;
+      }
+    },
+    suspend() {
+      if (busy && metadata) {
+        generation++;
+        busy = false;
+        verified = false;
+        if (applying) {
+          uncertain = true;
+          clearSecret();
+        }
+        applying = false;
       }
     },
     open,

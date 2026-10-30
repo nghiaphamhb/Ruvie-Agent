@@ -684,3 +684,32 @@ generation parameters để kết quả tái lập được.
   unreviewed user-supplied tool servers in the MVP.
 
 F016 implementation is under validation; see [F016](feat/F016-centralized-llm-management.md) for completion evidence and remaining regression failures.
+
+
+## F017 implementation under validation
+
+Chat and embedding connections have separate singleton rows and independent
+versioned admin APIs. Embedding URL/key are resolved by `EmbeddingConnectionService`
+from PostgreSQL for each request or claimed ingestion job. A job retains one
+adapter through all batches. Provider URL/key environment values are not runtime
+fallbacks. The fixed profile remains `baai/bge-m3`, 1024 dimensions, cosine;
+revisions and chunks are not rewritten when connection credentials change.
+
+Embedding catalog, vector probe and runtime calls reuse F016's pinned DNS/IP,
+TLS, explicit proxy, cookie stripping and redirect rejection. Admin writes probe
+outside the transaction, then lock the actor, CAS the version and commit the
+configuration with its audit atomically. Public responses omit credentials.
+Document search orchestration now belongs to `services/documents/retrieval.py`;
+`AuthorizedRetrievalService` continues to apply readable-document access in SQL.
+Chat validates reply policy before resolving embedding and returns a distinct
+safe `embedding_unavailable` event before streaming when document search fails.
+
+System settings composes a shared presentation form with separate reply/embedding
+owners. Child switching retains draft state; leaving settings, role loss and
+logout clear secrets and invalidate late responses. Reply generation testing is
+separate from catalog discovery and uses fixed server text without documents.
+Legacy behavior references: `references/backend/ruvie/routers/retrieval.py`:
+`get_embedding_config` / `update_embedding_config`, and
+`references/src/lib/components/admin/Settings/Documents.svelte`:
+`embeddingModelUpdateHandler`. Only the separate configuration and pending/probe
+workflow ideas are reused; no legacy runtime, key response or global cache is ported.

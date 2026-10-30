@@ -12,6 +12,7 @@ from ruvie.config import Settings
 from ruvie.contracts.chat import ChatStreamEvent
 from ruvie.services.llm import LlmConnectionService, LlmNotConfiguredError, LlmStorageError
 from ruvie.services.llm_secrets import LlmSecretError
+from ruvie.services.embedding import EmbeddingConnectionService, EmbeddingUnavailableError
 from ruvie.services.retrieval import AuthorizedRetrievalService, RetrievalHit
 
 
@@ -26,13 +27,15 @@ class PreparedChat:
     hits: list[RetrievalHit]
 
 
-def error_event(code: Literal["provider_unavailable", "generation_failed"]) -> ChatStreamEvent:
+def error_event(code: Literal["provider_unavailable", "generation_failed", "embedding_unavailable"]) -> ChatStreamEvent:
     """Return a public error event; the API owns SSE encoding."""
     message = (
         "Answer provider is unavailable."
         if code == "provider_unavailable"
         else "Answer generation failed."
     )
+    if code == "embedding_unavailable":
+        message = "Document search connection is unavailable. Please contact your administrator."
     return ChatStreamEvent("error", {"code": code, "message": message})
 
 
@@ -49,8 +52,6 @@ class ChatService:
 
     def prepare(self, user_id: str, message: str, model_id: str | None = None) -> PreparedChat:
         """Validate the user's model before embedding; return provider/context ready to stream."""
-        if self.embedder is None:
-            raise ProviderUnavailableError
         try:
             with self.session_factory() as session:
                 llm = LlmConnectionService(session, self.settings).resolve_chat_adapter(user_id, model_id)
@@ -58,9 +59,13 @@ class ChatService:
             raise ProviderUnavailableError from error
         # Model validation errors remain HTTP 422; bad vectors are provider failures.
         try:
-            vector = self.embedder.embed_query(message)
-        except (httpx.HTTPError, ValueError) as error:
-            raise ProviderUnavailableError from error
+            embedder = self.embedder
+            if embedder is None:
+                with self.session_factory() as session:
+                    embedder = EmbeddingConnectionService(session, self.settings).resolve_embedder()
+            vector = embedder.embed_query(message)
+        except (httpx.HTTPError, ValueError, LlmSecretError, SQLAlchemyError) as error:
+            raise EmbeddingUnavailableError("embedding_provider_unavailable") from error
         with self.session_factory() as session:
             hits = AuthorizedRetrievalService(session).retrieve(user_id, vector)
         return PreparedChat(llm, hits)

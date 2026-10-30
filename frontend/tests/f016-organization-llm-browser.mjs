@@ -124,7 +124,7 @@ try {
   });
   const origin = `http://127.0.0.1:${server.address().port}`;
   await page.goto(origin + '/?view=admin-settings');
-  const form = page.locator('.llm-panel');
+  const form = page.locator('[data-connection="reply"]');
   await form.getByText('Chưa có cấu hình được áp dụng.').waitFor();
   const surface = await form.evaluate((el) => ({
     border: getComputedStyle(el).borderTopWidth,
@@ -159,7 +159,7 @@ try {
   await page.keyboard.press('Escape');
   await page.getByRole('tooltip').waitFor({ state: 'hidden' });
   assert.equal(
-    await page
+    await form
       .getByText('Thay đổi key chỉ có hiệu lực sau khi áp dụng cấu hình.', { exact: true })
       .isVisible(),
     false,
@@ -172,7 +172,7 @@ try {
   await form.getByRole('button', { name: 'Kiểm tra kết nối', exact: true }).click();
   await form.getByRole('checkbox', { name: /Cho phép sử dụng Beta b/ }).check();
   await form.getByRole('radio', { name: /Mặc định Beta b/ }).check();
-  await page.locator('[data-sonner-toast]').filter({ hasText: 'Kết nối thành công' }).waitFor();
+  await page.locator('[data-sonner-toast]').filter({ hasText: 'Đã tải danh sách model' }).waitFor();
   assert.equal(await form.locator('table tbody tr').count(), 2);
   await mkdir(fileURLToPath(new URL('../../logs/f016-mockup/', import.meta.url)), {
     recursive: true,

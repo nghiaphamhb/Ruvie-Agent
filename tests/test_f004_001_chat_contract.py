@@ -10,11 +10,11 @@ sys.path.insert(0, str(Path(__file__).resolve().parents[1] / "backend"))
 
 ROOT = Path(__file__).resolve().parents[1]
 BACKEND = ROOT / "backend"
-LOAD_CHAT_SETTINGS = "from ruvie.config import load_settings; s = load_settings(); print(f'{s.llm.base_url}|{s.llm.model}|{s.llm.api_key}')"
+LOAD_CHAT_SETTINGS = "from ruvie.config import load_settings; s = load_settings(); print(s.llm is None, s.embedding_provider is None); print(s.embedding_profile.model_id, s.embedding_profile.dimension, s.embedding_profile.distance_metric)"
 
 
 class ChatConfigurationTests(unittest.TestCase):
-    def test_loads_openai_compatible_provider_from_server_environment(self) -> None:
+    def test_legacy_provider_environment_cannot_bypass_database_configuration(self) -> None:
         environment = os.environ.copy()
         environment.update(
             DATABASE_URL="postgresql://localhost/ruvie",
@@ -24,6 +24,8 @@ class ChatConfigurationTests(unittest.TestCase):
             LLM_BASE_URL="https://llm.example.test/v1/",
             LLM_MODEL="gpt-test",
             LLM_API_KEY="test-secret",
+            EMBEDDING_BASE_URL="https://embedding.example.test/v1",
+            EMBEDDING_API_KEY="embedding-test-secret",
             PYTHONPATH=str(BACKEND),
         )
 
@@ -36,7 +38,7 @@ class ChatConfigurationTests(unittest.TestCase):
         )
 
         self.assertEqual(result.returncode, 0, result.stderr)
-        self.assertEqual(result.stdout.strip(), "https://llm.example.test/v1|gpt-test|test-secret")
+        self.assertEqual(result.stdout.strip(), "True True\nbaai/bge-m3 1024 cosine")
 
 
 class ChatSseContractTests(unittest.TestCase):

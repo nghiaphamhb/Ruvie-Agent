@@ -114,7 +114,7 @@ try {
   await row.getByRole('button', { name: /Mở lại tài khoản/ }).click();
   await admin.page
     .getByRole('dialog', { name: 'Mở lại tài khoản?' })
-    .getByRole('button', { name: 'Mở lại', exact: true })
+    .getByRole('button', { name: 'Mở lại tài khoản', exact: true })
     .click();
   await row.getByRole('button', { name: /Khóa tài khoản/ }).waitFor();
   assert.equal(await target1.page.evaluate(async () => (await fetch('/auth/session')).status), 401);

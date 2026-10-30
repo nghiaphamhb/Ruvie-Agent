@@ -55,8 +55,12 @@ def get_blob_store(request: Request) -> BlobStore:
 
 
 def get_query_embedder(request: Request) -> QueryEmbedder:
-    """Provide the configured embedding adapter or report HTTP 503."""
-    embedder = request.app.state.query_embedder
-    if embedder is None:
-        raise HTTPException(status_code=503, detail="query embedding is not configured")
-    return embedder
+    """Resolve a fresh database snapshot; trusted dependency overrides remain injectable."""
+    from ruvie.services.embedding import EmbeddingConnectionService, EmbeddingUnavailableError
+    from ruvie.services.llm_secrets import LlmSecretError
+    from sqlalchemy.exc import SQLAlchemyError
+    try:
+        with request.app.state.session_factory() as session:
+            return EmbeddingConnectionService(session, request.app.state.settings).resolve_embedder()
+    except (EmbeddingUnavailableError, LlmSecretError, SQLAlchemyError):
+        raise HTTPException(503, detail={'code':'embedding_unavailable'}) from None

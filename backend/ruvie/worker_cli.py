@@ -5,10 +5,9 @@ import signal
 import threading
 from collections.abc import Callable
 
-import httpx
 
 from ruvie.adapters.blob_storage import DEFAULT_BLOB_ROOT, LocalBlobStore
-from ruvie.adapters.embedding import create_query_embedder
+from ruvie.services.embedding import EmbeddingConnectionService
 from ruvie.config import load_settings
 from ruvie.database import create_database_engine, create_session_factory
 from ruvie.services.documents.ingestion import DocumentIngestionWorker
@@ -32,7 +31,6 @@ def main() -> int:
     logging.basicConfig(level=logging.INFO, format="%(asctime)s %(levelname)s %(message)s")
     settings = load_settings()
     engine = create_database_engine(settings.database_url)
-    client = httpx.Client(proxy=settings.embedding_proxy_url, trust_env=False)
     # The signal handler sets this event; waiting workers wake up and stop cleanly.
     stop_event = threading.Event()
     previous_handlers = {}
@@ -44,15 +42,17 @@ def main() -> int:
         for signum in (signal.SIGINT, signal.SIGTERM):
             previous_handlers[signum] = signal.signal(signum, stop)
         session_factory = create_session_factory(engine)
-        embedder = create_query_embedder(settings, client)
+        def resolve_embedder():
+            with session_factory() as session:
+                return EmbeddingConnectionService(session, settings).resolve_embedder()
         blob_store = LocalBlobStore(DEFAULT_BLOB_ROOT)
 
         # One fresh session per job; the worker heartbeat uses separate sessions.
         def run_once() -> str | None:
             with session_factory() as session:
                 return DocumentIngestionWorker(
-                    session, blob_store, embedder, settings.embedding_profile,
-                    session_factory=session_factory,
+                    session, blob_store, None, settings.embedding_profile,
+                    session_factory=session_factory, embedder_resolver=resolve_embedder,
                 ).run_next()
 
         logging.info("Document ingestion worker started")
@@ -62,7 +62,6 @@ def main() -> int:
     finally:
         for signum, handler in previous_handlers.items():
             signal.signal(signum, handler)
-        client.close()
         engine.dispose()
 
 

@@ -96,7 +96,7 @@ try {
         csrf_token: 'csrf',
       });
     if (api === '/auth/logout') return json({ detail: 'private logout detail' }, 503);
-    if (expired && api.startsWith('/llm')) return json({}, 401);
+    if (expired && (api.startsWith('/llm') || api.startsWith('/admin/llm'))) return json({}, 401);
     if (api === '/projects') {
       if (projectMode === 'error') return json({ detail: 'must-not-display' }, 500);
       if (projectMode === 'slow')
@@ -336,7 +336,8 @@ try {
       'settings navigation does not reload catalog',
     );
     checks++;
-    await page.locator('#llm-key-action').selectOption('replace');
+    await page.locator('#llm-key-action').click();
+    await page.locator('#llm-key-options [data-key-action="replace"]').click();
     await page.locator('#llm-key').fill('draft-secret');
     await page.getByRole('button', { name: 'Kiểm tra kết nối', exact: true }).click();
     await page.waitForFunction(

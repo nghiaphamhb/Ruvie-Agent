@@ -64,11 +64,13 @@ class DocumentIngestionWorker:
         chunk_size: int = 800,
         chunk_overlap: int = 120,
         session_factory: Callable[[], Session] | None = None,
+        embedder_resolver: Callable[[], EmbeddingAdapter] | None = None,
     ) -> None:
         if chunk_size <= 0 or not 0 <= chunk_overlap < chunk_size:
             raise ValueError("chunk overlap must be non-negative and smaller than chunk size")
         self.session, self.blob_store, self.embedder, self.profile = session, blob_store, embedder, profile
         self.session_factory = session_factory
+        self.embedder_resolver = embedder_resolver
         self.chunk_size, self.chunk_overlap, self.extractor = chunk_size, chunk_overlap, TextExtractor()
 
     def run_next(self) -> str | None:
@@ -96,6 +98,9 @@ class DocumentIngestionWorker:
         job.error_code = None
         self.session.commit()
         try:
+            if self.embedder_resolver is not None:
+                # Resolve only after claim and retain this adapter through every batch.
+                self.embedder = self.embedder_resolver()
             self._run_with_heartbeat(job_id)
         except Exception as error:
             self._fail(job_id, error)

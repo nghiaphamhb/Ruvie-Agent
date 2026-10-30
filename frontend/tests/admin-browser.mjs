@@ -705,11 +705,11 @@ try {
   assert.equal(await page.locator('dialog[open]').count(), 0);
   assert.equal(await settingTab.innerText(), 'Cài đặt hệ thống');
   const settings = page.locator('#admin-panel-setting .settings-embedded');
-  assert.equal(await settings.locator('[role=tab]').count(), 1);
+  assert.equal(await settings.locator('[role=tab]').count(), 2);
   assert.equal(await settings.getByRole('tab', { name: 'Giao diện', exact: true }).count(), 0);
-  await page.locator('#admin-settings-tab-llm').click();
+  await page.locator('#admin-settings-tab-reply').click();
   await settings.locator('#llm-url').fill('https://draft.example.test/v1');
-  await page.locator('#admin-settings-tab-llm').press('Home');
+  await page.locator('#admin-settings-tab-reply').press('Home');
   assert.equal(await page.locator('#admin-settings-llm').isVisible(), true);
   await menu();
   await page.locator('.account-settings').click();
@@ -732,7 +732,7 @@ try {
   assert.equal(await usersTab.getAttribute('aria-selected'), 'true');
   await page.goForward();
   await settingsHeading.waitFor();
-  await page.locator('#admin-settings-tab-llm').click();
+  await page.locator('#admin-settings-tab-reply').click();
   assert.equal(
     await settings.locator('#llm-url').inputValue(),
     'https://example.test',
@@ -746,7 +746,7 @@ try {
   await page.locator('#admin-tab-users').click();
   await page.getByText(directoryAccount.display_name, { exact: true }).waitFor();
   await page.locator('#admin-tab-setting').click();
-  await page.locator('#admin-settings-tab-llm').click();
+  await page.locator('#admin-settings-tab-reply').click();
   assert.equal(await settings.locator('#llm-url').isVisible(), true);
   await menu();
   await page.locator('.account-settings').click();

@@ -11,7 +11,7 @@ from ruvie.api.security import check_origin, verify_csrf
 from ruvie.config import Settings
 from ruvie.contracts.llm import (ConnectionResponse, ModelSelectionRequest, ModelsResponse,
     OrganizationConnectionDraft, OrganizationConnectionUpdateRequest,
-    OrganizationConnectionResponse, VerifiedConnectionResponse)
+    OrganizationConnectionResponse, VerifiedConnectionResponse, OrganizationModelProbeRequest)
 from ruvie.dependencies import get_authenticated_user_id, get_admin_user_id, get_session, get_settings
 from ruvie.services.admin import AdminAccountService, AdminRequired, AuthenticationRequired
 from ruvie.services.llm import (LlmConnectionService, LlmNotConfiguredError, LlmStorageError,
@@ -133,3 +133,10 @@ def select_model(body: ModelSelectionRequest, user: str = Depends(require_write_
 def retired_connection():
     """The route wrapper rejects legacy mutations before parsing any body."""
     raise HTTPException(410, detail={'code':'personal_llm_configuration_removed'})
+
+
+@router.post('/admin/llm/connection/probe')
+def probe_organization(body: OrganizationModelProbeRequest,
+                       actor: str = Depends(require_admin_write_access), service=Depends(get_service)):
+    """POST draft/default model -> fixed-text generation result, without policy changes."""
+    return service.probe_organization(actor, body)

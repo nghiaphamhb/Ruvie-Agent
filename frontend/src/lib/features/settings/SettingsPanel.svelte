@@ -13,6 +13,7 @@
     active = false,
     onexpired = () => {},
     children,
+    connection = $bindable<'reply' | 'embedding'>('reply'),
   }: {
     theme: ReturnType<typeof createThemeState>;
     system?: boolean;
@@ -20,6 +21,7 @@
     active?: boolean;
     onexpired?: (notice: UiMessage) => void;
     children?: Snippet;
+    connection?: 'reply' | 'embedding';
   } = $props();
   const prefix = $derived(system ? 'admin-' : '');
   let selected = $state<'appearance' | 'account'>('appearance');
@@ -29,8 +31,24 @@
     selected = next;
     if (focus) document.getElementById(`settings-tab-${next}`)?.focus();
   }
+  let connectionsOpen = $state(true);
+  $effect(() => {
+    if (active && system) connection = 'reply';
+  });
   function onTabKeydown(event: KeyboardEvent) {
-    if (system) return;
+    if (system) {
+      if (!connectionsOpen) return;
+      let next: 'reply' | 'embedding';
+      if (event.key === 'ArrowDown' || event.key === 'ArrowUp')
+        next = connection === 'reply' ? 'embedding' : 'reply';
+      else if (event.key === 'Home') next = 'reply';
+      else if (event.key === 'End') next = 'embedding';
+      else return;
+      event.preventDefault();
+      connection = next;
+      document.getElementById('admin-settings-tab-' + next)?.focus();
+      return;
+    }
     const order = ['appearance', 'account'] as const;
     const index = order.indexOf(selected);
     let next: number;
@@ -59,17 +77,41 @@
       aria-orientation="vertical"
       onkeydown={onTabKeydown}
     >
-      <button
-        id={prefix + 'settings-tab-' + (system ? 'llm' : 'appearance')}
-        type="button"
-        role="tab"
-        aria-selected={system || selected === 'appearance'}
-        aria-controls={prefix + 'settings-' + (system ? 'llm' : 'appearance')}
-        tabindex={selected === 'appearance' || system ? 0 : -1}
-        onclick={() => chooseTab('appearance')}
-      >
-        <span>{$i18n.t(system ? 'nav.llm' : 'theme.display')}</span>
-      </button>
+      {#if system}
+        <button
+          type="button"
+          aria-expanded={connectionsOpen}
+          aria-controls="ai-connection-tabs"
+          onclick={() => (connectionsOpen = !connectionsOpen)}>{$i18n.t('ai.connections')}</button
+        >
+        <div id="ai-connection-tabs" hidden={!connectionsOpen}>
+          {#each ['reply', 'embedding'] as child (child)}
+            <button
+              class="connection-child"
+              type="button"
+              role="tab"
+              id={'admin-settings-tab-' + child}
+              aria-selected={connection === child}
+              aria-controls="admin-settings-llm"
+              tabindex={connection === child ? 0 : -1}
+              onclick={() => (connection = child as 'reply' | 'embedding')}
+              >{$i18n.t(child === 'reply' ? 'ai.reply' : 'embedding.heading')}</button
+            >
+          {/each}
+        </div>
+      {:else}
+        <button
+          id={prefix + 'settings-tab-' + (system ? 'llm' : 'appearance')}
+          type="button"
+          role="tab"
+          aria-selected={system || selected === 'appearance'}
+          aria-controls={prefix + 'settings-' + (system ? 'llm' : 'appearance')}
+          tabindex={selected === 'appearance' || system ? 0 : -1}
+          onclick={() => chooseTab('appearance')}
+        >
+          <span>{$i18n.t(system ? 'nav.llm' : 'theme.display')}</span>
+        </button>
+      {/if}
       {#if !system}
         <button
           id="settings-tab-account"
@@ -89,7 +131,7 @@
         id="admin-settings-llm"
         role="tabpanel"
         tabindex="0"
-        aria-labelledby="admin-settings-tab-llm"
+        aria-labelledby={'admin-settings-tab-' + connection}
       >
         {@render children?.()}
       </div>
@@ -156,6 +198,10 @@
     padding: 8px;
     border-left: 1px solid var(--border);
     background: transparent;
+  }
+  .settings-tabs .connection-child {
+    margin-left: 18px;
+    width: calc(100% - 18px);
   }
   .settings-tabs button {
     position: relative;

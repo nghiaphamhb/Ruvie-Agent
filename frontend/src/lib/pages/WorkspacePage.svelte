@@ -12,6 +12,8 @@
   import { createDocumentsState } from '../features/documents/documents-state.svelte.ts';
   import { createLlmState } from '../features/llm/llm-state.svelte.ts';
   import { createOrganizationLlmState } from '../features/llm/organization-llm-state.svelte.ts';
+  import { createEmbeddingState } from '../features/embedding/embedding-state.svelte.ts';
+  import EmbeddingConnectionForm from '../features/embedding/EmbeddingConnectionForm.svelte';
   import LlmConnectionForm from '../features/llm/LlmConnectionForm.svelte';
   import ProjectsPage from '../features/documents/ProjectsPage.svelte';
   import DocumentsPage from '../features/documents/DocumentsPage.svelte';
@@ -119,6 +121,15 @@
       void llm.reloadConnection();
     },
   });
+  let aiConnection = $state<'reply' | 'embedding'>('reply');
+  const embedding = createEmbeddingState({
+    csrfToken: sessionCsrf,
+    onexpired: clearSession,
+    onforbidden: () => {
+      void lostAdminAccess();
+    },
+    onapplied: () => {},
+  });
   const chat = createChatState({
     onexpired: clearSession,
     getCatalog: () => llm.catalog,
@@ -137,6 +148,7 @@
     documents.dispose();
     llm.dispose();
     organizationLlm.dispose();
+    embedding.dispose();
     theme.dispose();
   }
   function clearSession(notice?: UiMessage) {
@@ -353,12 +365,28 @@
         onselect={(view) => selectView(view, 'push', false)}
       >
         {#snippet settings()}
-          <SettingsPanel {theme} system>
-            <LlmConnectionForm
-              state={organizationLlm}
-              active={activeView === 'admin-settings' && canAdmin}
-              disabled={chat.busy || authBusy}
-            />
+          <SettingsPanel
+            {theme}
+            system
+            active={activeView === 'admin-settings' && canAdmin}
+            bind:connection={aiConnection}
+          >
+            <div hidden={aiConnection !== 'reply'}>
+              <LlmConnectionForm
+                state={organizationLlm}
+                visible={aiConnection === 'reply'}
+                active={activeView === 'admin-settings' && canAdmin}
+                disabled={chat.busy || authBusy}
+              />
+            </div>
+            <div hidden={aiConnection !== 'embedding'}>
+              <EmbeddingConnectionForm
+                state={embedding}
+                active={activeView === 'admin-settings' && canAdmin}
+                visible={aiConnection === 'embedding'}
+                disabled={chat.busy || authBusy}
+              />
+            </div>
           </SettingsPanel>
         {/snippet}
       </AdminPage>

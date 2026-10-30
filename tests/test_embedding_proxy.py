@@ -50,22 +50,13 @@ class EmbeddingProxyTests(unittest.TestCase):
                 self.assertNotIn("secret", str(raised.exception))
 
     def exercise_embedding(self, owner, configured):
-        """Run real resource setup; replace only DB resources and the worker loop."""
-        if owner == "api":
-            async def query():
-                with patch("ruvie.main.load_settings", return_value=configured), patch("ruvie.main.create_database_engine"), patch("ruvie.main.create_session_factory"):
-                    async with lifespan(app):
-                        return app.state.query_embedder.embed_query("diagnostic")
-            return asyncio.run(query())
-        captured = []
-        def capture(current, client):
-            adapter = create_query_embedder(current, client)
-            captured.append(adapter)
-            return adapter
-        results = []
-        with patch("ruvie.worker_cli.logging.basicConfig"), patch("ruvie.worker_cli.load_settings", return_value=configured), patch("ruvie.worker_cli.create_database_engine"), patch("ruvie.worker_cli.create_session_factory"), patch("ruvie.worker_cli.create_query_embedder", side_effect=capture), patch("ruvie.worker_cli.run_worker_loop", side_effect=lambda run, stop: results.extend(captured[0].embed(["diagnostic"]))):
-            self.assertEqual(worker_cli.main(), 0)
-        return results[0]
+        """Exercise the guarded operation adapter used by both runtime resolvers."""
+        from ruvie.services.embedding import EmbeddingConnectionService
+        from ruvie.config import LlmProviderSettings
+        adapter=EmbeddingConnectionService(None,configured)._adapter(
+            LlmProviderSettings('https://embed.test/v1',api_key='test-key'))
+        with patch('socket.getaddrinfo',return_value=[(2,1,6,'',('93.184.216.34',443))]):
+            return adapter.embed_query('diagnostic') if owner=='api' else adapter.embed(['diagnostic'])[0]
 
     def test_api_queries_and_worker_batches_use_the_explicit_proxy(self):
         body = json.dumps({"data": [{"embedding": [0.25] * 1024}]}).encode()
@@ -88,7 +79,7 @@ class EmbeddingProxyTests(unittest.TestCase):
                 with patch.dict(os.environ, {"ALL_PROXY": "socks5://ambient.test:9999"}, clear=True), patch.object(httpcore.SyncBackend, "connect_tcp", return_value=stream) as connect:
                     vector = self.exercise_embedding(owner, settings())
                 self.assertEqual(len(vector), 1024)
-                self.assertEqual((connect.call_args.kwargs["host"], connect.call_args.kwargs["port"]), ("embed.test", 443))
+                self.assertEqual((connect.call_args.kwargs["host"], connect.call_args.kwargs["port"]), ("93.184.216.34", 443))
 
     def test_proxy_failure_never_falls_back_to_direct(self):
         for owner in ("api", "worker"):

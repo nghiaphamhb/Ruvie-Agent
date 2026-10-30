@@ -35,8 +35,9 @@ from ruvie.config import (
 from ruvie.models import DocumentChunk, DocumentRevision, IngestionJob, Membership, Project, Role, RoleCode, User
 from ruvie.services.documents.ingestion import DocumentIngestionWorker
 from ruvie.services.auth import hash_password
-from ruvie.models import OrganizationLlmSettings
+from ruvie.models import OrganizationLlmSettings, OrganizationEmbeddingSettings
 from ruvie.services.llm_secrets import LlmSecretStore
+from ruvie.services.embedding import EmbeddingConnectionService
 from cryptography.fernet import Fernet
 
 
@@ -208,7 +209,7 @@ class F005007EndToEndTests(unittest.TestCase):
         provider_url = f"http://127.0.0.1:{self.provider.server_port}"
         self.settings = Settings(
             database_url=self.database_url,
-            embedding_profile=EmbeddingProfile("fake-embedding-model", 1024, "cosine"),
+            embedding_profile=EmbeddingProfile("baai/bge-m3", 1024, "cosine"),
             embedding_provider=EmbeddingProviderSettings(provider_url, "e2e-embedding-key"),
             llm=LlmProviderSettings(provider_url, "fake-chat-model", "e2e-llm-key"),
             auth_allowed_origins=(ORIGIN,),
@@ -327,6 +328,13 @@ class F005007EndToEndTests(unittest.TestCase):
             session.commit()
 
         with self.client.app.state.session_factory() as db:
+            embedding=db.get(OrganizationEmbeddingSettings,1)
+            embedding.version=1
+            embedding.base_url=self.settings.embedding_provider.base_url
+            embedding.api_key_ciphertext=LlmSecretStore(self.settings.llm_settings_encryption_key).encrypt('e2e-embedding-key')
+            embedding.model_id='baai/bge-m3'
+            embedding.dimension=1024
+            embedding.distance_metric='cosine'
             org=db.get(OrganizationLlmSettings,1)
             org.version=1
             org.base_url=self.settings.llm.base_url
@@ -362,7 +370,7 @@ class F005007EndToEndTests(unittest.TestCase):
             return DocumentIngestionWorker(
                 session,
                 self.client.app.state.blob_store,
-                self.client.app.state.query_embedder,
+                EmbeddingConnectionService(session,self.settings).resolve_embedder(),
                 self.settings.embedding_profile,
                 session_factory=factory,
             ).run_next()
