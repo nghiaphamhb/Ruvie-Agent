@@ -188,3 +188,11 @@
   background: var(--send-background);
   color: var(--send-ink);
 }
+
+/* Keep workspace pages scrollable while hiding the outer browser scrollbar. */
+.workspace-shell .view-panel {
+  scrollbar-width: none;
+}
+.workspace-shell .view-panel::-webkit-scrollbar {
+  display: none;
+}

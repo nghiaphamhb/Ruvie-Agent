@@ -380,5 +380,8 @@
   "embedding.rateLimit": "Сервис эмбеддингов ограничивает частоту запросов. Повторите попытку позже.",
   "embedding.timeout": "Время ожидания сервиса эмбеддингов истекло. Повторите попытку.",
   "embedding.catalogError": "Сервис не предоставляет каталог эмбеддингов по /embeddings/models.",
-  "embedding.profile": "Проверено: baai/bge-m3 · 1024 измерения · cosine."
+  "embedding.profile": "Проверено: baai/bge-m3 · 1024 измерения · cosine.",
+  "embedding.supported": "Поддержка",
+  "embedding.supportedYes": "Да",
+  "embedding.supportedNo": "Нет"
 }

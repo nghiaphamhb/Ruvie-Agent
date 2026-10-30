@@ -377,5 +377,8 @@
   "embedding.rateLimit": "Dịch vụ embedding đang giới hạn số yêu cầu. Hãy thử lại sau.",
   "embedding.timeout": "Dịch vụ embedding phản hồi quá chậm. Hãy thử lại.",
   "embedding.catalogError": "Dịch vụ chưa cung cấp catalog embedding tại /embeddings/models.",
-  "embedding.profile": "Đã kiểm tra: baai/bge-m3 · 1024 chiều · cosine."
+  "embedding.profile": "Đã kiểm tra: baai/bge-m3 · 1024 chiều · cosine.",
+  "embedding.supported": "Có hỗ trợ",
+  "embedding.supportedYes": "Có",
+  "embedding.supportedNo": "Không"
 }

@@ -16,7 +16,7 @@
 <div class="models">
   <table>
     <thead
-      ><tr><th>{$i18n.t('embedding.heading')}</th><th>{$i18n.t('embedding.dimension')}</th></tr
+      ><tr><th>{$i18n.t('embedding.heading')}</th><th>{$i18n.t('embedding.supported')}</th></tr
       ></thead
     >
     <tbody
@@ -54,7 +54,9 @@
                   role="tooltip">{$i18n.t('embedding.unsupported')}</span
                 ></span
               >{/if}
-          </td><td>{model.dimension ?? $i18n.t('embedding.unknownDimension')}</td></tr
+          </td><td
+            >{$i18n.t(model.supported ? 'embedding.supportedYes' : 'embedding.supportedNo')}</td
+          ></tr
         >{/each}</tbody
     >
   </table>
@@ -104,7 +106,7 @@
     z-index: 1;
   }
   .models {
-    max-height: 320px;
+    max-height: 360px;
     overflow: auto;
     margin: 16px 0;
   }
@@ -142,6 +144,38 @@
   input:focus-visible {
     outline: 2px solid var(--accent);
     outline-offset: 2px;
+  }
+  .models {
+    max-height: 360px;
+    overflow: auto;
+    scrollbar-gutter: stable;
+    scrollbar-width: thin;
+    scrollbar-color: var(--border) transparent;
+    border-radius: 7px;
+    min-width: 0;
+  }
+
+  .models:hover {
+    scrollbar-color: var(--muted) transparent;
+  }
+  .models::-webkit-scrollbar {
+    width: 8px;
+    height: 8px;
+  }
+  .models::-webkit-scrollbar-thumb {
+    background: var(--border);
+    border: 2px solid var(--surface);
+    border-radius: 8px;
+  }
+  .models::-webkit-scrollbar-thumb:hover {
+    background: var(--muted);
+  }
+
+  th:last-child,
+  td:last-child {
+    width: 120px;
+    text-align: center;
+    white-space: nowrap;
   }
   .warning {
     color: var(--error);

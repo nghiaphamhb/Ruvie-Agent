@@ -1,6 +1,6 @@
 # Kế hoạch quản trị Ruvie Agent
 
-Cập nhật: 2026-10-26. Trạng thái: Backlog; các hành vi dưới đây chưa triển khai hoặc mới có một phần.
+Cập nhật: 2026-10-30. Trạng thái: Roadmap; F016 đã bàn giao, F017 đã triển khai và nghiệm thu. Các mục còn lại là backlog.
 
 ## Các hành vi cần bổ sung
 
@@ -9,7 +9,7 @@ Cập nhật: 2026-10-26. Trạng thái: Backlog; các hành vi dưới đây ch
 | Xóa tài khoản | Admin xóa tài khoản theo chính sách lưu giữ dữ liệu đã thống nhất; xử lý rõ quyền, phiên và dữ liệu liên quan. |
 | Khôi phục quyền quản trị | Có quy trình khôi phục khi không còn admin sử dụng được; không mở lại đăng ký công khai khi đã có tài khoản. |
 | Quản lý quyền tài nguyên | Admin cấp/thu hồi membership project, vai trò nghề nghiệp và quyền tài liệu. Quyền admin hệ thống không mặc nhiên cho phép đọc mọi tài liệu. |
-| LLM tập trung | Admin quản lý provider, API key dùng chung, model mặc định và danh sách model được cấp. Nhân viên chỉ chọn model được phép; không đọc API key hoặc sửa cấu hình qua API trực tiếp. |
+| Kết nối AI | F016 đã bàn giao quản lý model trả lời tập trung. F017 tách mục Model trả lời/Model embedding, dùng chung bố cục form và quản lý kết nối embedding độc lập trong DB. Model embedding chưa hỗ trợ vẫn chọn xem được, nhưng UI giải thích và backend từ chối áp dụng. |
 | Proxy LLM/embedding | Admin chọn direct hoặc SOCKS5 riêng cho LLM và embedding, thử trước khi áp dụng và xem cấu hình hiệu lực. Áp dụng đúng cho backend/worker; proxy lỗi không tự chuyển direct, lỗi không lộ secret và vẫn giữ bảo vệ mạng/TLS. |
 | Ngôn ngữ tổ chức | Admin chọn vi-VN/en-US/ru-RU hoặc bỏ mặc định. Lựa chọn cá nhân đã lưu ưu tiên hơn tổ chức, sau đó đến trình duyệt và fallback vi-VN; không thay ngôn ngữ trả lời LLM hoặc ép đổi phiên đang mở. |
 | Vận hành kho tri thức | Admin theo dõi tiếp nhận, xử lý và lỗi tài liệu để phối hợp người phụ trách; không vượt quyền đọc nội dung. |
@@ -21,11 +21,11 @@ Cập nhật: 2026-10-26. Trạng thái: Backlog; các hành vi dưới đây ch
 
 Đã có khởi tạo admin đầu tiên và đóng đăng ký công khai; tạo, xem, tìm kiếm và sửa tài khoản; cấp/thu hồi vai trò admin với bảo vệ admin hoạt động cuối cùng; reset mật khẩu, tự đổi mật khẩu và trạng thái hoạt động tài khoản. Admin có thể [khóa hoặc mở lại tài khoản](../feat/F015-account-activation.md); khóa thu hồi các session, bảo vệ admin hoạt động cuối cùng và giữ dữ liệu.
 
-Backend đã có kiểm tra quyền tài liệu, cấu hình proxy phía server và ghi audit cho một số thao tác. F016 đã bổ sung cấu hình LLM tổ chức và chính sách model chung trong working tree. Xem [spec F016](../feat/F016-centralized-llm-management.md).
+Backend đã có kiểm tra quyền tài liệu, cấu hình proxy phía server và ghi audit cho một số thao tác. F016 đã bàn giao cấu hình LLM tổ chức và chính sách model chung tại `d0530fe`; các test/regression tồn đọng được giữ trong [spec F016](../feat/F016-centralized-llm-management.md). Phạm vi tiếp theo nằm trong [spec F017](../feat/F017-ai-connections-and-embedding.md); chưa triển khai bằng việc viết spec.
 
 ## Ưu tiên đề xuất
 
-1. LLM tập trung, sau đó proxy LLM/embedding và báo sự cố.
+1. Sau F017 đã nghiệm thu: proxy LLM/embedding và báo sự cố.
 2. Quyền tài nguyên, ngôn ngữ tổ chức, vận hành kho tri thức và giám sát.
 3. Chốt riêng quy trình khôi phục admin, xóa tài khoản và quản trị tích hợp trước khi triển khai.
 

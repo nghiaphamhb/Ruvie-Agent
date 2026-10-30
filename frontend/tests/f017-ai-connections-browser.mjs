@@ -180,6 +180,18 @@ try {
   await embed.getByRole('tooltip').waitFor();
   await page.keyboard.press('Escape');
   assert.equal(await embed.getByRole('tooltip').isVisible(), false);
+  await embed.getByRole('columnheader', { name: 'Có hỗ trợ', exact: true }).waitFor();
+  await page.setViewportSize({ width: 1366, height: 650 });
+  const scrolls = await page
+    .locator('.view-panel')
+    .filter({ has: page.locator('.system-settings') })
+    .first()
+    .evaluate((el) => {
+      el.scrollTop = 100;
+      return el.scrollTop > 0;
+    });
+  assert.equal(scrolls, true, 'hiding the scrollbar preserves page scrolling');
+  await page.setViewportSize({ width: 1366, height: 1100 });
   const identifiers = await page
     .locator('[id]')
     .evaluateAll((elements) => elements.map((el) => el.id));
@@ -188,9 +200,37 @@ try {
     identifiers.length,
     'connection forms have independent IDs',
   );
+  assert.equal(
+    await page.locator('.system-settings .settings-tabs').getAttribute('aria-orientation'),
+    'vertical',
+  );
+  const parent = await page.getByRole('button', { name: 'Kết nối AI', exact: true }).boundingBox();
+  const child = await page.locator('.connection-child').first().boundingBox();
+  assert.ok(child.x > parent.x && child.y > parent.y, 'children are indented below the category');
+  const tabs = await page
+    .locator('.connection-child')
+    .evaluateAll((elements) => elements.map((el) => el.getBoundingClientRect().top));
+  assert.ok(tabs[1] > tabs[0]);
+  assert.equal(
+    await page
+      .locator('#ai-connection-tabs')
+      .evaluate((el) => getComputedStyle(el).borderLeftWidth),
+    '1px',
+  );
   await page.getByRole('button', { name: 'Kết nối AI', exact: true }).click();
-  assert.equal(await page.locator('#admin-settings-tab-embedding').isVisible(), false);
+  assert.equal(await page.locator('.connection-child').first().isVisible(), false);
   await page.getByRole('button', { name: 'Kết nối AI', exact: true }).click();
+  assert.equal(
+    await embed.locator('.models').evaluate((el) => getComputedStyle(el).scrollbarWidth),
+    'thin',
+  );
+  assert.equal(
+    await page
+      .locator('.view-panel')
+      .first()
+      .evaluate((el) => getComputedStyle(el).scrollbarWidth),
+    'none',
+  );
   checks++;
   await page.locator('#embedding-search').fill('baai');
   assert.equal(await embed.locator('table tbody tr').count(), 1);
@@ -228,6 +268,12 @@ try {
       await page
         .locator('.workspace-shell')
         .evaluate((el, theme) => el.setAttribute('data-theme', theme), theme);
+      if (locale === 'vi-VN' && theme === 'light')
+        await page.screenshot({
+          path: fileURLToPath(
+            new URL('../../logs/f017-browser/settings-tabs.png', import.meta.url),
+          ),
+        });
       await embed.screenshot({
         path: fileURLToPath(
           new URL('../../logs/f017-browser/' + locale + '-' + theme + '.png', import.meta.url),

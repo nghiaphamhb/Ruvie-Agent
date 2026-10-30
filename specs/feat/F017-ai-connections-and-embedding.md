@@ -463,3 +463,21 @@ DB hiện ở `0013_org_embedding_settings`; singleton embedding version 0, chư
 cấu hình. Backup local bị ignore: `logs/f017-before-migration-985943a6.dump`.
 Người dùng tự restart backend; cần cấu hình/verify/apply Model embedding trên UI.
 Không nhập key từ env vào DB. Ghi nhận này thay thế trạng thái chưa migrate ở trên.
+
+
+### Điều chỉnh UI sau nghiệm thu theo yêu cầu người dùng
+
+Hai mục Model trả lời/Model embedding chuyển thành tab ngang dưới Kết nối AI;
+ArrowLeft/ArrowRight và Home/End điều hướng tab. Bản nháp vẫn độc lập.
+Bảng embedding dùng cùng scrollbar mảnh/hover/gutter như Model trả lời, giữ
+header sticky và vùng cuộn tối đa 360px. Cột danh sách đổi từ số chiều sang
+Có hỗ trợ (Có/Không) dựa trên supported của server; dữ liệu dimension và probe
+phía backend giữ nguyên. Thanh cuộn ngoài của view-panel được ẩn bằng CSS,
+không khóa overflow để vẫn cuộn bằng chuột/bàn phím.
+
+Hiệu chỉnh bố cục theo làm rõ của người dùng: giữ sidebar trái với mục Kết nối AI;
+chỉ hai mục con Model trả lời/Model embedding chuyển thành tab ngang trong vùng nội dung bên phải.
+
+Điều chỉnh cuối theo yêu cầu người dùng: trở lại menu dọc ban đầu. Hai mục con
+nằm dưới Kết nối AI, thụt vào 18px, có đường trục trái và nét nối đáy; góc menu 2px.
+Giữ cột Có hỗ trợ và các thay đổi scrollbar đã được duyệt.
