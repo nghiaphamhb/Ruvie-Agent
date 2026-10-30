@@ -14,6 +14,7 @@ from .documents import (
 from .access import AccessGrant
 from .audit import AuditEvent
 from .llm import OrganizationLlmSettings, UserLlmSettings
+from .embedding import OrganizationEmbeddingSettings
 
 __all__ = [
     "Base",
@@ -21,6 +22,7 @@ __all__ = [
     "User",
     "UserLlmSettings",
     "OrganizationLlmSettings",
+    "OrganizationEmbeddingSettings",
     "Membership",
     "Project",
     "Role",

@@ -28,45 +28,36 @@ class ApplicationLifecycleTests(unittest.TestCase):
                 self.assertTrue(hasattr(app.state, "session_factory"))
                 with app.state.session_factory() as session:
                     self.assertIs(session.bind, app.state.engine)
-                self.assertIs(app.state.query_embedder.client, app.state.http_client)
+                self.assertIsNone(app.state.query_embedder)
                 self.assertIs(app.state.settings, TEST_SETTINGS)
 
-        self.assertTrue(app.state.http_client.is_closed)
 
     def test_lifecycle_creates_once_and_releases_on_normal_shutdown(self) -> None:
         engine = Mock()
-        http_client = Mock()
         with (
             patch("ruvie.main.load_settings", return_value=TEST_SETTINGS),
             patch("ruvie.main.create_database_engine", return_value=engine) as create_engine,
             patch("ruvie.main.create_session_factory", return_value=Mock()),
-            patch("ruvie.main.httpx.Client", return_value=http_client) as create_http_client,
         ):
             with TestClient(app) as client:
                 self.assertEqual(client.get("/health").json(), {"status": "ok"})
-                self.assertIs(app.state.query_embedder.client, http_client)
+                self.assertIsNone(app.state.query_embedder)
                 self.assertIs(app.state.settings, TEST_SETTINGS)
 
         create_engine.assert_called_once_with(TEST_SETTINGS.database_url)
-        create_http_client.assert_called_once_with(proxy=None, trust_env=False)
-        http_client.close.assert_called_once_with()
         engine.dispose.assert_called_once_with()
 
     def test_startup_failure_closes_resources_already_created(self) -> None:
         engine = Mock()
-        http_client = Mock()
         with (
             patch("ruvie.main.load_settings", return_value=TEST_SETTINGS),
             patch("ruvie.main.create_database_engine", return_value=engine),
-            patch("ruvie.main.create_session_factory", return_value=Mock()),
-            patch("ruvie.main.httpx.Client", return_value=http_client),
-            patch("ruvie.main.create_query_embedder", side_effect=RuntimeError("adapter setup failed")),
+            patch("ruvie.main.create_session_factory", side_effect=RuntimeError("session setup failed")),
         ):
-            with self.assertRaisesRegex(RuntimeError, "adapter setup failed"):
+            with self.assertRaisesRegex(RuntimeError, "session setup failed"):
                 with TestClient(app):
                     pass
 
-        http_client.close.assert_called_once_with()
         engine.dispose.assert_called_once_with()
 
 

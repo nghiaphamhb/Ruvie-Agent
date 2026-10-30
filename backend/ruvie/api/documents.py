@@ -16,7 +16,8 @@ from ruvie.services.documents.upload import (
     UploadValidationError,
 )
 from ruvie.services.documents.status import DocumentStatusService
-from ruvie.services.retrieval import AuthorizedRetrievalService
+from ruvie.services.documents.retrieval import DocumentRetrievalService
+from ruvie.services.embedding import EmbeddingUnavailableError
 
 
 router = APIRouter(prefix="/documents", tags=["documents"])
@@ -99,9 +100,10 @@ def retrieve_chunks(
     """POST /documents/retrieve: {query, limit?} -> readable chunks with citations."""
     if not body.query.strip():
         raise HTTPException(status_code=422, detail="query is required")
-    hits = AuthorizedRetrievalService(session).retrieve(
-        user_id, embedder.embed_query(body.query), limit=body.limit
-    )
+    try:
+        hits = DocumentRetrievalService(session, embedder).retrieve(user_id, body.query, body.limit)
+    except EmbeddingUnavailableError:
+        raise HTTPException(503, detail={'code':'embedding_unavailable'}) from None
     return [
         {"chunk_id": hit.chunk_id, "document_id": hit.document_id, "text": hit.text,
          "citation": hit.citation.to_dict()}

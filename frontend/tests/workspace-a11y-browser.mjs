@@ -45,9 +45,8 @@ export async function runWorkspaceAccessibilityChecks(browser, origin) {
         return json({ items: [{ id: 'p', name: 'Название проекта '.repeat(10), code: 'CODE' }] });
       if (api === '/llm/connection')
         return json({
-          source: 'server',
-          base_url: 'https://example.test/v1',
-          has_api_key: true,
+          configured: true,
+          configuration_version: 1,
           selected_model_id: 'a',
         });
       if (api === '/models')
@@ -55,6 +54,7 @@ export async function runWorkspaceAccessibilityChecks(browser, origin) {
           models: [{ id: 'a', name: 'Модель с длинным названием '.repeat(8) }],
           selected_model_id: 'a',
           selection_required: false,
+          configuration_version: 1,
         });
       if (api === '/chat')
         return route.fulfill({

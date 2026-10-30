@@ -3,6 +3,7 @@ from collections.abc import Iterable
 from fastapi import APIRouter, Depends, HTTPException, Request
 from fastapi.responses import StreamingResponse
 
+from ruvie.services.embedding import EmbeddingUnavailableError
 from ruvie.contracts.chat import ChatRequest, ChatStreamEvent
 from ruvie.dependencies import get_authenticated_user_id
 from ruvie.services.chat import ChatService, ProviderUnavailableError, error_event
@@ -34,6 +35,8 @@ def chat(
     )
     try:
         prepared = service.prepare(user_id, body.message, body.model_id)
+    except EmbeddingUnavailableError:
+        return _sse_response((error_event("embedding_unavailable"),))
     except ProviderUnavailableError:
         return _sse_response((error_event("provider_unavailable"),))
     except ValueError:

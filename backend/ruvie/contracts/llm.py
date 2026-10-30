@@ -74,3 +74,8 @@ class ModelsResponse(BaseModel):
     selected_model_id: str | None
     selection_required: bool
     configuration_version: int
+
+
+class OrganizationModelProbeRequest(OrganizationConnectionDraft):
+    """Probe only the administrator-selected default using fixed server text."""
+    model_id: ModelId

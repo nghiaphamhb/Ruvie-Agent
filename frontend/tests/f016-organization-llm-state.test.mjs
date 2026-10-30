@@ -109,8 +109,8 @@ test('conflict and uncertain apply never retry; CSRF 403 does not imply role los
     assert.equal(state.errorCode, 'configuration_conflict');
     globalThis.fetch = async () => json({ models: [{ id: 'a', name: 'A' }], version: 2 });
     await state.verify();
-    globalThis.fetch = async () => {
-      calls++;
+    globalThis.fetch = async (_path, init) => {
+      if (init?.method === 'PUT') calls++;
       throw Error('lost');
     };
     await state.apply();

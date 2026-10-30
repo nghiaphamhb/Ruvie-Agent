@@ -44,11 +44,11 @@ class EmbeddingProviderSettings:
     """Runtime connection settings for the embedding provider."""
 
     base_url: str
-    api_key: str
+    api_key: str = field(default="", repr=False)
 
     def __post_init__(self) -> None:
-        if not self.base_url or not self.api_key:
-            raise RuntimeError("EMBEDDING_BASE_URL and EMBEDDING_API_KEY are required together")
+        if not self.base_url.strip():
+            raise RuntimeError("embedding base URL is required")
 
 
 @dataclass(frozen=True)
@@ -95,14 +95,7 @@ def load_settings() -> Settings:
     database_url = os.getenv("DATABASE_URL", "").strip()
     if not database_url:
         raise RuntimeError("DATABASE_URL is required")
-    embedding_values = tuple(
-        os.getenv(name, "").strip()
-        for name in ("EMBEDDING_BASE_URL", "EMBEDDING_API_KEY")
-    )
-    embedding_provider = (
-        EmbeddingProviderSettings(embedding_values[0].rstrip("/"), embedding_values[1])
-        if any(embedding_values) else None
-    )
+    embedding_provider = None  # Credentials are resolved from PostgreSQL, never env.
     # Obsolete personal/server fallback variables must never bypass organization policy.
     llm = None
     origins = tuple(
@@ -121,9 +114,9 @@ def load_settings() -> Settings:
     return Settings(
         database_url,
         EmbeddingProfile(
-            os.getenv("EMBEDDING_MODEL_ID", "").strip(),
-            int(os.getenv("EMBEDDING_DIMENSION", "0")),
-            os.getenv("EMBEDDING_DISTANCE_METRIC", "").strip(),
+            "baai/bge-m3",
+            1024,
+            "cosine",
         ),
         embedding_provider,
         llm,

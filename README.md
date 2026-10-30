@@ -67,9 +67,12 @@ npm --prefix frontend run lint
 ### Configuration
 
 Copy [`.env.example`](.env.example) to `.env` and replace its placeholders with
-your database and embedding-provider settings. The example also documents browser
+your database and server encryption/proxy settings. The example also documents browser
 origins, organization credential encryption, local provider access and proxy settings.
-Keep real credentials in your local `.env`.
+Configure provider URL/key in System settings > AI connections after applying migrations.
+The backend and worker read embedding credentials from PostgreSQL for each operation.
+Legacy embedding URL/key environment variables are ignored. Keep the server encryption
+key private and identical in both processes.
 
 ~~~powershell
 if (-not (Test-Path .env)) { Copy-Item .env.example .env }

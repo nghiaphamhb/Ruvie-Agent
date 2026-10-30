@@ -108,6 +108,30 @@ class LlmConnectionService:
             raise LlmConfigurationConflict()
         return VerifiedConnectionResponse(models=catalog, version=snapshot.version)
 
+    def probe_organization(self, actor_id, command):
+        """Generate fixed test text independently from catalog success; never save policy."""
+        from ruvie.contracts.llm import OrganizationModelProbeRequest
+        from ruvie.adapters.llm import LlmProviderError
+        body = OrganizationModelProbeRequest.model_validate(command.model_dump(exclude_unset=True))
+        snapshot, provider = self._draft_provider(actor_id, body)
+        adapter = self._adapter(LlmProviderSettings(provider.base_url, body.model_id, provider.api_key))
+        found = False
+        stream = adapter.stream([{'role':'user','content':'Reply with OK.'}])
+        try:
+            for text in stream:
+                if text.strip():
+                    found = True
+                    break
+        finally:
+            if hasattr(stream, 'close'):
+                stream.close()
+        if not found:
+            raise LlmProviderError('llm_provider_unavailable')
+        AdminAccountService(self.session).require_admin(actor_id)
+        if self._snapshot().version != snapshot.version:
+            raise LlmConfigurationConflict()
+        return {'success':True,'model_id':body.model_id,'version':snapshot.version}
+
     def apply_organization(self, actor_id: str, command: OrganizationConnectionUpdateRequest):
         """Probe then compare-and-swap the entire policy and its audit in one transaction."""
         body = OrganizationConnectionUpdateRequest.model_validate(command.model_dump(exclude_unset=True))

@@ -125,3 +125,17 @@ export async function applyOrganizationConnection(
     throw new OrganizationLlmApiError(undefined, 'network', true);
   }
 }
+
+export async function probeOrganizationModel(
+  csrfToken: string,
+  draft: OrganizationDraft & { model_id: string },
+) {
+  const data = await request('/admin/llm/connection/probe', 'POST', csrfToken, draft);
+  if (
+    data?.success !== true ||
+    data.model_id !== draft.model_id ||
+    data.version !== draft.expected_version
+  )
+    throw new OrganizationLlmApiError();
+  return true;
+}

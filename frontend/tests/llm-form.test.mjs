@@ -18,6 +18,9 @@ test('organization form exposes explicit key actions, verify/apply and controlle
       '/src/lib/features/llm/LlmConnectionForm.svelte',
     );
     const { render } = await server.ssrLoadModule('svelte/server');
+    const { default: EmbeddingForm } = await server.ssrLoadModule(
+      '/src/lib/features/embedding/EmbeddingConnectionForm.svelte',
+    );
     const { initI18n } = await server.ssrLoadModule('/src/lib/i18n/index.ts');
     await initI18n();
     const state = {
@@ -57,6 +60,31 @@ test('organization form exposes explicit key actions, verify/apply and controlle
     assert.match(html, /type="radio"/);
     assert.match(html, /role="status"/);
     assert.doesNotMatch(html, /Using your personal connection/);
+    const embeddingHtml = render(EmbeddingForm, {
+      props: {
+        state: {
+          ...state,
+          catalogReady: true,
+          models: [
+            {
+              id: 'other',
+              name: 'Other',
+              available: true,
+              supported: false,
+              dimension: 1024,
+              reason_code: 'embedding_model_unsupported',
+            },
+          ],
+          defaultModelId: 'other',
+          selectModel() {},
+          probe() {},
+        },
+        active: false,
+      },
+    }).body;
+    assert.match(embeddingHtml, /type="radio"[^>]*|<input[^>]*type="radio"/);
+    assert.match(embeddingHtml, /embedding-url/);
+    assert.doesNotMatch(embeddingHtml, /type="checkbox"/);
     state.errorCode = 'llm_settings_unavailable';
     const failureHtml = render(Form, { props: { state, active: false } }).body;
     assert.doesNotMatch(failureHtml, /Chưa có kết nối LLM hoặc không thể lưu cấu hình/);

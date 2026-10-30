@@ -25,9 +25,15 @@ export class DocumentsApiError extends Error {
   readonly status?: number;
   readonly uiMessage: UiMessage;
 
-  constructor(status?: number) {
+  constructor(status?: number, embeddingUnavailable = false) {
     super('Document request failed');
-    this.uiMessage = message(status === 401 ? 'common.errors.session' : 'upload.errors.request');
+    this.uiMessage = message(
+      status === 401
+        ? 'common.errors.session'
+        : embeddingUnavailable
+          ? 'chat.errors.embedding_unavailable'
+          : 'upload.errors.request',
+    );
     this.name = 'DocumentsApiError';
     this.status = status;
   }
@@ -94,7 +100,17 @@ export async function retrieveDocuments(
   } catch {
     throw new DocumentsApiError();
   }
-  if (!response.ok) throw new DocumentsApiError(response.status);
+  if (!response.ok) {
+    let embeddingUnavailable = false;
+    try {
+      embeddingUnavailable =
+        response.status === 503 &&
+        (await response.json())?.detail?.code === 'embedding_unavailable';
+    } catch {
+      /* Ignore unsafe upstream detail. */
+    }
+    throw new DocumentsApiError(response.status, embeddingUnavailable);
+  }
   let value: unknown;
   try {
     value = await response.json();

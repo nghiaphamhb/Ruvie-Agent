@@ -22,6 +22,7 @@ export type ChatErrorCode =
   | 'auth_required'
   | 'invalid_request'
   | 'model_unavailable'
+  | 'embedding_unavailable'
   | 'provider_unavailable'
   | 'generation_failed'
   | 'network_error'
@@ -62,9 +63,12 @@ export function isCitation(value: unknown): value is Citation {
   );
 }
 
-function parseFrame(
-  frame: string,
-): ChatEvent | { type: 'error'; code: 'provider_unavailable' | 'generation_failed' } {
+function parseFrame(frame: string):
+  | ChatEvent
+  | {
+      type: 'error';
+      code: 'provider_unavailable' | 'generation_failed' | 'embedding_unavailable';
+    } {
   const lines = frame.split('\n');
   const name = lines
     .find((line) => line.startsWith('event:'))
@@ -89,7 +93,9 @@ function parseFrame(
   if (name === 'completed') return { type: 'completed' };
   if (
     name === 'error' &&
-    (data.code === 'provider_unavailable' || data.code === 'generation_failed')
+    (data.code === 'provider_unavailable' ||
+      data.code === 'generation_failed' ||
+      data.code === 'embedding_unavailable')
   ) {
     return { type: 'error', code: data.code };
   }

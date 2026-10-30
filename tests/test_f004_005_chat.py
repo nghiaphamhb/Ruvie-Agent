@@ -272,7 +272,7 @@ class ChatTests(unittest.TestCase):
 
         self.assertEqual(response.status_code, 200)
         self.assertEqual([name for name, _ in parse_events(response)], ["error"])
-        self.assertEqual(parse_events(response)[0][1]["code"], "provider_unavailable")
+        self.assertEqual(parse_events(response)[0][1]["code"], "embedding_unavailable")
 
     def test_missing_llm_provider_returns_safe_sse_error_without_retrieval(self) -> None:
         embedder = FakeEmbedder()
@@ -295,7 +295,7 @@ class ChatTests(unittest.TestCase):
             response = client.post("/chat", json={"message": "Install plugin"}, headers={"x-test-user": "alpha"})
 
         self.assertEqual([name for name, _ in parse_events(response)], ["error"])
-        self.assertEqual(parse_events(response)[0][1]["code"], "provider_unavailable")
+        self.assertEqual(parse_events(response)[0][1]["code"], "embedding_unavailable")
         self.assertNotIn("secret embedding url", response.text)
         with Session(self.engine) as session:
             self.assertEqual(list(session.scalars(select(AuditEvent))), [])
@@ -335,7 +335,7 @@ class ChatTests(unittest.TestCase):
         with self._client(InvalidEmbedder(), CapturingLlm()) as client:
             response = client.post("/chat", json={"message": "Question"}, headers={"x-test-user": "alpha"})
         self.assertEqual(response.status_code, 200)
-        self.assertEqual(parse_events(response)[0][1]["code"], "provider_unavailable")
+        self.assertEqual(parse_events(response)[0][1]["code"], "embedding_unavailable")
         self.assertNotIn("private vector details", response.text)
 
     def test_active_application_registers_chat_route(self) -> None:
