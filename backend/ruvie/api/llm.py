@@ -1,4 +1,5 @@
 """Safe HTTP boundaries for organization LLM administration and personal preferences."""
+import httpx
 from fastapi import APIRouter, Depends, HTTPException, Request
 from fastapi.exceptions import RequestValidationError
 from fastapi.responses import JSONResponse
@@ -6,6 +7,7 @@ from fastapi.routing import APIRoute
 from pydantic import ValidationError
 from sqlalchemy.exc import SQLAlchemyError
 from sqlalchemy.orm import Session
+from ruvie.adapters.network import InvalidNetworkConfiguration, ProxyUnavailableError, NetworkConfigurationPendingError
 from ruvie.adapters.llm import InvalidLlmUrl, LlmProviderError
 from ruvie.api.security import check_origin, verify_csrf
 from ruvie.config import Settings
@@ -42,14 +44,23 @@ class LlmRoute(APIRoute):
                 response = await handler(request)
                 response.headers['Cache-Control'] = 'no-store'
                 return response
-            except (RequestValidationError, ValidationError):
-                status, code = 422, 'invalid_llm_request'
+            except (RequestValidationError, ValidationError) as error:
+                status = 422
+                code = 'invalid_network_configuration' if any('network' in str(piece.get('loc', ())) for piece in error.errors()) else 'invalid_llm_request'
             except AuthenticationRequired:
                 status, code = 401, 'authentication_required'
             except AdminRequired:
                 status, code = 403, 'admin_required'
             except LlmConfigurationConflict:
                 status, code = 409, 'configuration_conflict'
+            except NetworkConfigurationPendingError:
+                status, code = 503, 'network_configuration_pending'
+            except ProxyUnavailableError:
+                status, code = 503, 'proxy_unavailable'
+            except httpx.ProxyError:
+                status, code = 503, 'proxy_unavailable'
+            except InvalidNetworkConfiguration:
+                status, code = 422, 'invalid_network_configuration'
             except LlmNotConfiguredError:
                 status, code = 503, 'llm_not_configured'
             except (LlmStorageError, LlmSecretError, SQLAlchemyError):

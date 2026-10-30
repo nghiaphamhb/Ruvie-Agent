@@ -395,5 +395,14 @@
   "ai.reloadTitle": "Tải lại cấu hình",
   "ai.reloadHelp": "Thay đổi chưa áp dụng sẽ bị bỏ.",
   "ai.keepEditing": "Tiếp tục chỉnh sửa",
-  "ai.discardReload": "Bỏ thay đổi và tải lại"
+  "ai.discardReload": "Bỏ thay đổi và tải lại",
+  "ai.network.title": "Kết nối mạng",
+  "ai.network.method": "Phương thức",
+  "ai.network.direct": "Kết nối trực tiếp",
+  "ai.network.proxy": "Qua proxy",
+  "ai.network.endpoint": "Địa chỉ proxy",
+  "ai.network.help": "Proxy phải truy cập được từ máy chạy backend và, với embedding, từ worker. Kiểm tra từ backend không xác nhận worker truy cập được.",
+  "ai.network.invalid": "Địa chỉ proxy không hợp lệ. Chỉ hỗ trợ SOCKS5 không có thông tin xác thực.",
+  "ai.network.unavailable": "Không thể kết nối proxy. Kiểm tra ứng dụng proxy, địa chỉ và cổng trên máy chủ.",
+  "ai.network.pending": "Cấu hình mạng cũ chưa được chuyển đổi. Vui lòng liên hệ người vận hành."
 }

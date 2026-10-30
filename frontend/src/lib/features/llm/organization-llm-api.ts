@@ -1,8 +1,16 @@
+export type NetworkConfig = { mode: 'direct' | 'proxy'; proxy_url: string | null };
+export function safeNetwork(value: unknown): value is NetworkConfig {
+  if (!value || typeof value !== 'object') return false;
+  const network = value as Partial<NetworkConfig>;
+  return (network.mode === 'direct' && network.proxy_url === null) ||
+    (network.mode === 'proxy' && typeof network.proxy_url === 'string' && network.proxy_url.startsWith('socks5://'));
+}
 /** Organization-only HTTP client. Response/error projection never preserves secrets. */
 export type OrganizationMetadata = {
   configured: boolean;
   base_url: string | null;
   has_api_key: boolean;
+  network: NetworkConfig;
   allowed_model_ids: string[];
   default_model_id: string | null;
   version: number;
@@ -13,6 +21,7 @@ export type OrganizationDraft = {
   key_action: 'keep' | 'replace' | 'clear';
   api_key?: string;
   expected_version: number;
+  network: NetworkConfig;
 };
 export type OrganizationPolicy = { allowed_model_ids: string[]; default_model_id: string };
 export type VerifiedCatalog = { models: { id: string; name: string }[]; version: number };
@@ -22,6 +31,9 @@ const safeCodes = new Set([
   'csrf_invalid',
   'origin_invalid',
   'configuration_conflict',
+  'invalid_network_configuration',
+  'proxy_unavailable',
+  'network_configuration_pending',
   'invalid_llm_request',
   'llm_provider_unavailable',
   'llm_not_configured',
@@ -78,6 +90,7 @@ function metadata(data: OrganizationMetadata): OrganizationMetadata {
     data.version < 0 ||
     !Array.isArray(data.allowed_model_ids) ||
     data.allowed_model_ids.some((id) => typeof id !== 'string') ||
+    !safeNetwork(data.network) ||
     typeof data.has_api_key !== 'boolean' ||
     (data.base_url !== null && typeof data.base_url !== 'string') ||
     (data.default_model_id !== null && typeof data.default_model_id !== 'string')
@@ -87,6 +100,7 @@ function metadata(data: OrganizationMetadata): OrganizationMetadata {
     configured: data.configured,
     base_url: data.base_url,
     has_api_key: data.has_api_key,
+    network: { ...data.network },
     allowed_model_ids: [...data.allowed_model_ids],
     default_model_id: data.default_model_id,
     version: data.version,

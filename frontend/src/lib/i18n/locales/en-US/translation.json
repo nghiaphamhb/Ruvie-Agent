@@ -396,5 +396,14 @@
   "ai.reloadTitle": "Reload configuration",
   "ai.reloadHelp": "Unapplied changes will be discarded.",
   "ai.keepEditing": "Keep editing",
-  "ai.discardReload": "Discard and reload"
+  "ai.discardReload": "Discard and reload",
+  "ai.network.title": "Network connection",
+  "ai.network.method": "Method",
+  "ai.network.direct": "Direct connection",
+  "ai.network.proxy": "Via proxy",
+  "ai.network.endpoint": "Proxy address",
+  "ai.network.help": "The proxy must be reachable from the backend and, for embeddings, the worker. A backend test does not verify worker access.",
+  "ai.network.invalid": "Invalid proxy endpoint. Only SOCKS5 without credentials is supported.",
+  "ai.network.unavailable": "Proxy connection failed. Check the proxy application, address, and server port.",
+  "ai.network.pending": "Legacy network configuration is awaiting operator cutover."
 }

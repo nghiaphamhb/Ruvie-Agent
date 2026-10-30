@@ -109,3 +109,15 @@ Set-Location backend
 ~~~
 
 Open the frontend URL printed by Vite. Check API availability at http://127.0.0.1:8000/health, then sign in or create the first administrator. See [database setup](docs/database-setup.md) before upgrading an existing deployment.
+
+## F018 — Network routing for AI connections
+
+The admin manages Direct or SOCKS5 (no credentials) routes independently for
+chat and embedding via System settings > AI connections. Both network routes
+are stored in PostgreSQL and affect new backend/worker operations without
+restarting. Direct does not bypass OS VPN/TUN routing.
+
+After migration 0014, existing settings are pending until an operator performs
+the two-connection CLI cutover from the original deployment environment; do
+not run mixed old/new processes. Runtime ignores LLM_PROXY_URL and
+EMBEDDING_PROXY_URL. See [the cutover guide](docs/database-setup.md#f018-ai-network-cutover).

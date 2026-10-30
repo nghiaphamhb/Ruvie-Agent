@@ -5,6 +5,8 @@ from sqlalchemy import select, update
 from sqlalchemy.exc import SQLAlchemyError
 from ruvie.adapters.embedding import OpenAICompatibleQueryEmbedder
 from ruvie.adapters.llm import normalize_llm_url
+from ruvie.adapters.network import effective_proxy, NetworkConfigurationPendingError
+from ruvie.contracts.network import NetworkConfig
 from ruvie.config import EmbeddingProfile, EmbeddingProviderSettings
 from ruvie.contracts.embedding import (
     EmbeddingConnectionDraft, EmbeddingConnectionRequest, EmbeddingConnectionResponse,
@@ -34,6 +36,8 @@ class EmbeddingSnapshot:
     dimension: int | None
     distance_metric: str | None
     updated_at: object
+    network_mode: str | None
+    proxy_url: str | None
 
 
 class EmbeddingConnectionService:
@@ -46,8 +50,11 @@ class EmbeddingConnectionService:
             OrganizationEmbeddingSettings.id == 1).execution_options(populate_existing=True))
         if row is None:
             raise EmbeddingUnavailableError()
+        if row.network_mode is None:
+            raise NetworkConfigurationPendingError()
         return EmbeddingSnapshot(row.version, row.base_url, row.api_key_ciphertext,
-                                 row.model_id, row.dimension, row.distance_metric, row.updated_at)
+                                 row.model_id, row.dimension, row.distance_metric, row.updated_at,
+                                 row.network_mode, row.proxy_url)
 
     def _secrets(self):
         return LlmSecretStore(self.settings.llm_settings_encryption_key)
@@ -56,6 +63,7 @@ class EmbeddingConnectionService:
     def _metadata(snapshot):
         return EmbeddingConnectionResponse(configured=snapshot.version > 0,
             base_url=snapshot.base_url, has_api_key=snapshot.ciphertext is not None,
+            network=NetworkConfig(mode=snapshot.network_mode, proxy_url=snapshot.proxy_url),
             model_id=snapshot.model_id, dimension=snapshot.dimension,
             distance_metric=snapshot.distance_metric, version=snapshot.version, updated_at=snapshot.updated_at)
 
@@ -64,10 +72,10 @@ class EmbeddingConnectionService:
         AdminAccountService(self.session).require_admin(actor_id)
         return self._metadata(self._snapshot())
 
-    def _adapter(self, provider):
+    def _adapter(self, provider, network: NetworkConfig):
         return OpenAICompatibleQueryEmbedder(provider, EmbeddingProfile('baai/bge-m3',1024,'cosine'),
             allowed_local_origins=self.settings.llm_allowed_local_origins,
-            proxy_url=self.settings.embedding_proxy_url)
+            proxy_url=effective_proxy(network.mode, network.proxy_url))
 
     def _draft_provider(self, actor_id, body):
         AdminAccountService(self.session).require_admin(actor_id)
@@ -84,7 +92,7 @@ class EmbeddingConnectionService:
         else:
             key = ''
         self.session.rollback()
-        return snapshot, EmbeddingProviderSettings(url, api_key=key)
+        return snapshot, EmbeddingProviderSettings(url, api_key=key), body.network
 
     def _recheck(self, actor_id, version):
         AdminAccountService(self.session).require_admin(actor_id)
@@ -94,17 +102,19 @@ class EmbeddingConnectionService:
     def catalog(self, actor_id, command):
         """GET the draft provider's embedding catalog without persisting any draft values."""
         body = EmbeddingConnectionDraft.model_validate(command.model_dump(exclude_unset=True))
-        snapshot, provider = self._draft_provider(actor_id, body)
-        models = self._adapter(provider).list_models()
+        snapshot, provider, network = self._draft_provider(actor_id, body)
+        models = self._adapter(provider, network).list_models()
         self._recheck(actor_id, snapshot.version)
         return EmbeddingCatalogResponse(models=models, version=snapshot.version)
 
-    def _probe(self, provider, model_id):
+    def _probe(self, provider, model_id, network: NetworkConfig):
         if model_id != 'baai/bge-m3':
             raise ValueError('embedding_model_unsupported')
+        # Validate the route before entering the vector-specific error handler.
+        adapter = self._adapter(provider, network)
         # Probe uses fixed text, never a document or employee message.
         try:
-            vector = self._adapter(provider).embed_query('Ruvie embedding connection test')
+            vector = adapter.embed_query('Ruvie embedding connection test')
         except ValueError:
             raise ValueError('embedding_dimension_unsupported') from None
         if len(vector) != 1024 or any(isinstance(value,bool) or not isinstance(value,(int,float)) or not math.isfinite(value) for value in vector):
@@ -113,8 +123,8 @@ class EmbeddingConnectionService:
     def verify_organization(self, actor_id, command):
         """Probe a draft and recheck authority/version; verification never saves it."""
         body = EmbeddingConnectionRequest.model_validate(command.model_dump(exclude_unset=True))
-        snapshot, provider = self._draft_provider(actor_id, body)
-        self._probe(provider, body.model_id)
+        snapshot, provider, network = self._draft_provider(actor_id, body)
+        self._probe(provider, body.model_id, network)
         self._recheck(actor_id,snapshot.version)
         return EmbeddingVerificationResponse(model_id=body.model_id, dimension=1024,
             distance_metric='cosine', compatible=True, version=snapshot.version)
@@ -122,8 +132,8 @@ class EmbeddingConnectionService:
     def apply_organization(self, actor_id, command):
         """Probe again, then CAS configuration and audit under one transaction."""
         body = EmbeddingConnectionRequest.model_validate(command.model_dump(exclude_unset=True))
-        snapshot, provider = self._draft_provider(actor_id, body)
-        self._probe(provider, body.model_id)
+        snapshot, provider, network = self._draft_provider(actor_id, body)
+        self._probe(provider, body.model_id, network)
         ciphertext = self._secrets().encrypt(provider.api_key)
         try:
             AdminAccountService(self.session).require_admin(actor_id, lock=True)
@@ -132,12 +142,13 @@ class EmbeddingConnectionService:
                 OrganizationEmbeddingSettings.version == snapshot.version,
             ).values(version=snapshot.version+1, base_url=provider.base_url,
                 api_key_ciphertext=ciphertext, model_id=body.model_id, dimension=1024,
-                distance_metric='cosine',updated_by=actor_id))
+                distance_metric='cosine',network_mode=network.mode, proxy_url=network.proxy_url,
+                updated_by=actor_id))
             if changed.rowcount != 1:
                 raise LlmConfigurationConflict()
             AuditEventWriter.append(self.session, actor_id, action='embedding.organization_settings.update',
                 resource_type='organization_embedding',resource_id='1',outcome='allow',
-                reason=f'version:{snapshot.version}->{snapshot.version+1};profile:baai/bge-m3/1024/cosine;key:{body.key_action}')
+                reason=f'version:{snapshot.version}->{snapshot.version+1};profile:baai/bge-m3/1024/cosine;key:{body.key_action};network:{network.mode}')
             result = self._metadata(self._snapshot())
             self.session.commit()
             return result
@@ -155,4 +166,4 @@ class EmbeddingConnectionService:
             raise EmbeddingUnavailableError('embedding_not_configured')
         provider = EmbeddingProviderSettings(snapshot.base_url, api_key=self._secrets().decrypt(snapshot.ciphertext))
         self.session.rollback()
-        return self._adapter(provider)
+        return self._adapter(provider, NetworkConfig(mode=snapshot.network_mode, proxy_url=snapshot.proxy_url))

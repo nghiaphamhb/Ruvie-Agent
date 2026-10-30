@@ -4,6 +4,8 @@ from sqlalchemy import select, update
 from sqlalchemy.exc import SQLAlchemyError
 from sqlalchemy.orm import Session
 from ruvie.adapters.llm import OpenAICompatibleLlmAdapter, normalize_llm_url
+from ruvie.adapters.network import effective_proxy, NetworkConfigurationPendingError
+from ruvie.contracts.network import NetworkConfig
 from ruvie.config import LlmProviderSettings, Settings
 from ruvie.contracts.llm import (
     ConnectionResponse, ModelsResponse, OrganizationConnectionDraft,
@@ -39,6 +41,8 @@ class OrganizationSnapshot:
     allowed_ids: tuple[str, ...]
     default_id: str | None
     updated_at: object
+    network_mode: str | None
+    proxy_url: str | None
 
 
 class LlmConnectionService:
@@ -51,13 +55,16 @@ class LlmConnectionService:
             OrganizationLlmSettings.id == 1).execution_options(populate_existing=True))
         if row is None:
             raise LlmStorageError()
+        if row.network_mode is None:
+            raise NetworkConfigurationPendingError()
         return OrganizationSnapshot(row.version, row.base_url, row.api_key_ciphertext,
-                                    tuple(row.allowed_model_ids), row.default_model_id, row.updated_at)
+                                    tuple(row.allowed_model_ids), row.default_model_id, row.updated_at,
+                                    row.network_mode, row.proxy_url)
 
     def _secrets(self):
         return LlmSecretStore(getattr(self.settings, 'llm_settings_encryption_key', None))
 
-    def _adapter(self, provider: LlmProviderSettings | None):
+    def _adapter(self, provider: LlmProviderSettings | None, network: NetworkConfig):
         """Retain the existing server-owned DNS, TLS, origin and proxy guard."""
         if provider is None:
             raise LlmNotConfiguredError()
@@ -65,14 +72,16 @@ class LlmConnectionService:
         return OpenAICompatibleLlmAdapter(
             LlmProviderSettings(base_url, provider.model, provider.api_key),
             allowed_local_origins=self.settings.llm_allowed_local_origins,
-            proxy_url=getattr(self.settings, 'llm_proxy_url', None),
+            proxy_url=effective_proxy(network.mode, network.proxy_url),
         )
 
     @staticmethod
     def _metadata(snapshot):
         return OrganizationConnectionResponse(
             configured=snapshot.version > 0, base_url=snapshot.base_url,
-            has_api_key=snapshot.ciphertext is not None, allowed_model_ids=list(snapshot.allowed_ids),
+            has_api_key=snapshot.ciphertext is not None,
+            network=NetworkConfig(mode=snapshot.network_mode, proxy_url=snapshot.proxy_url),
+            allowed_model_ids=list(snapshot.allowed_ids),
             default_model_id=snapshot.default_id, version=snapshot.version, updated_at=snapshot.updated_at)
 
     def get_organization(self, actor_id: str):
@@ -96,13 +105,13 @@ class LlmConnectionService:
             key = ''
         # No row locks or idle read transactions remain open over network I/O.
         self.session.rollback()
-        return snapshot, LlmProviderSettings(url, api_key=key)
+        return snapshot, LlmProviderSettings(url, api_key=key), body.network
 
     def verify_organization(self, actor_id: str, command: OrganizationConnectionDraft):
         """Probe one draft without changing persistence; recheck authority/version afterwards."""
         body = OrganizationConnectionDraft.model_validate(command.model_dump(exclude_unset=True))
-        snapshot, provider = self._draft_provider(actor_id, body)
-        catalog = self._adapter(provider).list_models()
+        snapshot, provider, network = self._draft_provider(actor_id, body)
+        catalog = self._adapter(provider, network).list_models()
         AdminAccountService(self.session).require_admin(actor_id)
         if self._snapshot().version != snapshot.version:
             raise LlmConfigurationConflict()
@@ -113,8 +122,8 @@ class LlmConnectionService:
         from ruvie.contracts.llm import OrganizationModelProbeRequest
         from ruvie.adapters.llm import LlmProviderError
         body = OrganizationModelProbeRequest.model_validate(command.model_dump(exclude_unset=True))
-        snapshot, provider = self._draft_provider(actor_id, body)
-        adapter = self._adapter(LlmProviderSettings(provider.base_url, body.model_id, provider.api_key))
+        snapshot, provider, network = self._draft_provider(actor_id, body)
+        adapter = self._adapter(LlmProviderSettings(provider.base_url, body.model_id, provider.api_key), network)
         found = False
         stream = adapter.stream([{'role':'user','content':'Reply with OK.'}])
         try:
@@ -135,8 +144,8 @@ class LlmConnectionService:
     def apply_organization(self, actor_id: str, command: OrganizationConnectionUpdateRequest):
         """Probe then compare-and-swap the entire policy and its audit in one transaction."""
         body = OrganizationConnectionUpdateRequest.model_validate(command.model_dump(exclude_unset=True))
-        snapshot, provider = self._draft_provider(actor_id, body)
-        catalog = self._adapter(provider).list_models()
+        snapshot, provider, network = self._draft_provider(actor_id, body)
+        catalog = self._adapter(provider, network).list_models()
         if not set(body.allowed_model_ids).issubset({item['id'] for item in catalog}):
             raise ValueError('invalid_llm_request')
         ciphertext = self._secrets().encrypt(provider.api_key)
@@ -148,12 +157,13 @@ class LlmConnectionService:
                 OrganizationLlmSettings.version == snapshot.version,
             ).values(version=snapshot.version + 1, base_url=provider.base_url,
                      api_key_ciphertext=ciphertext, allowed_model_ids=body.allowed_model_ids,
+                     network_mode=network.mode, proxy_url=network.proxy_url,
                      default_model_id=body.default_model_id, updated_by=actor_id))
             if changed.rowcount != 1:
                 raise LlmConfigurationConflict()
             AuditEventWriter.append(self.session, actor_id, action='llm.organization_settings.update',
                                     resource_type='organization_llm', resource_id='1', outcome='allow',
-                                    reason=f'version:{snapshot.version}->{snapshot.version + 1};models:{len(body.allowed_model_ids)};key:{body.key_action}')
+                                    reason=f'version:{snapshot.version}->{snapshot.version + 1};models:{len(body.allowed_model_ids)};key:{body.key_action};network:{network.mode}')
             result = self._metadata(self._snapshot())
             self.session.commit()
             return result
@@ -173,7 +183,7 @@ class LlmConnectionService:
         preference = record.selected_model_id if record else None
         provider = LlmProviderSettings(snapshot.base_url, api_key=self._secrets().decrypt(snapshot.ciphertext))
         self.session.rollback()
-        adapter = self._adapter(provider)
+        adapter = self._adapter(provider, NetworkConfig(mode=snapshot.network_mode, proxy_url=snapshot.proxy_url))
         catalog = [item for item in adapter.list_models() if item['id'] in snapshot.allowed_ids]
         return snapshot, preference, adapter, catalog
 
@@ -203,7 +213,11 @@ class LlmConnectionService:
         selected = model_id if model_id is not None else self._selection(preference, snapshot, catalog)
         if selected not in {item['id'] for item in catalog}:
             raise ValueError('model_not_allowed' if model_id is not None else 'model_selection_required')
-        return self._adapter(LlmProviderSettings(adapter.provider.base_url, selected, adapter.provider.api_key))
+        return OpenAICompatibleLlmAdapter(
+            LlmProviderSettings(adapter.provider.base_url, selected, adapter.provider.api_key),
+            allowed_local_origins=self.settings.llm_allowed_local_origins,
+            proxy_url=adapter.proxy_url,
+        )
 
     def select_model(self, user_id: str, model_id: str):
         """Persist only the actor's preference after the same fresh policy check used by chat."""

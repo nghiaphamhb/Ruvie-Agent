@@ -288,6 +288,36 @@
               {$i18n.t('llm.org.savedKey')}
             </p>{/if}
         </div>
+        <div class="network-settings" role="group" aria-labelledby={id('llm-network-title')}>
+          <h4 id={id('llm-network-title')}>{$i18n.t('ai.network.title')}</h4>
+          <label for={id('llm-network-mode')}>
+            {$i18n.t('ai.network.method')}
+            <select id={id('llm-network-mode')} bind:value={owner.networkMode}>
+              <option value="direct">{$i18n.t('ai.network.direct')}</option>
+              <option value="proxy">{$i18n.t('ai.network.proxy')}</option>
+            </select>
+          </label>
+          {#if owner.networkMode === 'proxy'}
+            <label for={id('llm-network-proxy')}>
+              {$i18n.t('ai.network.endpoint')}
+              <input
+                id={id('llm-network-proxy')}
+                type="text"
+                placeholder="socks5://127.0.0.1:12334"
+                maxlength="2048"
+                required
+                autocomplete="off"
+                aria-describedby={id('llm-network-help')}
+                aria-invalid={owner.errorCode === 'invalid_network_configuration'}
+                bind:value={owner.proxyUrl}
+              />
+            </label>
+            <p id={id('llm-network-help')} class="help">{$i18n.t('ai.network.help')}</p>
+            {#if owner.errorCode === 'invalid_network_configuration'}
+              <p class="error" role="alert">{$i18n.t('ai.network.invalid')}</p>
+            {/if}
+          {/if}
+        </div>
         <div class="connection-actions">
           <p class:verified={owner.verified} role="status">
             {#if owner.busy}{$i18n.t('llm.processing')}{:else if owner.verified}<span
@@ -313,7 +343,8 @@
             aria-describedby={id('llm-verify-help')}
             onclick={() => notifyOperation('verify')}
             disabled={!owner.baseUrl.trim() ||
-              (owner.keyAction === 'replace' && !owner.apiKey.trim())}
+              (owner.keyAction === 'replace' && !owner.apiKey.trim()) ||
+              (owner.networkMode === 'proxy' && !owner.proxyUrl.trim())}
             >{$i18n.t('llm.org.verify')}</button
           >
         </div>
@@ -462,6 +493,13 @@
   :global(.reload-configuration-dialog .discard-reload:hover) {
     background: color-mix(in srgb, var(--error-bg) 72%, var(--error) 28%);
   }
+  .network-settings { display: grid; gap: 10px; padding: 12px 0; }
+  .network-settings h4 { margin: 0; font-size: 14px; }
+  .network-settings select { width: 100%; min-height: 44px; padding: 9px 12px;
+    border: 1px solid var(--border); border-radius: var(--radius); background: var(--paper);
+    color: var(--ink); font: inherit; }
+  .network-settings select:focus-visible { outline: 2px solid var(--accent); outline-offset: 2px; }
+  .network-settings select:disabled { opacity: 0.65; }
   .key-field {
     padding: 12px;
     border-radius: var(--radius);

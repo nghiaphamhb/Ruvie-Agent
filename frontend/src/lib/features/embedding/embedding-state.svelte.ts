@@ -24,6 +24,8 @@ export function createEmbeddingState({
   let metadata = $state<EmbeddingMetadata | null>(null),
     baseUrl = $state(''),
     apiKey = $state('');
+  let networkMode = $state<'direct' | 'proxy'>('direct'),
+    proxyUrl = $state('');
   let keyAction = $state<EmbeddingDraft['key_action']>('clear'),
     catalog = $state<EmbeddingModel[]>([]),
     modelId = $state<string | null>(null);
@@ -60,6 +62,7 @@ export function createEmbeddingState({
       base_url: baseUrl.trim().replace(/\/+$/, ''),
       key_action: keyAction,
       expected_version: metadata?.version ?? 0,
+      network: { mode: networkMode, proxy_url: networkMode === 'proxy' ? proxyUrl.trim() : null },
       ...(keyAction === 'replace' ? { api_key: apiKey } : {}),
     };
   }
@@ -93,6 +96,8 @@ export function createEmbeddingState({
       if (!active || disposed || current !== generation) return false;
       metadata = result;
       baseUrl = result.base_url ?? '';
+      networkMode = result.network.mode;
+      proxyUrl = result.network.proxy_url ?? '';
       modelId = result.model_id;
       clearSecret();
       return true;
@@ -104,7 +109,8 @@ export function createEmbeddingState({
     }
   }
   async function operation(kind: 'catalog' | 'probe' | 'apply') {
-    if (!active || disposed || busy || !metadata || !baseUrl.trim()) return false;
+    if (!active || disposed || busy || !metadata || !baseUrl.trim() ||
+        (networkMode === 'proxy' && !proxyUrl.trim())) return false;
     if (kind !== 'catalog' && (!modelId || !catalog.some((m) => m.id === modelId && m.supported)))
       return false;
     if (kind === 'apply' && !verified) return false;
@@ -134,6 +140,8 @@ export function createEmbeddingState({
         if (result.version <= input.expected_version)
           throw new EmbeddingApiError(undefined, 'network', true);
         metadata = result;
+        networkMode = result.network.mode;
+        proxyUrl = result.network.proxy_url ?? '';
         clearSecret();
         verified = false;
         saved = true;
@@ -165,6 +173,8 @@ export function createEmbeddingState({
     invalidate();
     apiKey = '';
     baseUrl = '';
+    networkMode = 'direct';
+    proxyUrl = '';
     metadata = null;
     modelId = null;
     keyAction = 'clear';
@@ -177,7 +187,9 @@ export function createEmbeddingState({
         (baseUrl.trim().replace(/\/+$/, '') !== (metadata.base_url ?? '') ||
           keyAction === 'replace' ||
           (keyAction === 'clear' && metadata.has_api_key) ||
-          modelId !== metadata.model_id)
+          modelId !== metadata.model_id ||
+          networkMode !== metadata.network.mode ||
+          (networkMode === 'proxy' && proxyUrl.trim() !== metadata.network.proxy_url))
       );
     },
     get metadata() {
@@ -210,6 +222,24 @@ export function createEmbeddingState({
         baseUrl = value;
         apiKey = '';
         keyAction = 'clear';
+      }
+    },
+    get networkMode() {
+      return networkMode;
+    },
+    set networkMode(value: 'direct' | 'proxy') {
+      if (value !== networkMode) {
+        invalidate();
+        networkMode = value;
+      }
+    },
+    get proxyUrl() {
+      return proxyUrl;
+    },
+    set proxyUrl(value: string) {
+      if (value !== proxyUrl) {
+        invalidate();
+        proxyUrl = value;
       }
     },
     get apiKey() {
@@ -256,7 +286,8 @@ export function createEmbeddingState({
       ];
     },
     get canApply() {
-      return verified && !busy && catalog.some((m) => m.id === modelId && m.supported);
+      return verified && !busy && (networkMode === 'direct' || !!proxyUrl.trim()) &&
+        catalog.some((m) => m.id === modelId && m.supported);
     },
     get canKeep() {
       return !!metadata?.configured && baseUrl.trim().replace(/\/+$/, '') === metadata.base_url;

@@ -215,6 +215,9 @@ class OpenAICompatibleLlmAdapter:
             return models
         except InvalidLlmUrl:
             raise
+        except httpx.ProxyError:
+            from ruvie.adapters.network import ProxyUnavailableError
+            raise ProxyUnavailableError() from None
         except (httpx.HTTPError, ValueError):
             raise LlmProviderError("LLM provider could not return models") from None
 
@@ -250,5 +253,5 @@ def create_llm_adapter(settings: Settings, client: httpx.Client | None = None) -
     return OpenAICompatibleLlmAdapter(
         settings.llm, client,
         allowed_local_origins=settings.llm_allowed_local_origins,
-        proxy_url=getattr(settings, "llm_proxy_url", None),
+        proxy_url=None,  # Legacy settings never select the runtime route.
     )

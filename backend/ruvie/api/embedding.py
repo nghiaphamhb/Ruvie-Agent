@@ -17,6 +17,7 @@ from ruvie.services.embedding import EmbeddingConnectionService, EmbeddingUnavai
 from ruvie.services.admin import AdminRequired, AuthenticationRequired
 from ruvie.services.llm import LlmConfigurationConflict
 from ruvie.services.llm_secrets import LlmSecretError
+from ruvie.adapters.network import InvalidNetworkConfiguration, ProxyUnavailableError, NetworkConfigurationPendingError
 from ruvie.adapters.llm import InvalidLlmUrl
 
 
@@ -35,14 +36,23 @@ class EmbeddingRoute(APIRoute):
                 response = await handler(request)
                 response.headers['Cache-Control'] = 'no-store'
                 return response
-            except (RequestValidationError, ValidationError):
-                status, code = 422, 'invalid_embedding_request'
+            except (RequestValidationError, ValidationError) as error:
+                status = 422
+                code = 'invalid_network_configuration' if any('network' in str(piece.get('loc', ())) for piece in error.errors()) else 'invalid_embedding_request'
             except AuthenticationRequired:
                 status, code = 401, 'authentication_required'
             except AdminRequired:
                 status, code = 403, 'admin_required'
             except LlmConfigurationConflict:
                 status, code = 409, 'configuration_conflict'
+            except NetworkConfigurationPendingError:
+                status, code = 503, 'network_configuration_pending'
+            except ProxyUnavailableError:
+                status, code = 503, 'proxy_unavailable'
+            except httpx.ProxyError:
+                status, code = 503, 'proxy_unavailable'
+            except InvalidNetworkConfiguration:
+                status, code = 422, 'invalid_network_configuration'
             except EmbeddingUnavailableError as error:
                 code = error.code
             except (LlmSecretError, SQLAlchemyError):

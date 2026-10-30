@@ -130,3 +130,50 @@ Run a compatible prior application version and explicitly configure its connecti
 using that version's instructions before reopening traffic. A subsequent upgrade
 creates an empty singleton again. Do not downgrade a live process that expects
 F017's table.
+
+## F018 AI network cutover
+
+Migration 0014 adds network_mode/proxy_url to both connection singletons.
+Existing rows remain **pending** until operator confirmation, rather than
+silently taking the direct route. Newly inserted rows default direct.
+Alembic does not read the environment. Pending rows are not usable by
+backend, worker or admin API.
+
+1. Schedule maintenance; stop new chat/ingestion traffic, let active work
+   finish, and stop **both** old backend and worker processes. Check that
+   the old embedding proxy settings were consistent between both processes.
+   Back up PostgreSQL and separately preserve credential encryption keys.
+2. Upgrade to Alembic head as documented above. Do not reset the application
+   database or modify already applied migration files.
+3. In the original deployment environment with the old LLM_PROXY_URL and
+   EMBEDDING_PROXY_URL still present, dry-run the operator CLI:
+
+   ```powershell
+   $env:PYTHONPATH = 'backend'
+   .\.venv\Scripts\python.exe -B -m ruvie.network_settings_cli
+   ```
+
+   Output includes connection mode, expected version and pending status,
+   but never a credential or internal proxy endpoint.
+4. Confirm both versions and an active administrator identity. Example (replace
+   both example versions and ID with those from the dry run):
+
+   ```powershell
+   .\.venv\Scripts\python.exe -B -m ruvie.network_settings_cli --confirm --actor-id "<admin-id>" --llm-version 2 --embedding-version 1
+   ```
+
+   Conversion checks authorization/versions and atomically updates both
+   network routes with audit entries; any failure rolls back both. Configured
+   rows increase version; version-0 rows remain unconfigured. Re-running
+   after success never overwrites later admin edits.
+5. Start the new backend and worker only after both rows are converted.
+   Verify both forms and a disposable embedding job **from the worker**
+   before reopening traffic. A backend-only verify does not establish that
+   the worker can reach the proxy.
+6. Remove both legacy proxy variables from deployment configuration.
+   New operations use DB snapshots without process restart; in-flight
+   operations keep their pinned route. Proxy failure never falls back to direct.
+
+Direct means no app-selected proxy, not bypassing host VPN/TUN. Rollback requires
+explicit old-version configuration and a recoverable DB backup; downgrading
+does not recreate old proxy environment values.
