@@ -44,7 +44,7 @@ class EmbeddingPostgresTests(unittest.TestCase):
             with self.factory() as db:
                 try:
                     return EmbeddingConnectionService(db,self.fixture.settings).apply_organization(actor,
-                        EmbeddingConnectionRequest(base_url=self.fixture.settings.embedding_provider.base_url,
+                        EmbeddingConnectionRequest(network={'mode':'direct','proxy_url':None}, base_url=self.fixture.settings.embedding_provider.base_url,
                             key_action='clear',expected_version=1,model_id='baai/bge-m3')).version
                 except LlmConfigurationConflict:
                     return 'conflict'
@@ -105,7 +105,7 @@ engine.dispose()
             self.assertEqual(process.stdout.readline().strip(),'True')
             with self.factory() as db:
                 EmbeddingConnectionService(db,self.fixture.settings).apply_organization('alpha',
-                    EmbeddingConnectionRequest(base_url=self.fixture.settings.embedding_provider.base_url,
+                    EmbeddingConnectionRequest(network={'mode':'direct','proxy_url':None}, base_url=self.fixture.settings.embedding_provider.base_url,
                         key_action='clear',expected_version=1,model_id='baai/bge-m3'))
             process.stdin.write('continue\n');process.stdin.flush()
             output,error=process.communicate(timeout=15)

@@ -108,7 +108,7 @@ class OrganizationPostgresTests(unittest.TestCase):
             with self.factory() as db:
                 try:
                     return LlmConnectionService(db,self.fixture.settings).apply_organization(actor,
-                        OrganizationConnectionUpdateRequest(base_url='https://provider.test/v1',
+                        OrganizationConnectionUpdateRequest(network={'mode':'direct','proxy_url':None}, base_url='https://provider.test/v1',
                             key_action='clear',expected_version=version,allowed_model_ids=['a'],default_model_id='a')).version
                 except LlmConfigurationConflict:
                     return 'conflict'
@@ -138,7 +138,7 @@ class OrganizationPostgresTests(unittest.TestCase):
         with self.factory() as db, patch('ruvie.adapters.llm.OpenAICompatibleLlmAdapter.list_models',revoke):
             with self.assertRaises(AdminRequired):
                 LlmConnectionService(db,self.fixture.settings).apply_organization('alpha',
-                    OrganizationConnectionUpdateRequest(base_url='https://provider.test/v1',key_action='clear',
+                    OrganizationConnectionUpdateRequest(network={'mode':'direct','proxy_url':None}, base_url='https://provider.test/v1',key_action='clear',
                         expected_version=version,allowed_model_ids=['a'],default_model_id='a'))
         with self.factory() as db:
             self.assertEqual(db.get(models.OrganizationLlmSettings,1).version,version)

@@ -80,24 +80,28 @@
     }
   }
   /** Only explicit clicks notify; initial load and superseded requests remain quiet. */
-  async function notifyOperation(operation: 'verify' | 'reload' | 'probe') {
+  async function notifyOperation(operation: 'verify' | 'reload' | 'probe' | 'apply') {
     if (disabled || owner.busy) return;
     const generation = ++operationGeneration;
-    const success = await (operation === 'verify'
-      ? owner.verify()
-      : operation === 'probe'
-        ? owner.probe()
-        : owner.open());
+    const success = await (operation === 'apply'
+      ? owner.apply()
+      : operation === 'verify'
+        ? owner.verify()
+        : operation === 'probe'
+          ? owner.probe()
+          : owner.open());
     if (!active || !visible || generation !== operationGeneration) return;
     const translations = get(i18n);
     if (success)
       toast.success(
         translations.t(
-          operation === 'probe'
-            ? 'ai.probeSuccess'
-            : operation === 'verify'
-              ? 'ai.catalogSuccess'
-              : 'llm.org.reloaded',
+          operation === 'apply'
+            ? 'llm.org.saved'
+            : operation === 'probe'
+              ? 'ai.probeSuccess'
+              : operation === 'verify'
+                ? 'ai.catalogSuccess'
+                : 'llm.org.reloaded',
         ),
         { id: id('llm-operation') },
       );
@@ -168,7 +172,7 @@
   <form
     onsubmit={(event) => {
       event.preventDefault();
-      void owner.apply();
+      void notifyOperation('apply');
     }}
   >
     <fieldset disabled={disabled || owner.busy}>
@@ -288,14 +292,25 @@
               {$i18n.t('llm.org.savedKey')}
             </p>{/if}
         </div>
-        <div class="network-settings" role="group" aria-labelledby={id('llm-network-title')}>
-          <h4 id={id('llm-network-title')}>{$i18n.t('ai.network.title')}</h4>
-          <label for={id('llm-network-mode')}>
-            {$i18n.t('ai.network.method')}
+        <div class="network-settings">
+          <label class="network-mode" for={id('llm-network-mode')}>
+            {$i18n.t('ai.network.title')}
             <select id={id('llm-network-mode')} bind:value={owner.networkMode}>
               <option value="direct">{$i18n.t('ai.network.direct')}</option>
               <option value="proxy">{$i18n.t('ai.network.proxy')}</option>
             </select>
+            <svg
+              class="network-chevron"
+              aria-hidden="true"
+              width="16"
+              height="16"
+              viewBox="0 0 16 16"
+              fill="none"
+              stroke="currentColor"
+              stroke-width="1.5"
+              stroke-linecap="round"
+              stroke-linejoin="round"><path d="m4 6 4 4 4-4" /></svg
+            >
           </label>
           {#if owner.networkMode === 'proxy'}
             <label for={id('llm-network-proxy')}>
@@ -307,14 +322,18 @@
                 maxlength="2048"
                 required
                 autocomplete="off"
-                aria-describedby={id('llm-network-help')}
+                aria-describedby={owner.errorCode === 'invalid_network_configuration'
+                  ? `${id('llm-network-help')} ${id('llm-network-error')}`
+                  : id('llm-network-help')}
                 aria-invalid={owner.errorCode === 'invalid_network_configuration'}
                 bind:value={owner.proxyUrl}
               />
             </label>
             <p id={id('llm-network-help')} class="help">{$i18n.t('ai.network.help')}</p>
             {#if owner.errorCode === 'invalid_network_configuration'}
-              <p class="error" role="alert">{$i18n.t('ai.network.invalid')}</p>
+              <p id={id('llm-network-error')} class="error" role="alert">
+                {$i18n.t('ai.network.invalid')}
+              </p>
             {/if}
           {/if}
         </div>
@@ -493,13 +512,42 @@
   :global(.reload-configuration-dialog .discard-reload:hover) {
     background: color-mix(in srgb, var(--error-bg) 72%, var(--error) 28%);
   }
-  .network-settings { display: grid; gap: 10px; padding: 12px 0; }
-  .network-settings h4 { margin: 0; font-size: 14px; }
-  .network-settings select { width: 100%; min-height: 44px; padding: 9px 12px;
-    border: 1px solid var(--border); border-radius: var(--radius); background: var(--paper);
-    color: var(--ink); font: inherit; }
-  .network-settings select:focus-visible { outline: 2px solid var(--accent); outline-offset: 2px; }
-  .network-settings select:disabled { opacity: 0.65; }
+  .network-settings {
+    display: grid;
+    gap: 10px;
+    padding: 12px 0;
+  }
+  .network-mode {
+    position: relative;
+    width: fit-content;
+    max-width: 100%;
+  }
+  .network-settings select {
+    width: auto;
+    max-width: 100%;
+    min-width: 130px;
+    min-height: 44px;
+    padding: 8px 40px 8px 12px;
+    border: 1px solid var(--border);
+    border-radius: 7px;
+    appearance: none;
+    background: var(--surface);
+    color: var(--ink);
+    font: inherit;
+  }
+  .network-chevron {
+    position: absolute;
+    right: 12px;
+    bottom: 14px;
+    pointer-events: none;
+  }
+  .network-settings select:focus-visible {
+    outline: 2px solid var(--accent);
+    outline-offset: 2px;
+  }
+  .network-settings select:disabled {
+    opacity: 0.65;
+  }
   .key-field {
     padding: 12px;
     border-radius: var(--radius);
@@ -851,24 +899,6 @@
     color: var(--muted);
     opacity: 1;
   }
-  @media (max-width: 520px) {
-    .llm-panel {
-      width: calc(100% - 16px);
-      padding: 16px;
-    }
-    .form-header h2 {
-      font-size: 20px;
-    }
-    .connection-actions,
-    .form-footer {
-      align-items: stretch;
-      flex-direction: column;
-    }
-    .key-trigger {
-      min-width: 0;
-    }
-  }
-
   .llm-panel.organization-connection {
     border: 0;
     border-radius: 0;

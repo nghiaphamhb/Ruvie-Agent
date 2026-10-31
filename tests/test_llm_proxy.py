@@ -15,7 +15,7 @@ from ruvie.adapters.llm import InvalidLlmUrl, LlmProviderError, OpenAICompatible
 from ruvie.config import LlmProviderSettings, load_settings
 from ruvie.services.llm import LlmConnectionService
 from ruvie.contracts.network import NetworkConfig
-from ruvie.adapters.network import normalize_proxy_url, InvalidNetworkConfiguration
+from ruvie.adapters.network import normalize_proxy_url, InvalidNetworkConfiguration, ProxyUnavailableError
 
 PROXY = "socks5://127.0.0.1:12334"
 PUBLIC_IP = "93.184.216.34"
@@ -107,7 +107,7 @@ class LlmProxyTests(unittest.TestCase):
     def test_failed_proxy_does_not_fall_back_to_direct_or_leak_details(self):
         adapter = OpenAICompatibleLlmAdapter(LlmProviderSettings("https://llm.test/v1"), proxy_url=PROXY)
         with patch("socket.getaddrinfo", return_value=resolved(PUBLIC_IP)), patch.object(httpcore.SyncBackend, "connect_tcp", side_effect=httpcore.ConnectError("proxy-secret")) as connect:
-            with self.assertRaises(LlmProviderError) as raised:
+            with self.assertRaises(ProxyUnavailableError) as raised:
                 adapter.list_models()
         self.assertNotIn("proxy-secret", str(raised.exception))
         self.assertEqual(connect.call_count, 1)
@@ -116,7 +116,7 @@ class LlmProxyTests(unittest.TestCase):
     def test_factory_propagates_proxy_and_local_permissions(self):
         settings = SimpleNamespace(llm=LlmProviderSettings("https://llm.test/v1"), llm_allowed_local_origins=("http://localhost:11434",), llm_proxy_url=PROXY)
         adapter = create_llm_adapter(settings)
-        self.assertEqual(getattr(adapter, "proxy_url", None), PROXY)
+        self.assertIsNone(adapter.proxy_url)  # Legacy settings never select a runtime route.
         self.assertEqual(adapter.allowed_local_origins, settings.llm_allowed_local_origins)
 
 

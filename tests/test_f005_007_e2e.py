@@ -280,7 +280,7 @@ class F005007EndToEndTests(unittest.TestCase):
         alpha = {"Origin":ORIGIN,"X-CSRF-Token":alpha_csrf,"Cookie":"ruvie_session="+alpha_token}
         beta_csrf, beta_token = self._login("beta@example.test")
         beta = {"Origin":ORIGIN,"X-CSRF-Token":beta_csrf,"Cookie":"ruvie_session="+beta_token}
-        body = dict(base_url=self.settings.llm.base_url,key_action="replace",api_key="organization-key",
+        body = dict(network={'mode':'direct','proxy_url':None}, base_url=self.settings.llm.base_url,key_action="replace",api_key="organization-key",
                     expected_version=1,allowed_model_ids=["a","b"],default_model_id="a")
         self.assertEqual(self.client.put("/admin/llm/connection",headers=beta,json=body).status_code,403)
         applied=self.client.put("/admin/llm/connection",headers=alpha,json=body)

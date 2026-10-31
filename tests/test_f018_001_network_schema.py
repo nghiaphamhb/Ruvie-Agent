@@ -1,6 +1,6 @@
 """Network draft schema and singleton DB constraints."""
 import unittest
-from sqlalchemy import create_engine, update
+from sqlalchemy import create_engine, update, text
 from sqlalchemy.exc import IntegrityError
 from sqlalchemy.orm import Session
 from ruvie.models import Base, OrganizationLlmSettings, OrganizationEmbeddingSettings
@@ -45,3 +45,13 @@ class NetworkSchemaTests(unittest.TestCase):
                 session.commit()
                 session.expire_all()
                 self.assertIsNone(session.get(model,1).network_mode)
+
+    def test_pending_cannot_retain_a_proxy_endpoint(self):
+        engine = create_engine('sqlite://')
+        self.addCleanup(engine.dispose)
+        Base.metadata.create_all(engine)
+        for table in ('organization_llm_settings', 'organization_embedding_settings'):
+            with self.subTest(table=table), engine.begin() as db:
+                with self.assertRaises(IntegrityError):
+                    db.execute(text(f"INSERT INTO {table} (id, network_mode, proxy_url) "
+                                    "VALUES (1, NULL, 'socks5://127.0.0.1:1080')"))

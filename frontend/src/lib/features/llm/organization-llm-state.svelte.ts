@@ -113,8 +113,15 @@ export function createOrganizationLlmState({
     }
   }
   async function verify() {
-    if (!active || disposed || busy || !metadata || !baseUrl.trim() ||
-        (networkMode === 'proxy' && !proxyUrl.trim())) return false;
+    if (
+      !active ||
+      disposed ||
+      busy ||
+      !metadata ||
+      !baseUrl.trim() ||
+      (networkMode === 'proxy' && !proxyUrl.trim())
+    )
+      return false;
     const input = draft(),
       current = ++generation;
     busy = true;

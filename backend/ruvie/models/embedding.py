@@ -11,7 +11,7 @@ class OrganizationEmbeddingSettings(Base):
     __table_args__ = (
         CheckConstraint('id = 1', name='ck_org_embedding_singleton'),
         CheckConstraint('version >= 0', name='ck_org_embedding_version'),
-        CheckConstraint("(network_mode IS NULL AND proxy_url IS NULL) OR (network_mode = 'direct' AND proxy_url IS NULL) OR (network_mode = 'proxy' AND proxy_url IS NOT NULL AND length(trim(proxy_url)) > 0)", name='ck_org_embedding_network'),
+        CheckConstraint("((network_mode IS NULL AND proxy_url IS NULL) OR (network_mode = 'direct' AND proxy_url IS NULL) OR (network_mode = 'proxy' AND proxy_url IS NOT NULL AND length(trim(proxy_url)) > 0)) IS TRUE", name='ck_org_embedding_network'),
         CheckConstraint("(version = 0 AND base_url IS NULL AND api_key_ciphertext IS NULL AND model_id IS NULL AND dimension IS NULL AND distance_metric IS NULL) OR (version > 0 AND base_url IS NOT NULL AND model_id IS NOT NULL AND model_id = 'baai/bge-m3' AND dimension IS NOT NULL AND dimension = 1024 AND distance_metric IS NOT NULL AND distance_metric = 'cosine')", name='ck_org_embedding_state'),
     )
     id: Mapped[int] = mapped_column(Integer, primary_key=True)

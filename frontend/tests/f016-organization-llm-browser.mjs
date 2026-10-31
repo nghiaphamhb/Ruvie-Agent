@@ -44,6 +44,7 @@ try {
     configured: false,
     base_url: null,
     has_api_key: false,
+    network: { mode: 'direct', proxy_url: null },
     allowed_model_ids: [],
     default_model_id: null,
     version: 0,
@@ -113,6 +114,7 @@ try {
         base_url: body.base_url,
         has_api_key:
           body.key_action === 'replace' || (body.key_action === 'keep' && org.has_api_key),
+        network: body.network,
         allowed_model_ids: body.allowed_model_ids,
         default_model_id: body.default_model_id,
         version: org.version + 1,

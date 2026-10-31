@@ -1,0 +1,1 @@
+F020 — Context hội thoại nhiều lượt: Giúp Ruvie hiểu câu hỏi nối tiếp dựa trên các lượt trao đổi trước, truy xuất tài liệu phù hợp và duy trì ngữ cảnh khi tiếp tục chat; quản lý giới hạn context, tóm tắt hội thoại dài và kiểm tra lại quyền đọc tài liệu trước khi dùng làm context.

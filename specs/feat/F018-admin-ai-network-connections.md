@@ -441,3 +441,55 @@ head và quy tắc duyệt file. Không đánh dấu task hoàn thành chỉ vì
   backend/worker. Cần bảo trì theo docs/database-setup.md khi phát hành.
 - Chú ý: bộ test F018 cần được chạy trong checkout có đầy đủ dependencies và
   PostgreSQL dùng một lần; chỉ sau khi kiểm chứng mới cập nhật trạng thái đạt.
+
+## Sửa lỗi sau review — 2026-10-31
+
+Phạm vi được duyệt: năm nhóm lỗi trong review F018; không triển khai lên DB ứng dụng.
+
+- `backend/migrations/env.py` ghi nhận revision khởi đầu. Migration mới
+  `0015_ai_network_constraints.py` chỉ khởi tạo direct khi chuỗi nâng cấp bắt đầu
+  từ DB chưa có revision. Deployment cũ version 0 vẫn pending. Giữ nguyên 0012–0014.
+- Hai model `models/llm.py`, `models/embedding.py` và migration 0015 dùng CHECK
+  `IS TRUE`, từ chối cả SQL UNKNOWN cho tổ hợp mode NULL kèm endpoint.
+- `dependencies.py::get_query_embedder` chuyển lỗi pending, endpoint sai và proxy
+  không khả dụng thành 503 `embedding_unavailable`, không lộ thông tin mạng.
+- `adapters/network.py::ProxyNetworkBackend` phân loại lỗi TCP tại kết nối proxy;
+  `ProxyUnavailableError` thuộc nhóm HTTPX để các consumer runtime giữ xử lý lỗi
+  an toàn. `adapters/llm.py::PinnedLlmTransport` dùng backend này cho SOCKS và
+  chuẩn hóa lỗi handshake; lỗi DNS/TLS provider không bị gán nhầm cho proxy.
+  HTTPX chưa cung cấp tham số network backend trên HTTPTransport nên hook nằm
+  tại SOCKS pool nội bộ; test hồi quy bảo vệ hành vi này khi nâng dependency.
+- Frontend production chỉ chuẩn hóa định dạng các file form/API/state F018.
+  Fixture F016/F017 bổ sung network tường minh, giữ contract production bắt buộc.
+  State test chuyển vào `f018-network.test.mjs` để lệnh test mặc định chạy được.
+  `f018-network-browser.mjs` nay chạy Chromium thật cho hai form, keyboard,
+  invalidation, payload direct/proxy, ba locale và hai theme.
+- Tái sử dụng fixture PostgreSQL/provider active trong `test_f005_007_e2e.py`,
+  adapter/transport active và fixture ingestion; không port thêm legacy runtime.
+  Quy tắc default-deny, nội dung revision/chunk, profile và private blob giữ nguyên.
+
+### Kiểm chứng
+
+- Frontend: 122 pass, 0 fail, 0 skip; build, ESLint và Prettier check đạt.
+- Browser standalone: F016 đạt 13 checks; F017 đạt 13 checks; F018 đạt 12 kịch bản
+  (hai form × ba locale × hai theme). Ảnh kiểm tra nằm trong `logs/f018-browser/`.
+- Backend full suite: 399 pass, 0 fail, 0 skip trong 1034.168 giây; browser E2E
+  đã được bật bằng Playwright/Chromium. Log: `logs/f018-backend.txt`.
+- Focused F018 cuối: 20 pass, 0 fail, 0 skip trong 43.219 giây. Có kiểm tra
+  PostgreSQL mới/cũ, CHECK, rollback cutover, SOCKS/provider giả chạy TCP thật,
+  worker đọc tuyến DB và adapter snapshot cũ sau apply. Log: `logs/f018-focused.txt`.
+- Review độc lập không tìm thấy lỗi cần sửa thêm trong diff production.
+  `git diff --check` đạt; migrations 0012–0014 không có diff.
+- Lượt backend trước bị dừng do hết quota; không được tính là pass.
+- Chưa apply migration/cutover trên DB ứng dụng, chưa restart backend/worker vận hành.
+  Checkbox nghiệm thu toàn feature giữ nguyên; báo cáo này chỉ xác nhận phạm vi
+  sửa lỗi và các kiểm tra có kết quả thực tế.
+
+Lệnh kiểm tra theo README/AGENTS: backend `python -B -m unittest discover -v -s tests
+-p 'test_*.py'`; frontend `npm --prefix frontend run build`, `npm --prefix frontend
+test`, `npm --prefix frontend run lint`, `npm --prefix frontend run format:check`.
+Focused: `.venv/Scripts/python.exe -B -m unittest discover -v -s tests -p 'test_f018_*.py'`.
+Browser: `node frontend/tests/f016-organization-llm-browser.mjs`,
+`node frontend/tests/f017-ai-connections-browser.mjs`,
+`node frontend/tests/f018-network-browser.mjs` với Playwright/Chromium được cấu hình.
+Generated build/logs/screenshots không commit.

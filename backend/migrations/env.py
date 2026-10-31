@@ -20,6 +20,7 @@ def run_migrations_offline() -> None:
     )
 
     with context.begin_transaction():
+        config.attributes['fresh_database'] = context.get_starting_revision_argument() in (None, 'base')
         context.run_migrations()
 
 
@@ -33,6 +34,9 @@ def run_migrations_online() -> None:
         context.configure(connection=connection, target_metadata=target_metadata)
 
         with context.begin_transaction():
+            # Capture the starting revision before earlier migrations seed singleton rows.
+            # A version-zero provider in an existing deployment is still a cutover, not a fresh install.
+            config.attributes['fresh_database'] = context.get_context().get_current_revision() is None
             context.run_migrations()
 
 

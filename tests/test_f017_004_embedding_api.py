@@ -40,7 +40,7 @@ class EmbeddingApiTests(unittest.TestCase):
                                        'Cookie':f'ruvie_session={session.token}'}
         self.client = TestClient(app,base_url=ORIGIN)
         self.addCleanup(self.client.close)
-        self.body = dict(base_url='https://provider.test/v1',key_action='replace',api_key='private-key',
+        self.body = dict(network={'mode':'direct','proxy_url':None}, base_url='https://provider.test/v1',key_action='replace',api_key='private-key',
                          expected_version=0,model_id='baai/bge-m3')
 
     def test_admin_boundary_csrf_safe_validation_and_apply(self):

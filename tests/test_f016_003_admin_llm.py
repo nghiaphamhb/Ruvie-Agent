@@ -38,7 +38,7 @@ class OrganizationLlmTests(unittest.TestCase):
         self.addCleanup(self.probe.stop)
 
     def command(self, **changes):
-        values = dict(base_url='https://provider.test/v1', key_action='replace', api_key='test-provider-secret',
+        values = dict(network={'mode':'direct','proxy_url':None}, base_url='https://provider.test/v1', key_action='replace', api_key='test-provider-secret',
                       expected_version=0, allowed_model_ids=['a', 'b'], default_model_id='a')
         values.update(changes)
         if values.get('api_key') is None:
@@ -63,12 +63,12 @@ class OrganizationLlmTests(unittest.TestCase):
             with self.assertRaises(AdminRequired):
                 self.service.apply_organization('user', self.command())
             with self.assertRaises(AdminRequired):
-                self.service.verify_organization('user', self.contracts.OrganizationConnectionDraft(
+                self.service.verify_organization('user', self.contracts.OrganizationConnectionDraft(network={'mode':'direct','proxy_url':None},
                     base_url='https://provider.test/v1', key_action='clear', expected_version=0))
             probe.assert_not_called()
 
     def test_verify_does_not_write_and_apply_rechecks_catalog(self):
-        draft = self.contracts.OrganizationConnectionDraft(base_url='https://provider.test/v1',
+        draft = self.contracts.OrganizationConnectionDraft(network={'mode':'direct','proxy_url':None}, base_url='https://provider.test/v1',
                                                           key_action='clear', expected_version=0)
         self.assertEqual(len(self.service.verify_organization('admin', draft).models), 3)
         self.assertEqual(self.db.get(models.OrganizationLlmSettings, 1).version, 0)

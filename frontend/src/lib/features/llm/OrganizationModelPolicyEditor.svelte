@@ -463,24 +463,6 @@
     border-radius: calc(var(--radius) / 2);
   }
 
-  @media (max-width: 480px) {
-    .model-meta {
-      flex: none;
-      width: 100%;
-    }
-    .model-item {
-      flex-direction: column;
-      align-items: flex-start;
-    }
-
-    .model-controls {
-      width: 100%;
-      justify-content: flex-start;
-      padding-top: 6px;
-      border-top: 1px dashed var(--border);
-    }
-  }
-
   .model-policy-editor {
     border: 0;
     padding: 0;
@@ -560,18 +542,5 @@
     height: 1px;
     overflow: hidden;
     clip-path: inset(50%);
-  }
-  @media (max-width: 480px) {
-    th:not(:first-child) {
-      width: 64px;
-      padding: 8px 2px;
-    }
-    .model-controls {
-      width: auto;
-    }
-    .model-meta {
-      width: auto;
-      padding: 8px;
-    }
   }
 </style>

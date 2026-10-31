@@ -2,8 +2,12 @@ export type NetworkConfig = { mode: 'direct' | 'proxy'; proxy_url: string | null
 export function safeNetwork(value: unknown): value is NetworkConfig {
   if (!value || typeof value !== 'object') return false;
   const network = value as Partial<NetworkConfig>;
-  return (network.mode === 'direct' && network.proxy_url === null) ||
-    (network.mode === 'proxy' && typeof network.proxy_url === 'string' && network.proxy_url.startsWith('socks5://'));
+  return (
+    (network.mode === 'direct' && network.proxy_url === null) ||
+    (network.mode === 'proxy' &&
+      typeof network.proxy_url === 'string' &&
+      network.proxy_url.startsWith('socks5://'))
+  );
 }
 /** Organization-only HTTP client. Response/error projection never preserves secrets. */
 export type OrganizationMetadata = {
