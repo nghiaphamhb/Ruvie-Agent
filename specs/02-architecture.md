@@ -715,12 +715,15 @@ Legacy behavior references: `references/backend/ruvie/routers/retrieval.py`:
 `embeddingModelUpdateHandler`. Only the separate configuration and pending/probe
 workflow ideas are reused; no legacy runtime, key response or global cache is ported.
 
-## F018 — Network routing (implementation prepared; validation pending)
+## F018 — Network routing (review fixes validated locally)
 
 The independent LLM and embedding connections now have admin draft and
 PostgreSQL snapshot network objects. Each organization singleton stores
 network_mode and proxy_url; migration 0014 leaves historical rows pending
 until one operator-confirmed atomic CLI cutover, while new rows default direct.
+Migration 0015 tightens both network-pair constraints with `IS TRUE` and initializes
+direct routes only when the migration chain starts without an Alembic revision.
+Existing version-zero providers remain pending; migrations 0012–0014 are unchanged.
 Admin catalog/probe/apply use the draft; chat, employee catalog, retrieval
 embedding and ingestion resolve operation-scoped DB routes instead of
 LLM_PROXY_URL or EMBEDDING_PROXY_URL. The guarded transport retains provider
@@ -730,6 +733,9 @@ separately with loopback/LAN allowed; no automatic direct fallback is introduced
 
 See [F018](feat/F018-admin-ai-network-connections.md) and the
 [cutover guide](../docs/database-setup.md#f018-ai-network-cutover).
-**Validation:** source changes and focused tests were prepared, but no actual
-full backend/frontend, browser, PostgreSQL/Docker, locale render or two-theme
-suite results are available from this connector-only implementation.
+The proxy-specific network backend classifies TCP failures at the proxy dial;
+provider DNS/TLS failures retain provider classification. Retrieval dependencies
+map pending/invalid/unavailable network resolution to a safe 503 response.
+**Validation:** see the dated review-fix report in F018 for actual local suite,
+PostgreSQL, browser, locale and theme results. Deployment cutover remains an
+operator action and has not been run against the application database.

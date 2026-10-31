@@ -109,8 +109,15 @@ export function createEmbeddingState({
     }
   }
   async function operation(kind: 'catalog' | 'probe' | 'apply') {
-    if (!active || disposed || busy || !metadata || !baseUrl.trim() ||
-        (networkMode === 'proxy' && !proxyUrl.trim())) return false;
+    if (
+      !active ||
+      disposed ||
+      busy ||
+      !metadata ||
+      !baseUrl.trim() ||
+      (networkMode === 'proxy' && !proxyUrl.trim())
+    )
+      return false;
     if (kind !== 'catalog' && (!modelId || !catalog.some((m) => m.id === modelId && m.supported)))
       return false;
     if (kind === 'apply' && !verified) return false;
@@ -286,8 +293,12 @@ export function createEmbeddingState({
       ];
     },
     get canApply() {
-      return verified && !busy && (networkMode === 'direct' || !!proxyUrl.trim()) &&
-        catalog.some((m) => m.id === modelId && m.supported);
+      return (
+        verified &&
+        !busy &&
+        (networkMode === 'direct' || !!proxyUrl.trim()) &&
+        catalog.some((m) => m.id === modelId && m.supported)
+      );
     },
     get canKeep() {
       return !!metadata?.configured && baseUrl.trim().replace(/\/+$/, '') === metadata.base_url;

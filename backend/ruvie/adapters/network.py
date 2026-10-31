@@ -1,15 +1,27 @@
 """Admin-owned SOCKS5 configuration and checked, DNS-pinned proxy endpoints."""
 import ipaddress
 import socket
+import httpcore
+import httpx
 from urllib.parse import urlsplit
 
 class InvalidNetworkConfiguration(ValueError):
     def __init__(self):
         super().__init__('invalid_network_configuration')
 
-class ProxyUnavailableError(RuntimeError):
+class ProxyUnavailableError(httpx.ProxyError):
     def __init__(self):
         super().__init__('proxy_unavailable')
+
+
+class ProxyNetworkBackend(httpcore.SyncBackend):
+    """Classify TCP failures while dialing the proxy; leave provider TLS errors intact."""
+    def connect_tcp(self, host, port, timeout=None, local_address=None, socket_options=None):
+        try:
+            return super().connect_tcp(host=host, port=port, timeout=timeout,
+                                       local_address=local_address, socket_options=socket_options)
+        except (httpcore.ConnectError, httpcore.ConnectTimeout):
+            raise ProxyUnavailableError() from None
 
 class NetworkConfigurationPendingError(RuntimeError):
     def __init__(self):

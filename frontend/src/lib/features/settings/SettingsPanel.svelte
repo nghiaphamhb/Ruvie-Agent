@@ -302,14 +302,4 @@
   .system-settings .settings-tabs button[aria-expanded] {
     background: transparent;
   }
-  @media (max-width: 640px) {
-    .settings-layout {
-      grid-template-columns: minmax(0, 1fr);
-      grid-template-rows: auto 1fr;
-      gap: 16px;
-    }
-    [role='tabpanel'] {
-      padding: 8px 0;
-    }
-  }
 </style>

@@ -35,6 +35,7 @@ from urllib.parse import urlsplit
 import httpx
 
 from ruvie.config import LlmProviderSettings, Settings
+from ruvie.adapters.network import ProxyNetworkBackend, ProxyUnavailableError
 
 
 class InvalidLlmUrl(ValueError):
@@ -78,6 +79,10 @@ class PinnedLlmTransport(httpx.HTTPTransport):
     ) -> None:
         # Only the server-selected proxy is used. SOCKS keeps the checked dial IP and TLS name.
         super().__init__(proxy=proxy_url, trust_env=False)
+        if proxy_url is not None:
+            # HTTPX does not expose network_backend injection. Its SOCKS pool uses
+            # this backend only to dial the proxy; provider TLS runs on the stream.
+            self._pool._network_backend = ProxyNetworkBackend()
         self.allowed_local_origins = allowed_local_origins
 
     def handle_request(self, request: httpx.Request) -> httpx.Response:
@@ -128,7 +133,10 @@ class PinnedLlmTransport(httpx.HTTPTransport):
             stream=request.stream,
             extensions={**request.extensions, "sni_hostname": hostname},
         )
-        return super().handle_request(pinned)
+        try:
+            return super().handle_request(pinned)
+        except httpx.ProxyError:
+            raise ProxyUnavailableError() from None
 
 
 class LlmAdapter(Protocol):

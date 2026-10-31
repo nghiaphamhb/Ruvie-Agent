@@ -55,6 +55,9 @@ searches and project context. Do not read, edit, execute, or use its contents.
 
 ## Frontend organization
 
+- This is a web-only project. Design and implement interfaces for desktop web;
+  do not create mobile-specific layouts or optimize the product for mobile devices.
+
 Organize `frontend/src/lib/` by feature, with thin composing pages:
 
 - `pages/`: page composition, navigation state, page/session lifecycle.

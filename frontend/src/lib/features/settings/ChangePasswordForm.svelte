@@ -325,9 +325,4 @@
       transition: none;
     }
   }
-  @media (max-width: 560px) {
-    .submit {
-      width: 100%;
-    }
-  }
 </style>

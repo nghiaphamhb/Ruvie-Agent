@@ -58,9 +58,12 @@ def get_query_embedder(request: Request) -> QueryEmbedder:
     """Resolve a fresh database snapshot; trusted dependency overrides remain injectable."""
     from ruvie.services.embedding import EmbeddingConnectionService, EmbeddingUnavailableError
     from ruvie.services.llm_secrets import LlmSecretError
+    from ruvie.adapters.network import (NetworkConfigurationPendingError, ProxyUnavailableError,
+                                        InvalidNetworkConfiguration)
     from sqlalchemy.exc import SQLAlchemyError
     try:
         with request.app.state.session_factory() as session:
             return EmbeddingConnectionService(session, request.app.state.settings).resolve_embedder()
-    except (EmbeddingUnavailableError, LlmSecretError, SQLAlchemyError):
+    except (EmbeddingUnavailableError, LlmSecretError, SQLAlchemyError,
+            NetworkConfigurationPendingError, ProxyUnavailableError, InvalidNetworkConfiguration):
         raise HTTPException(503, detail={'code':'embedding_unavailable'}) from None

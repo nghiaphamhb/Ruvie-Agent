@@ -134,8 +134,12 @@ F017's table.
 ## F018 AI network cutover
 
 Migration 0014 adds network_mode/proxy_url to both connection singletons.
-Existing rows remain **pending** until operator confirmation, rather than
-silently taking the direct route. Newly inserted rows default direct.
+Existing deployments remain **pending** until operator confirmation, rather than
+silently taking the direct route. Migration 0015 initializes both routes to direct
+only when the upgrade chain starts from a database with no Alembic revision.
+An existing deployment with provider version 0 still requires cutover.
+Migration 0015 also tightens the network-pair constraints without changing saved
+routes, credentials or profiles. Upgrade to head; do not stop at 0014.
 Alembic does not read the environment. Pending rows are not usable by
 backend, worker or admin API.
 

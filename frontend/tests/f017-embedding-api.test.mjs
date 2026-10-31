@@ -31,7 +31,7 @@ test('metadata projection drops provider secrets and malformed apply stays uncer
         base_url: 'https://embed.test',
         key_action: 'clear',
         expected_version: 1,
-      network: { mode: 'direct', proxy_url: null },
+        network: { mode: 'direct', proxy_url: null },
         model_id: 'baai/bge-m3',
       }),
       (error) =>

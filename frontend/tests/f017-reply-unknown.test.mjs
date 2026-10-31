@@ -18,6 +18,7 @@ test('unknown reply apply rereads metadata without claiming its own commit or re
     configured: true,
     base_url: 'https://reply.test',
     has_api_key: true,
+    network: { mode: 'direct', proxy_url: null },
     allowed_model_ids: ['a'],
     default_model_id: 'a',
     version: 2,

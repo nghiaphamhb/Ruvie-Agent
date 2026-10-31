@@ -16,7 +16,7 @@ from ruvie.main import app, lifespan
 from ruvie import worker_cli
 from ruvie.adapters.embedding import create_query_embedder
 from ruvie.contracts.network import NetworkConfig
-from ruvie.adapters.network import normalize_proxy_url, InvalidNetworkConfiguration
+from ruvie.adapters.network import normalize_proxy_url, InvalidNetworkConfiguration, ProxyUnavailableError
 from test_llm_proxy import RecordingStream
 
 PROXY = "socks5://127.0.0.1:3066"
@@ -87,7 +87,7 @@ class EmbeddingProxyTests(unittest.TestCase):
         for owner in ("api", "worker"):
             with self.subTest(owner=owner):
                 with patch.dict(os.environ, {}, clear=True), patch.object(httpcore.SyncBackend, "connect_tcp", side_effect=httpcore.ConnectError("unavailable")) as connect:
-                    with self.assertRaises(httpx.ConnectError):
+                    with self.assertRaises(ProxyUnavailableError):
                         self.exercise_embedding(owner, settings({"EMBEDDING_PROXY_URL": PROXY}), PROXY)
                 self.assertEqual(connect.call_count, 1)
                 self.assertEqual(connect.call_args.kwargs["host"], "127.0.0.1")

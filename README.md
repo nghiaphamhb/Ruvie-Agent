@@ -117,6 +117,7 @@ chat and embedding via System settings > AI connections. Both network routes
 are stored in PostgreSQL and affect new backend/worker operations without
 restarting. Direct does not bypass OS VPN/TUN routing.
 
+A fresh database upgraded to head (including 0015) starts with direct routes.
 After migration 0014, existing settings are pending until an operator performs
 the two-connection CLI cutover from the original deployment environment; do
 not run mixed old/new processes. Runtime ignores LLM_PROXY_URL and

@@ -16,7 +16,7 @@ test('admin client sends cookie/CSRF and explicit key actions only to admin endp
               configured: true,
               base_url: 'https://provider.test/v1',
               has_api_key: true,
-  network: { mode: 'direct', proxy_url: null },
+              network: { mode: 'direct', proxy_url: null },
               allowed_model_ids: ['a'],
               default_model_id: 'a',
               version: 1,

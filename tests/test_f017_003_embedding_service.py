@@ -33,7 +33,7 @@ class EmbeddingServiceTests(unittest.TestCase):
         self.addCleanup(probe.stop)
 
     def command(self, **changes):
-        values = dict(base_url='https://provider.test/v1', key_action='replace', api_key='private-embedding-key',
+        values = dict(network={'mode':'direct','proxy_url':None}, base_url='https://provider.test/v1', key_action='replace', api_key='private-embedding-key',
                       expected_version=0, model_id='baai/bge-m3') | changes
         if values.get('api_key') is None:
             values.pop('api_key')
