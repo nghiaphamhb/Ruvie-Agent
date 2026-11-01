@@ -120,6 +120,7 @@ try {
         configured: true,
         base_url: 'https://example.test',
         has_api_key: true,
+        network: { mode: 'direct', proxy_url: null },
         allowed_model_ids: ['one'],
         default_model_id: 'one',
         version: 1,
@@ -131,6 +132,7 @@ try {
         configuration_version: 1,
         base_url: 'https://example.test',
         has_api_key: true,
+        network: { mode: 'direct', proxy_url: null },
         selected_model_id: 'one',
       });
     if (api === '/models')
@@ -222,7 +224,7 @@ try {
     await heading.waitFor();
   }
   async function openForm() {
-    await page.locator('#admin-users-heading').locator('..').getByRole('button').click();
+    await page.locator('.create-account').click();
   }
   async function closeForm() {
     await page.locator('.create-account-dialog > header button').click();

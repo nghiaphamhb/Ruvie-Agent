@@ -288,14 +288,14 @@ class F005007EndToEndTests(unittest.TestCase):
         self.assertNotIn("organization-key",applied.text)
         self.assertEqual(self.client.patch("/llm/connection/model",headers=alpha,json={"model_id":"b"}).status_code,200)
         for headers in (alpha,beta):
-            answer=self.client.post("/chat",headers=headers,json={"message":"Question"})
+            answer=self.client.post("/chat",headers=headers,json={"request_id": str(uuid4()), "message":"Question"})
             self.assertIn("event: completed",answer.text)
         self.assertEqual([body["model"] for body,_ in self.provider_state.chat_requests],["b","a"])
         self.assertEqual([headers.get("Authorization") for _,headers in self.provider_state.chat_requests],
                          ["Bearer organization-key","Bearer organization-key"])
         self.provider_state.models=[{"id":"a"}]
         before=len(self.provider_state.embedding_inputs)
-        self.assertEqual(self.client.post("/chat",headers=alpha,json={"message":"Question"}).status_code,422)
+        self.assertEqual(self.client.post("/chat",headers=alpha,json={"request_id": str(uuid4()), "message":"Question"}).status_code,422)
         self.assertEqual(len(self.provider_state.embedding_inputs),before)
         body.update(expected_version=2,allowed_model_ids=["a"])
         self.provider_state.models_status=401
@@ -404,7 +404,7 @@ class F005007EndToEndTests(unittest.TestCase):
         self._use_session(alpha_token)
         self.assertEqual(self.client.get(f"/documents/revisions/{beta_revision}/status").status_code, 404)
 
-        response = self.client.post("/chat", json={"message": "Where do I install the plugin?"})
+        response = self.client.post("/chat", headers={"Origin": ORIGIN, "X-CSRF-Token": alpha_csrf}, json={"request_id": str(uuid4()), "message": "Where do I install the plugin?"})
         self.assertEqual(response.status_code, 200, response.text)
         self.assertIn("event: citations", response.text)
         self.assertIn("event: completed", response.text)
@@ -441,7 +441,7 @@ class F005007EndToEndTests(unittest.TestCase):
         self._run_worker_once()
         self.provider_state.llm_status = 503
 
-        response = self.client.post("/chat", json={"message": "What is in the guide?"})
+        response = self.client.post("/chat", headers={"Origin": ORIGIN, "X-CSRF-Token": csrf}, json={"request_id": str(uuid4()), "message": "What is in the guide?"})
 
         self.assertEqual(response.status_code, 200)
         self.assertIn('"code":"provider_unavailable"', response.text)

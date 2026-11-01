@@ -21,7 +21,13 @@
     oninput,
     onsubmit,
     onattach,
+    hasOlder = false,
+    olderLoading = false,
+    onolder = async () => {},
   }: {
+    hasOlder?: boolean;
+    olderLoading?: boolean;
+    onolder?: () => Promise<void>;
     busy?: boolean;
     onstop?: () => void;
     onretry?: (id: number, modelId?: string) => void;
@@ -62,6 +68,9 @@
       {busy}
       {catalog}
       {onretry}
+      {hasOlder}
+      {olderLoading}
+      {onolder}
       retryDisabled={modelLoading || (modelDisabled && !busy)}
     />{/if}
   <div class="chat-composer-wrap">

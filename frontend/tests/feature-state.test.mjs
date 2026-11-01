@@ -2,26 +2,52 @@ import assert from 'node:assert/strict';
 import test from 'node:test';
 import { loadState, catalog, citation, json, frame } from './state-loader.mjs';
 
-test('Stop retains partial text and retry uses the original question/model without duplicate turns', async () => {
+test('Stop retains committed partial text and retry uses the durable turn without duplicating the question', async () => {
   const module = await loadState('../src/lib/features/chat/chat-state.svelte.ts');
-  assert.ok(module, 'Chat feature owner must exist');
-  const originalFetch = globalThis.fetch;
-  const requests = [];
+  const originalFetch = globalThis.fetch,
+    requests = [];
   try {
     globalThis.fetch = async (path, init) => {
+      if (path === '/conversations') return json({ items: [], next_cursor: null });
+      if (path.endsWith('/stop')) return json({ attempt_id: 'attempt', status: 'stopped' });
+      if (init.method === 'GET')
+        return json({
+          conversation: { id: 'chat', title: 'Original question', version: 1 },
+          turns: [
+            {
+              id: 'turn',
+              attempt_id: 'attempt',
+              question: 'Original question',
+              answer: 'Partial',
+              model_id: 'one',
+              citations: [],
+              status: 'stopped',
+              content_unavailable: false,
+            },
+          ],
+          next_cursor: null,
+        });
       let controller;
       const stream = new ReadableStream({
         start(c) {
           controller = c;
         },
       });
-      requests.push({ body: JSON.parse(init.body), controller });
+      requests.push({ path, body: JSON.parse(init.body), controller });
+      controller.enqueue(
+        frame('accepted', {
+          conversation_id: 'chat',
+          turn_id: 'turn',
+          attempt_id: requests.length === 1 ? 'attempt' : 'retry-attempt',
+        }),
+      );
       init.signal.addEventListener('abort', () => controller.error(new Error('aborted')), {
         once: true,
       });
       return new Response(stream, { headers: { 'Content-Type': 'text/event-stream' } });
     };
     const chat = module.createChatState({
+      csrfToken: 'csrf',
       onexpired() {
         assert.fail('unexpected logout');
       },
@@ -33,9 +59,8 @@ test('Stop retains partial text and retry uses the original question/model witho
     const first = chat.submit();
     await new Promise((resolve) => setTimeout(resolve, 0));
     requests[0].controller.enqueue(frame('delta', { text: 'Partial' }));
-    requests[0].controller.enqueue(frame('citations', { citations: [citation] }));
     await new Promise((resolve) => setTimeout(resolve, 0));
-    chat.stop();
+    await chat.stop();
     assert.equal(chat.busy, false);
     assert.equal(chat.turns[0].status, 'stopped');
     assert.equal(chat.turns[0].answer, 'Partial');
@@ -44,7 +69,9 @@ test('Stop retains partial text and retry uses the original question/model witho
     chat.draft = 'Unsent draft';
     const retry = chat.retry(chat.turns[0].id);
     await new Promise((resolve) => setTimeout(resolve, 0));
-    assert.deepEqual(requests[1].body, { message: 'Original question', model_id: 'one' });
+    assert.equal(requests[1].path, '/conversations/chat/turns/turn/retry');
+    assert.deepEqual(Object.keys(requests[1].body).sort(), ['model_id', 'request_id']);
+    assert.equal(requests[1].body.model_id, 'one');
     assert.equal(chat.turns.length, 1);
     assert.equal(chat.draft, 'Unsent draft');
     requests[1].controller.enqueue(frame('delta', { text: 'Replacement' }));

@@ -243,7 +243,7 @@ try {
       const answer = await fetch('/chat', {
         method: 'POST',
         headers: { 'Content-Type': 'application/json', 'X-CSRF-Token': identity.csrf_token },
-        body: JSON.stringify({ message: 'F012_PRIVATE_GUIDE' }),
+        body: JSON.stringify({ message: 'F012_PRIVATE_GUIDE', request_id: crypto.randomUUID() }),
       });
       const lookup = await fetch('/admin/users?email=alpha%40example.test');
       return {

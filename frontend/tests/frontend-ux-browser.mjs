@@ -16,6 +16,8 @@ import { catalog, citation } from './state-loader.mjs';
 const require = createRequire(import.meta.url);
 const { chromium } = require(process.env.RUVIE_PLAYWRIGHT_PATH || 'playwright');
 const root = path.resolve(fileURLToPath(new URL('../dist/', import.meta.url)));
+let savedTurn = null;
+const savedConversation = { id: 'ux-chat', title: 'Original', version: 1 };
 const streams = [],
   requests = [];
 const fence = String.fromCharCode(96).repeat(3);
@@ -27,17 +29,39 @@ const answer =
   '\n\n[Safe](https://example.test/docs) [Blocked](javascript:alert(1))\n\n<script>window.injected=true</script>\n<img src="https://invalid.test/track">';
 const server = createServer(async (req, res) => {
   const url = new URL(req.url, 'http://localhost');
-  if (url.pathname === '/chat') {
+  if (url.pathname === '/chat' || url.pathname.endsWith('/retry')) {
     let body = '';
     for await (const chunk of req) body += chunk;
-    requests.push(JSON.parse(body));
+    const payload = JSON.parse(body);
+    requests.push(payload);
+    const attempt = 'attempt-' + (streams.length + 1);
+    savedTurn = {
+      id: 'ux-turn',
+      attempt_id: attempt,
+      question: payload.message ?? savedTurn.question,
+      answer: '',
+      model_id: payload.model_id,
+      citations: [],
+      status: 'generating',
+      content_unavailable: false,
+    };
     res.writeHead(200, { 'Content-Type': 'text/event-stream' });
     const send = (type, data) => {
+      if (savedTurn.attempt_id === attempt && savedTurn.status === 'generating') {
+        if (type === 'delta') savedTurn.answer += data.text;
+        if (type === 'citations') savedTurn.citations = data.citations;
+        if (type === 'completed') savedTurn.status = 'completed';
+      }
       if (!res.destroyed) res.write('event: ' + type + '\ndata: ' + JSON.stringify(data) + '\n\n');
     };
     let finish;
     const done = new Promise((resolve) => (finish = resolve));
     streams.push({ send, finish, res });
+    send('accepted', {
+      conversation_id: savedConversation.id,
+      turn_id: savedTurn.id,
+      attempt_id: attempt,
+    });
     send('delta', { text: answer });
     await done;
     send('completed', {});
@@ -91,6 +115,17 @@ try {
     }
     const json = (value, status = 200) =>
       route.fulfill({ status, contentType: 'application/json', body: JSON.stringify(value) });
+    if (pathname === '/conversations')
+      return json({ items: savedTurn ? [savedConversation] : [], next_cursor: null });
+    if (pathname.startsWith('/conversations/')) {
+      if (pathname.endsWith('/retry')) return route.continue();
+      if (pathname.endsWith('/stop')) {
+        savedTurn.status = 'stopped';
+        savedTurn.citations = [];
+        return json({ attempt_id: savedTurn.attempt_id, status: 'stopped' });
+      }
+      return json({ conversation: savedConversation, turns: [savedTurn], next_cursor: null });
+    }
     if (pathname === '/auth/session')
       return json({
         user: { id: 'u', system_role: 'user', display_name: 'Nguyễn An' },
@@ -173,7 +208,8 @@ try {
   await page.waitForFunction(() => document.querySelector('.response-status'));
   await page.waitForFunction(() => document.querySelector('.answer h1'));
   assert.equal(requests.length, 2);
-  assert.deepEqual(requests[1], { message: 'Original', model_id: 'one' });
+  assert.deepEqual(Object.keys(requests[1]).sort(), ['model_id', 'request_id']);
+  assert.equal(requests[1].model_id, 'one');
   assert.equal(await page.locator('.turn').count(), 1);
   checks += 3;
   streams[1].send('citations', { citations: [citation] });

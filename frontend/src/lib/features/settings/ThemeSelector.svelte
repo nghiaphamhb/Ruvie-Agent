@@ -61,7 +61,7 @@
   }
   .segments {
     display: grid;
-    grid-template-columns: repeat(3, minmax(0, 1fr));
+    grid-template-columns: repeat(auto-fit, minmax(min(100%, 120px), 1fr));
     gap: 4px;
     padding: 4px;
     background: var(--paper);
@@ -81,6 +81,10 @@
     color: var(--muted);
     cursor: pointer;
     font-size: 14px;
+  }
+  span {
+    min-width: 0;
+    overflow-wrap: anywhere;
   }
   label:hover {
     color: var(--ink);

@@ -1,3 +1,4 @@
+from uuid import uuid4
 """Register using the active API and PostgreSQL; new accounts get no document access."""
 from concurrent.futures import ThreadPoolExecutor
 import threading
@@ -64,7 +65,7 @@ class RegistrationPostgresTests(unittest.TestCase):
         self.assertNotIn("ALPHA_PRIVATE_GUIDE", retrieved.text)
         self.assertNotIn(revision, retrieved.text)
         answer = client.post("/chat", headers={"Origin": fixtures.ORIGIN,
-            "X-CSRF-Token": response.json()["csrf_token"]}, json={"message": "ALPHA_PRIVATE_GUIDE"})
+            "X-CSRF-Token": response.json()["csrf_token"]}, json={"request_id": str(uuid4()), "message": "ALPHA_PRIVATE_GUIDE"})
         self.assertEqual(answer.status_code, 200, answer.text)
         self.assertNotIn(revision, answer.text)
         # The user's question may contain the string; document context must not.

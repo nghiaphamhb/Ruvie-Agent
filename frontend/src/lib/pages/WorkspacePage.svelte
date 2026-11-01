@@ -26,6 +26,8 @@
   import SettingsPanel from '../features/settings/SettingsPanel.svelte';
   import { createThemeState } from '../features/settings/theme.ts';
   import ChatControlsPanel from '../features/chat/ChatControlsPanel.svelte';
+  import ConversationList from '../features/chat/ConversationList.svelte';
+  import SurfaceDialog from '../shared/SurfaceDialog.svelte';
   import ChatPage from '../features/chat/ChatPage.svelte';
   let {
     authUser,
@@ -66,7 +68,8 @@
   const canAdmin = $derived(authUser.system_role === 'admin' && !adminRevoked);
   let navigationNotice = $state<UiMessage | null>(null);
   // Navigation reads can finish after logout or a newer Back/Forward action.
-  let navigationGeneration = 0;
+  let navigationGeneration = 0,
+    viewRestoreSequence = 0;
   let chatNotice = $state<{ key: 'chat.configureModel' | 'chat.modelsLoading'; id: number } | null>(
     null,
   );
@@ -102,7 +105,8 @@
       ? undefined
       : llm.catalog?.models.find((model) => model.id === llm.catalog?.selected_model_id),
   );
-  let expired = false;
+  let expired = false,
+    workspaceDisposed = false;
   let presence: ReturnType<typeof startPresence> | undefined;
   const sessionCsrf = untrack(() => csrfToken);
   const theme = createThemeState(untrack(() => authUser.id));
@@ -131,6 +135,8 @@
     onapplied: () => {},
   });
   const chat = createChatState({
+    csrfToken: sessionCsrf,
+    onaccepted: (id) => setConversationUrl(id, 'replace'),
     onexpired: clearSession,
     getCatalog: () => llm.catalog,
     isLocked: () => llm.loading || llm.modelBusy || authBusy,
@@ -142,8 +148,11 @@
   const documents = createDocumentsState({ csrfToken: sessionCsrf, onexpired: clearSession });
   /** Invalidate all request owners before App removes this account's workspace. */
   function dispose() {
+    workspaceDisposed = true;
+    finishSwitch(false);
     presence?.dispose();
     navigationGeneration++;
+    viewRestoreSequence++;
     chat.dispose();
     documents.dispose();
     llm.dispose();
@@ -180,6 +189,7 @@
     void restoreView(false);
     void documents.loadProjects();
     void llm.initialize();
+    void chat.loadList();
     return () => window.removeEventListener('ruvie:account-updated', updateAccount);
   });
   onDestroy(dispose);
@@ -198,8 +208,10 @@
     view: WorkspaceView,
     mode: 'push' | 'replace' = 'push',
     moveFocus = true,
+    restoring = false,
   ) {
-    if (expired) return;
+    if (expired || workspaceDisposed) return;
+    if (!restoring) viewRestoreSequence++;
     const current = ++navigationGeneration;
     navigationNotice = null;
     if (view === 'admin-users' || view === 'admin-settings') {
@@ -250,10 +262,67 @@
     ].find((element) => element.getClientRects().length > 0);
     heading?.focus();
   }
-  function restoreView(moveFocus = true) {
-    const query = new URL(window.location.href).searchParams.get('view');
+  function setConversationUrl(id: string, mode: 'push' | 'replace' = 'push') {
+    const url = new URL(window.location.href);
+    if (id) url.searchParams.set('conversation', id);
+    else url.searchParams.delete('conversation');
+    if (url.href !== window.location.href) {
+      if (mode === 'push') history.pushState({}, '', url);
+      else history.replaceState({}, '', url);
+    }
+  }
+  let switchConfirm = $state(false);
+  let resolveSwitch: ((proceed: boolean) => void) | null = null;
+  function finishSwitch(proceed: boolean) {
+    switchConfirm = false;
+    resolveSwitch?.(proceed);
+    resolveSwitch = null;
+  }
+  async function maySwitch() {
+    if (workspaceDisposed || expired) return false;
+    if (!chat.busy) return true;
+    if (resolveSwitch) return false;
+    const proceed = await new Promise<boolean>((resolve) => {
+      resolveSwitch = resolve;
+      switchConfirm = true;
+    });
+    if (!proceed) return false;
+    await chat.stop();
+    return !chat.busy && !expired && !workspaceDisposed;
+  }
+  async function openConversation(id: string) {
+    if (id === chat.conversationId) {
+      await selectView('chat');
+      return;
+    }
+    if (!(await maySwitch())) return;
+    const url = new URL(window.location.href);
+    url.searchParams.delete('view');
+    url.searchParams.set('conversation', id);
+    history.pushState({}, '', url);
+    await selectView('chat');
+    await chat.open(id);
+  }
+  async function restoreView(moveFocus = true) {
+    const current = ++viewRestoreSequence;
+    const params = new URL(window.location.href).searchParams;
+    const query = params.get('view'),
+      id = params.get('conversation');
     const view = query && Object.hasOwn(viewLabels, query) ? (query as WorkspaceView) : 'chat';
-    return selectView(view, 'replace', moveFocus);
+    if (id !== chat.conversationId) {
+      if (!(await maySwitch())) {
+        if (current !== viewRestoreSequence || workspaceDisposed) return;
+        setConversationUrl(chat.conversationId ?? '', 'replace');
+        await selectView(activeView, 'replace', false, true);
+        return;
+      }
+      if (current !== viewRestoreSequence || workspaceDisposed) return;
+      if (id) await chat.open(id);
+      else chat.reset();
+    }
+    if (current !== viewRestoreSequence || workspaceDisposed) return;
+    setConversationUrl(chat.conversationId ?? '', 'replace');
+    await selectView(view, 'replace', moveFocus, true);
   }
   async function lostAdminAccess() {
     let session;
@@ -276,7 +345,12 @@
     navigationNotice = message('admin.errors.admin_required');
   }
   async function newChat() {
+    if (!(await maySwitch())) return;
     chat.reset();
+    const url = new URL(window.location.href);
+    url.searchParams.delete('conversation');
+    url.searchParams.delete('view');
+    if (url.href !== window.location.href) history.pushState({}, '', url);
     await selectView('chat');
     document.getElementById('question')?.focus();
   }
@@ -350,7 +424,11 @@
       ontoggle={toggleSidebar}
       onsettings={() => openSettings()}
       {onlogout}
-    />{/snippet}
+      >{#snippet conversations()}<ConversationList
+          state={chat}
+          onselect={openConversation}
+        />{/snippet}</AppSidebar
+    >{/snippet}
   {#if authError}<p class="auth-error" role="alert">{$i18n.message(authError)}</p>{/if}
   {#if navigationNotice}<p role="alert">{$i18n.message(navigationNotice)}</p>{/if}
   {#if retainedAdminView && canAdmin}
@@ -402,15 +480,41 @@
       }}
     />
   </div>
+  <SurfaceDialog
+    open={switchConfirm}
+    title={$i18n.t('history.switchTitle')}
+    onclose={() => finishSwitch(false)}
+  >
+    <p>{$i18n.t('history.switchText')}</p>
+    <button class="history-control" data-dialog-initial-focus onclick={() => finishSwitch(false)}
+      >{$i18n.t('history.cancel')}</button
+    >
+    <button class="history-control" onclick={() => finishSwitch(true)}
+      >{$i18n.t('history.stopSwitch')}</button
+    >
+  </SurfaceDialog>
+  <div class="view-panel" hidden={activeView !== 'history'}>
+    <h1 data-history-heading tabindex="-1">{$i18n.t('workspace.conversations')}</h1>
+    <ConversationList state={chat} onselect={openConversation} />
+  </div>
   <div class="view-panel chat-view" hidden={activeView !== 'chat'}>
+    {#if chat.loading}<p role="status">{$i18n.t('history.loading')}</p>{/if}
+    {#if chat.historyError}<p role="alert">{$i18n.t('history.error')}</p>{/if}
+    {#if chat.historyError && chat.conversationId}<button
+        disabled={chat.loading}
+        onclick={() => chat.open(chat.conversationId!)}>{$i18n.t('history.refresh')}</button
+      >{/if}
     <ChatPage
       name={accountName}
+      hasOlder={!!chat.olderCursor}
+      olderLoading={chat.loading}
+      onolder={() => chat.open(chat.conversationId!, true)}
       turns={chat.turns}
       draft={chat.draft}
       busy={chat.busy}
       visible={activeView === 'chat'}
       catalog={llm.catalog}
-      disabled={chat.busy || authBusy}
+      disabled={chat.busy || chat.loading || authBusy}
       modelDisabled={chat.busy || authBusy}
       modelLoading={llm.modelBusy || llm.loading}
       oninput={(value) => {
@@ -439,7 +543,7 @@
   <div class="view-panel" hidden={activeView !== 'search'}>
     <DocumentSearchPage state={documents} />
   </div>
-  {#if !['chat', 'documents', 'projects', 'search', 'settings', 'admin-users', 'admin-settings'].includes(activeView)}<div
+  {#if !['history', 'chat', 'documents', 'projects', 'search', 'settings', 'admin-users', 'admin-settings'].includes(activeView)}<div
       class="view-panel"
     >
       <FeaturePlaceholder view={activeView} title={viewLabels[activeView]} />

@@ -23,7 +23,7 @@ class ChatModelTests(unittest.TestCase):
         self.addCleanup(self.fixture.tearDown)
         self.factory = self.fixture.session_factory
         self.embedder = fixtures.FakeEmbedder()
-        self.settings = SimpleNamespace(llm=LlmProviderSettings("https://server.test/v1", "a", "server-key"), llm_allowed_local_origins=())
+        self.settings = SimpleNamespace(llm=LlmProviderSettings("https://server.test/v1", "a", "server-key"), llm_allowed_local_origins=(), auth_allowed_origins=("https://chat.test",))
         self.settings.llm_settings_encryption_key = Fernet.generate_key().decode()
         with self.factory() as db:
             db.add(OrganizationLlmSettings(id=1,version=1,base_url="https://server.test/v1",
@@ -40,7 +40,10 @@ class ChatModelTests(unittest.TestCase):
         async def identity(request: Request, call_next):
             request.state.domain_user_id = request.headers.get("x-test-user")
             return await call_next(request)
-        self.client = TestClient(app)
+        self.client = fixtures.ChatContractClient(app)
+        csrf_patch = patch("ruvie.api.chat.verify_csrf")
+        csrf_patch.start()
+        self.addCleanup(csrf_patch.stop)
         self.addCleanup(self.client.close)
         self.catalog = [{"id": "a"}, {"id": "b"}]
         self.calls = []
@@ -112,8 +115,8 @@ class ChatModelTests(unittest.TestCase):
     def test_provider_catalog_failure_is_safe_and_stops_before_embedding(self):
         self.models_status = 401
         response = self.chat()
-        self.assertEqual([name for name, _ in fixtures.parse_events(response)], ["error"])
-        self.assertEqual(fixtures.parse_events(response)[0][1]["code"], "provider_unavailable")
+        self.assertEqual(response.status_code, 503)
+        self.assertEqual(response.json()["detail"]["code"], "provider_unavailable")
         self.assertEqual(self.embedder.queries, [])
         self.assertEqual(self.calls, [])
         self.assertNotIn("server-key", response.text)

@@ -63,7 +63,13 @@ test('POST sends only message and reads split UTF-8 SSE events in order', async 
     async (url, options) => {
       assert.equal(url, '/chat');
       assert.equal(options.method, 'POST');
-      assert.deepEqual(JSON.parse(options.body), { message: 'Cách cài plugin?' });
+      assert.deepEqual(
+        (({ request_id, ...payload }) => {
+          assert.match(request_id, /^[0-9a-f-]{36}$/);
+          return payload;
+        })(JSON.parse(options.body)),
+        { message: 'Cách cài plugin?' },
+      );
       assert.equal(options.headers['Content-Type'], 'application/json');
       return sseResponse(frames);
     },
@@ -138,7 +144,9 @@ test('chat sends the confirmed model ID without provider configuration', async (
   const { streamChat } = await loadClient();
   await withFetch(
     async (_path, options) => {
-      assert.deepEqual(JSON.parse(options.body), { message: 'Question', model_id: 'b' });
+      const { request_id, ...payload } = JSON.parse(options.body);
+      assert.match(request_id, /^[0-9a-f-]{36}$/);
+      assert.deepEqual(payload, { message: 'Question', model_id: 'b' });
       return sseResponse('event: delta\ndata: {"text":"Answer"}\n\nevent: completed\ndata: {}\n\n');
     },
     async () => {
