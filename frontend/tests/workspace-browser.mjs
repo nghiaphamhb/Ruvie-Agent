@@ -17,15 +17,40 @@ const mime = {
   '.svg': 'image/svg+xml',
 };
 const streams = [];
+const historyChats = new Map();
 const server = createServer(async (req, res) => {
   if (req.url === '/chat') {
-    for await (const _chunk of req) {
-      // Drain the POST body before sending the streaming response.
-    }
+    let raw = '';
+    for await (const chunk of req) raw += chunk;
+    const body = JSON.parse(raw),
+      index = streams.length + 1;
+    const id = body.conversation_id ?? 'chat-' + index;
+    const stored = historyChats.get(id) ?? {
+      conversation: { id, title: body.message, version: 1 },
+      turns: [],
+    };
+    historyChats.set(id, stored);
+    const turn = {
+      id: 'turn-' + index,
+      attempt_id: 'attempt-' + index,
+      question: body.message,
+      model_id: body.model_id,
+      answer: '',
+      citations: [],
+      status: 'generating',
+      content_unavailable: false,
+    };
+    stored.turns.push(turn);
     res.writeHead(200, { 'Content-Type': 'text/event-stream' });
     const frame = (type, data) => {
+      if (turn.status === 'generating') {
+        if (type === 'delta') turn.answer += data.text;
+        if (type === 'citations') turn.citations = data.citations;
+        if (type === 'completed') turn.status = 'completed';
+      }
       if (!res.destroyed) res.write(`event: ${type}\ndata: ${JSON.stringify(data)}\n\n`);
     };
+    frame('accepted', { conversation_id: id, turn_id: turn.id, attempt_id: turn.attempt_id });
     frame('delta', { text: streams.length ? 'New answer' : 'Old answer' });
     let finish;
     const pending = new Promise((resolve) => {
@@ -84,11 +109,28 @@ try {
   };
   await page.route('**/*', async (route) => {
     const api = new URL(route.request().url()).pathname;
-    if (!/^\/(auth|admin|projects|models|llm|chat)(\/|$)/.test(api)) return route.continue();
+    if (!/^\/(auth|admin|projects|models|llm|chat|conversations)(\/|$)/.test(api))
+      return route.continue();
     const method = route.request().method();
     calls.push({ api, method, body: route.request().postData() });
     const json = (data, status = 200) =>
       route.fulfill({ status, contentType: 'application/json', body: JSON.stringify(data) });
+    if (api === '/conversations')
+      return json({
+        items: [...historyChats.values()].map((item) => item.conversation),
+        next_cursor: null,
+      });
+    if (api.startsWith('/conversations/')) {
+      const pieces = api.split('/'),
+        stored = historyChats.get(pieces[2]);
+      if (!stored) return json({ detail: { code: 'conversation_not_found' } }, 404);
+      if (api.endsWith('/stop')) {
+        const turn = stored.turns.find((item) => item.id === pieces[4]);
+        if (turn.status === 'generating') turn.status = 'stopped';
+        return json({ attempt_id: turn.attempt_id, status: turn.status });
+      }
+      return json({ ...stored, next_cursor: null });
+    }
     if (api === '/auth/setup') return json({ requires_initial_admin: false });
     if (api === '/auth/session')
       return json({
@@ -119,6 +161,7 @@ try {
         configured: true,
         base_url: 'https://example.test/v1',
         has_api_key: true,
+        network: { mode: 'direct', proxy_url: null },
         allowed_model_ids: ['one', 'two'],
         default_model_id: 'one',
         version: 1,
@@ -136,6 +179,7 @@ try {
         configuration_version: 1,
         base_url: 'https://example.test/v1',
         has_api_key: true,
+        network: { mode: 'direct', proxy_url: null },
         selected_model_id: model.selected_model_id,
       });
     if (api === '/llm/connection/model') {
@@ -213,7 +257,7 @@ try {
             'hidden suggestions reserve layout space',
           );
           assert.equal(
-            await page.getByRole('button', { name: 'Tìm nguyên nhân lỗi', exact: true }).count(),
+            await page.getByRole('button', { name: /^Tìm nguyên nhân lỗi/ }).count(),
             0,
             'hidden suggestions leave accessibility tree',
           );
@@ -275,7 +319,7 @@ try {
     );
     checks++;
     await page.locator('#question').fill('');
-    await page.getByRole('button', { name: 'Tìm nguyên nhân lỗi', exact: true }).click();
+    await page.getByRole('button', { name: /^Tìm nguyên nhân lỗi/ }).click();
     const suggested =
       'Tôi gặp lỗi khi sử dụng [phần mềm, phiên bản]. Thông báo lỗi: […]. Lỗi xuất hiện khi […].';
     assert.equal(await page.locator('#question').inputValue(), suggested);
@@ -362,9 +406,13 @@ try {
       Object.keys(JSON.parse(calls.find((c) => c.api === '/chat').body))
         .sort()
         .join(','),
-      'message,model_id',
+      'message,model_id,request_id',
     );
     await nav.getByRole('button', { name: 'Chat mới', exact: true }).click();
+    await page
+      .locator('dialog[open]')
+      .getByRole('button', { name: 'Dừng và chuyển', exact: true })
+      .click();
     await page.getByRole('heading', { name: 'Xin chào, Nguyễn An', exact: true }).waitFor();
     assert.equal(await page.locator('.answer').count(), 0);
     checks++;

@@ -4,6 +4,7 @@ import sys
 from pathlib import Path
 import unittest
 from types import SimpleNamespace
+from uuid import uuid4
 from unittest.mock import patch
 
 import httpx
@@ -47,6 +48,7 @@ class FakeEmbedder:
 
 class CapturingLlm:
     def __init__(self, deltas: list[str] | None = None, error: Exception | None = None) -> None:
+        self.provider = SimpleNamespace(model="fake-model")
         self.deltas = deltas if deltas is not None else ["Install", " the plugin."]
         self.error = error
         self.messages: list[dict[str, str]] | None = None
@@ -58,12 +60,25 @@ class CapturingLlm:
             raise self.error
 
 
+class ChatContractClient(TestClient):
+    """Supply the new transport fields for legacy chat behavior tests with trusted fake identity."""
+    def post(self, url, **kwargs):
+        if url == '/chat':
+            kwargs['json'] = {'request_id': str(uuid4()), **kwargs.get('json', {})}
+            kwargs['headers'] = {'Origin': 'https://chat.test', **kwargs.get('headers', {})}
+        return super().post(url, **kwargs)
+
+
 def parse_events(response) -> list[tuple[str, dict[str, object]]]:
     frames = response.text.strip().split("\n\n")
-    return [
+    events = [
         (frame.splitlines()[0].removeprefix("event: "), json.loads(frame.splitlines()[1].removeprefix("data: ")))
         for frame in frames
     ]
+    if events and events[0][0] == 'accepted':
+        assert set(events[0][1]) == {'conversation_id', 'turn_id', 'attempt_id'}
+        return events[1:]
+    return events
 
 
 class ChatTests(unittest.TestCase):
@@ -124,7 +139,10 @@ class ChatTests(unittest.TestCase):
         app.include_router(router)
         app.state.session_factory = self.session_factory
         app.state.query_embedder = embedder
-        app.state.settings = SimpleNamespace(llm=None, llm_allowed_local_origins=())
+        app.state.settings = SimpleNamespace(llm=None, llm_allowed_local_origins=(), auth_allowed_origins=("https://chat.test",))
+        csrf_patch = patch("ruvie.api.chat.verify_csrf")
+        csrf_patch.start()
+        self.addCleanup(csrf_patch.stop)
         def resolve(_service, _user_id, _model_id=None):
             if llm is None:
                 from ruvie.services.llm import LlmNotConfiguredError
@@ -139,7 +157,7 @@ class ChatTests(unittest.TestCase):
             request.state.domain_user_id = request.headers.get("x-test-user")
             return await call_next(request)
 
-        return TestClient(app)
+        return ChatContractClient(app)
 
     def test_prepare_closes_session_before_stream_and_returns_only_authorized_hits(self) -> None:
         self.assertIsNotNone(importlib.util.find_spec("ruvie.services.chat"))
@@ -164,10 +182,10 @@ class ChatTests(unittest.TestCase):
         self.assertEqual(response.status_code, 200)
         self.assertTrue(response.headers["content-type"].startswith("text/event-stream"))
         events = parse_events(response)
-        self.assertEqual([name for name, _ in events], ["delta", "delta", "citations", "completed"])
+        self.assertEqual([name for name, _ in events], ["delta", "citations", "completed"])
         self.assertEqual("".join(data["text"] for name, data in events if name == "delta"), "Install the plugin.")
-        self.assertEqual(events[2][1]["citations"][0]["citation_id"], "document-alpha:revision-alpha:chunk-alpha")
-        self.assertEqual(events[2][1]["citations"][0]["source_hash"], "a" * 64)
+        self.assertEqual(events[1][1]["citations"][0]["citation_id"], "document-alpha:revision-alpha:chunk-alpha")
+        self.assertEqual(events[1][1]["citations"][0]["source_hash"], "a" * 64)
         self.assertIn("alpha-private-text", str(llm.messages))
         self.assertNotIn("beta-private-text", str(llm.messages))
         self.assertIn("Install plugin", str(llm.messages))
@@ -279,9 +297,8 @@ class ChatTests(unittest.TestCase):
         with self._client(embedder, None) as client:
             response = client.post("/chat", json={"message": "Install plugin"}, headers={"x-test-user": "alpha"})
 
-        self.assertEqual(response.status_code, 200)
-        self.assertEqual([name for name, _ in parse_events(response)], ["error"])
-        self.assertEqual(parse_events(response)[0][1]["code"], "provider_unavailable")
+        self.assertEqual(response.status_code, 503)
+        self.assertEqual(response.json()['detail']['code'], 'provider_unavailable')
         self.assertEqual(embedder.queries, [])
         with Session(self.engine) as session:
             self.assertEqual(list(session.scalars(select(AuditEvent))), [])

@@ -1,4 +1,5 @@
 import json
+from uuid import UUID
 from dataclasses import dataclass
 from typing import Literal
 
@@ -6,19 +7,21 @@ from pydantic import BaseModel, ConfigDict, Field
 
 
 class ChatRequest(BaseModel):
-    """Chat JSON accepts {message, model_id?}; provider credentials and scope are forbidden."""
+    """Chat JSON accepts a question, request UUID and optional conversation/model IDs."""
     model_config = ConfigDict(extra="forbid", str_strip_whitespace=True)
 
+    request_id: UUID
+    conversation_id: UUID | None = None
     message: str = Field(min_length=1)
     model_id: str | None = Field(default=None, min_length=1)
 
 
-ChatEventType = Literal["delta", "citations", "completed", "error"]
+ChatEventType = Literal["accepted", "delta", "citations", "completed", "error"]
 
 
 @dataclass(frozen=True)
 class ChatStreamEvent:
-    """Named SSE event with JSON data: delta, citations, completed or error."""
+    """Named SSE event with public JSON data, including committed admission IDs."""
     event: ChatEventType
     data: dict[str, object]
 

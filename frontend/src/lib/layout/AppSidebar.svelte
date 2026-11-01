@@ -14,6 +14,7 @@
 </script>
 
 <script lang="ts">
+  import type { Snippet } from 'svelte';
   import { i18n } from '../i18n/index.ts';
   import logo from '../assets/brand/ruvie-logo.png';
   import WorkspaceIcon from '../shared/WorkspaceIcon.svelte';
@@ -29,6 +30,7 @@
     ontoggle,
     onsettings,
     onlogout,
+    conversations,
     canAdmin = false,
   }: {
     activeView: WorkspaceView;
@@ -40,6 +42,7 @@
     ontoggle: () => void;
     onsettings: () => void;
     onlogout: () => void;
+    conversations?: Snippet;
     canAdmin?: boolean;
   } = $props();
   const items = [
@@ -101,7 +104,9 @@
         onclick={() => onselect('history')}><WorkspaceIcon name="dots" size={18} /></button
       >
     </div>
-    <p>{$i18n.t('workspace.emptyConversations')}</p>
+    {#if conversations}{@render conversations()}{:else}<p>
+        {$i18n.t('workspace.emptyConversations')}
+      </p>{/if}
   </div>
   <div class="sidebar-account">
     <AccountMenu

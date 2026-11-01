@@ -1,3 +1,4 @@
+from uuid import uuid4
 """Account workflows against active routes, real PostgreSQL and production browser UI."""
 from dataclasses import replace
 from datetime import datetime
@@ -81,7 +82,7 @@ class AccountsEndToEndTests(unittest.TestCase):
                 self.assertEqual(recipient.get(f"/documents/revisions/{self.revision}/status").status_code, 404)
                 retrieved = recipient.post("/documents/retrieve", headers=headers, json={"query": PRIVATE_TEXT})
                 self.assertEqual(retrieved.status_code, 200, retrieved.text)
-                answer = recipient.post("/chat", headers=headers, json={"message": PRIVATE_TEXT})
+                answer = recipient.post("/chat", headers=headers, json={"request_id": str(uuid4()), "message": PRIVATE_TEXT})
                 self.assertEqual(answer.status_code, 200, answer.text)
                 self.assertIn("event: completed", answer.text)
                 self.assertNotIn(self.revision, retrieved.text + answer.text)

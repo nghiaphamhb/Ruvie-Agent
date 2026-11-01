@@ -1,3 +1,4 @@
+import { HistoryError } from './conversation-api.ts';
 import { message, type UiMessage } from '../../i18n/messages.ts';
 export type Citation = {
   citation_id: string;
@@ -14,6 +15,7 @@ export type Citation = {
 };
 
 export type ChatEvent =
+  | { type: 'accepted'; conversation_id: string; turn_id: string; attempt_id: string }
   | { type: 'delta'; text: string }
   | { type: 'citations'; citations: Citation[] }
   | { type: 'completed' };
@@ -27,7 +29,8 @@ export type ChatErrorCode =
   | 'generation_failed'
   | 'network_error'
   | 'interrupted'
-  | 'protocol_error';
+  | 'protocol_error'
+  | 'history_unavailable';
 
 /** Carry a safe message key; translate only when the UI renders it. */
 export class ChatApiError extends Error {
@@ -67,7 +70,11 @@ function parseFrame(frame: string):
   | ChatEvent
   | {
       type: 'error';
-      code: 'provider_unavailable' | 'generation_failed' | 'embedding_unavailable';
+      code:
+        | 'provider_unavailable'
+        | 'generation_failed'
+        | 'embedding_unavailable'
+        | 'history_unavailable';
     } {
   const lines = frame.split('\n');
   const name = lines
@@ -86,6 +93,16 @@ function parseFrame(frame: string):
   }
   if (!isRecord(data)) throw new ChatApiError('protocol_error');
 
+  if (
+    name === 'accepted' &&
+    ['conversation_id', 'turn_id', 'attempt_id'].every((key) => typeof data[key] === 'string')
+  )
+    return {
+      type: 'accepted',
+      conversation_id: data.conversation_id as string,
+      turn_id: data.turn_id as string,
+      attempt_id: data.attempt_id as string,
+    };
   if (name === 'delta' && typeof data.text === 'string') return { type: 'delta', text: data.text };
   if (name === 'citations' && Array.isArray(data.citations) && data.citations.every(isCitation)) {
     return { type: 'citations', citations: data.citations };
@@ -95,7 +112,8 @@ function parseFrame(frame: string):
     name === 'error' &&
     (data.code === 'provider_unavailable' ||
       data.code === 'generation_failed' ||
-      data.code === 'embedding_unavailable')
+      data.code === 'embedding_unavailable' ||
+      data.code === 'history_unavailable')
   ) {
     return { type: 'error', code: data.code };
   }
@@ -108,18 +126,38 @@ export async function streamChat(
   onEvent: (event: ChatEvent) => void,
   signal?: AbortSignal,
   modelId?: string,
+  operation?: {
+    requestId: string;
+    conversationId?: string | null;
+    turnId?: string;
+    csrfToken: string;
+  },
 ): Promise<void> {
   if (!message.trim()) throw new ChatApiError('invalid_request');
 
   let response: Response;
   try {
-    response = await fetch('/chat', {
-      method: 'POST',
-      headers: { 'Content-Type': 'application/json' },
-      body: JSON.stringify({ message, ...(modelId === undefined ? {} : { model_id: modelId }) }),
-      credentials: 'same-origin',
-      signal,
-    });
+    response = await fetch(
+      operation?.turnId
+        ? `/conversations/${operation.conversationId}/turns/${operation.turnId}/retry`
+        : '/chat',
+      {
+        method: 'POST',
+        headers: { 'Content-Type': 'application/json', 'X-CSRF-Token': operation?.csrfToken ?? '' },
+        body: JSON.stringify({
+          ...(operation?.turnId
+            ? {}
+            : {
+                message,
+                ...(operation?.conversationId ? { conversation_id: operation.conversationId } : {}),
+              }),
+          request_id: operation?.requestId ?? crypto.randomUUID(),
+          ...(modelId === undefined ? {} : { model_id: modelId }),
+        }),
+        credentials: 'same-origin',
+        signal,
+      },
+    );
   } catch {
     if (signal?.aborted) throw new ChatApiError('interrupted');
     throw new ChatApiError('network_error');
@@ -128,7 +166,13 @@ export async function streamChat(
   if (response.status === 401) throw new ChatApiError('auth_required');
   if (response.status === 422)
     throw new ChatApiError(modelId === undefined ? 'invalid_request' : 'model_unavailable');
-  if (!response.ok) throw new ChatApiError('network_error');
+  if (response.status === 409) {
+    const data = await response.json().catch(() => null);
+    throw new HistoryError(409, data?.detail?.code ?? 'generation_active', data?.detail ?? {});
+  }
+  if (response.status === 404) throw new HistoryError(404, 'conversation_not_found');
+  if (!response.ok)
+    throw new ChatApiError(response.status === 503 ? 'history_unavailable' : 'network_error');
   if (!response.headers.get('content-type')?.startsWith('text/event-stream') || !response.body) {
     throw new ChatApiError('protocol_error');
   }

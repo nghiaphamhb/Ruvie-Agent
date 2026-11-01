@@ -12,7 +12,7 @@
   --error: #ffcecb;
   --error-bg: #351f32;
   --error-border: #835360;
-  --sidebar-width: 264px;
+  --sidebar-width: min(var(--expanded-sidebar-width, 264px), max(220px, calc(100vw - 320px)));
   --shell-background: radial-gradient(ellipse at 65% 35%, #123c60 0%, #0b2945 40%, #071a30 85%);
   --sidebar-background: #051426d9;
   --sidebar-border: #31516d66;
@@ -195,4 +195,26 @@
 }
 .workspace-shell .view-panel::-webkit-scrollbar {
   display: none;
+}
+
+/* Pointer capture keeps the divider usable even when the cursor leaves the shell. */
+.workspace-shell .sidebar-resizer {
+  position: absolute;
+  top: 0;
+  bottom: 0;
+  left: calc(var(--sidebar-width) - 4px);
+  width: 8px;
+  z-index: 30;
+  cursor: col-resize;
+  touch-action: none;
+}
+.workspace-shell .sidebar-resizer:focus-visible {
+  background: var(--sidebar-border);
+  outline: 2px solid var(--focus-color);
+  outline-offset: -2px;
+}
+.workspace-shell.resizing {
+  transition: none;
+  user-select: none;
+  cursor: col-resize;
 }

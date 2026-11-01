@@ -1,10 +1,10 @@
 # F019 - Lịch sử hội thoại
 
 Ngày lập: 2026-10-31.
-Trạng thái: Spec đã xác nhận phạm vi; chưa triển khai.
+Trạng thái: Đã triển khai và nghiệm thu F019; regression baseline ngoài F019 được ghi rõ bên dưới.
 Liên quan: [F020 - Context hội thoại nhiều lượt](F020-multi-turn-chat-context.md).
-Tên bảng, module, API và mã lỗi mới dưới đây là đề xuất triển khai.
-Các task và tiêu chí nghiệm thu chưa được đánh dấu hoàn thành.
+Các bảng, module, API và mã lỗi dưới đây đã có implementation; bằng chứng nghiệm thu nằm ở cuối spec.
+Các task và tiêu chí nghiệm thu F019 được đánh dấu theo bằng chứng code và kiểm thử ở cuối spec.
 
 ## Goal
 
@@ -18,7 +18,7 @@ một câu hỏi và câu trả lời tương ứng. Một lần sinh là một 
 lượt đó, kể cả khi người dùng chọn thử lại.
 F019 lưu chuỗi trao đổi để hiển thị. F020 sẽ dùng chuỗi đó làm context cho model.
 
-### Code currently does
+### Code currently does — baseline trước implementation F019
 
 | Nguồn active đã kiểm tra | Hành vi hiện tại | Khoảng cách |
 | --- | --- | --- |
@@ -252,27 +252,27 @@ theo cơ chế active; cập nhật cả client `/chat` nếu chưa gửi CSRF.
 
 ## Acceptance Criteria
 
-- [ ] AC-01: “Chat mới” chưa gửi không tạo bản ghi; lần gửi hợp lệ đầu tiên tạo đúng một hội thoại, lượt và attempt thuộc session user.
-- [ ] AC-02: Tải lại, đăng nhập lại và trình duyệt khác hiển thị cùng lịch sử đã commit theo đúng thứ tự, model, trạng thái và citations khi còn quyền.
-- [ ] AC-03: Sidebar và view history chỉ liệt kê chat của chủ sở hữu, sắp xếp ổn định và tải thêm không tạo dòng trùng.
-- [ ] AC-04: URL trực tiếp và Back/Forward mở đúng chat; response chậm của chat/account cũ không ghi đè lựa chọn mới.
-- [ ] AC-05: Tên đầu tiên được tạo từ câu hỏi mà không gọi LLM; đổi tên hợp lệ được lưu; tên rỗng/quá dài và version cũ bị từ chối theo contract.
-- [ ] AC-06: Xóa phải xác nhận; commit xóa toàn bộ dữ liệu chat liên quan, giữ tài liệu; lỗi xóa giữ chat trên UI; chat đang sinh bị từ chối xóa.
-- [ ] AC-07: User khác và admin khác đều nhận 404 khi đọc, sửa, xóa, gửi, retry hoặc stop bằng ID không thuộc mình; giả owner/cursor không vượt quyền.
-- [ ] AC-08: Request ghi thiếu/sai CSRF hoặc Origin bị từ chối; session không hợp lệ nhận 401; lịch sử không có provider secret, URI blob hoặc raw exception.
-- [ ] AC-09: Completed chỉ phát sau commit; câu trả lời dở được lưu theo nhóm; lỗi DB không bị hiển thị như đã lưu thành công.
-- [ ] AC-10: Gửi/retry cùng request ID không tạo trùng hoặc gọi provider lần nữa; cùng ID khác payload trả conflict.
-- [ ] AC-11: Hai tab không tạo hai attempt hoạt động trong cùng chat; stop/retry/delta muộn không ghi đè attempt hoặc terminal state khác.
-- [ ] AC-12: Dừng, mất SSE và process chết dẫn tới trạng thái terminal hoặc được thu hồi sau lease; không treo generating vô thời hạn; retry không nhân đôi câu hỏi.
-- [ ] AC-13: Thu hồi quyền một nguồn chặn toàn bộ nội dung assistant và citation metadata của attempt liên quan trước serialization, kể cả câu trả lời dở; lượt độc lập còn quyền vẫn đọc được.
-- [ ] AC-14: Provider/model cũ không hoạt động vẫn mở lịch sử được; gửi/retry kiểm tra model và quyền tài liệu hiện hành.
-- [ ] AC-15: Câu hỏi mới trong chat cũ được lưu cùng hội thoại nhưng prompt F019 không nhận các lượt trước; kiểm thử adapter xác nhận ranh giới với F020.
-- [ ] AC-16: Vi-VN/en-US/ru-RU và theme hiện có hiển thị đủ trạng thái; đổi tên/xóa/tải thêm dùng được bằng bàn phím và dialog phục hồi focus.
-- [ ] AC-17: Migration mới áp dụng trên PostgreSQL/pgvector disposable, có FK/index/unique và rollback hợp lệ; migration cũ và DB ứng dụng không bị sửa để chạy test.
+- [x] AC-01: “Chat mới” chưa gửi không tạo bản ghi; lần gửi hợp lệ đầu tiên tạo đúng một hội thoại, lượt và attempt thuộc session user.
+- [x] AC-02: Tải lại, đăng nhập lại và trình duyệt khác hiển thị cùng lịch sử đã commit theo đúng thứ tự, model, trạng thái và citations khi còn quyền.
+- [x] AC-03: Sidebar và view history chỉ liệt kê chat của chủ sở hữu, sắp xếp ổn định và tải thêm không tạo dòng trùng.
+- [x] AC-04: URL trực tiếp và Back/Forward mở đúng chat; response chậm của chat/account cũ không ghi đè lựa chọn mới.
+- [x] AC-05: Tên đầu tiên được tạo từ câu hỏi mà không gọi LLM; đổi tên hợp lệ được lưu; tên rỗng/quá dài và version cũ bị từ chối theo contract.
+- [x] AC-06: Xóa phải xác nhận; commit xóa toàn bộ dữ liệu chat liên quan, giữ tài liệu; lỗi xóa giữ chat trên UI; chat đang sinh bị từ chối xóa.
+- [x] AC-07: User khác và admin khác đều nhận 404 khi đọc, sửa, xóa, gửi, retry hoặc stop bằng ID không thuộc mình; giả owner/cursor không vượt quyền.
+- [x] AC-08: Request ghi thiếu/sai CSRF hoặc Origin bị từ chối; session không hợp lệ nhận 401; lịch sử không có provider secret, URI blob hoặc raw exception.
+- [x] AC-09: Completed chỉ phát sau commit; câu trả lời dở được lưu theo nhóm; lỗi DB không bị hiển thị như đã lưu thành công.
+- [x] AC-10: Gửi/retry cùng request ID không tạo trùng hoặc gọi provider lần nữa; cùng ID khác payload trả conflict.
+- [x] AC-11: Hai tab không tạo hai attempt hoạt động trong cùng chat; stop/retry/delta muộn không ghi đè attempt hoặc terminal state khác.
+- [x] AC-12: Dừng, mất SSE và process chết dẫn tới trạng thái terminal hoặc được thu hồi sau lease; không treo generating vô thời hạn; retry không nhân đôi câu hỏi.
+- [x] AC-13: Thu hồi quyền một nguồn chặn toàn bộ nội dung assistant và citation metadata của attempt liên quan trước serialization, kể cả câu trả lời dở; lượt độc lập còn quyền vẫn đọc được.
+- [x] AC-14: Provider/model cũ không hoạt động vẫn mở lịch sử được; gửi/retry kiểm tra model và quyền tài liệu hiện hành.
+- [x] AC-15: Câu hỏi mới trong chat cũ được lưu cùng hội thoại nhưng prompt F019 không nhận các lượt trước; kiểm thử adapter xác nhận ranh giới với F020.
+- [x] AC-16: Vi-VN/en-US/ru-RU và theme hiện có hiển thị đủ trạng thái; đổi tên/xóa/tải thêm dùng được bằng bàn phím và dialog phục hồi focus.
+- [x] AC-17: Migration mới áp dụng trên PostgreSQL/pgvector disposable, có FK/index/unique và rollback hợp lệ; migration cũ và DB ứng dụng không bị sửa để chạy test.
 
 ## Tasks
 
-- [ ] **F019-001 — Dữ liệu hội thoại và migration**
+- [x] **F019-001 — Dữ liệu hội thoại và migration**
   - **Work:** Chốt schema/ID, thứ tự lượt, attempt hiện hành, owner-scoped request ID,
     version, lease và cascade; thêm model và migration sau head hiện hành.
   - **Where:** Đề xuất `backend/ruvie/models/chat.py`, migration mới trong
@@ -280,7 +280,7 @@ theo cơ chế active; cập nhật cả client `/chat` nếu chưa gửi CSRF.
   - **Done:** AC-17; test constraint/order/cascade trên DB disposable, kiểm tra SQL
     upgrade/downgrade và dữ liệu account/tài liệu không bị thay đổi.
 
-- [ ] **F019-002 — Service lịch sử, quyền sở hữu và quyền nguồn**
+- [x] **F019-002 — Service lịch sử, quyền sở hữu và quyền nguồn**
   - **Work:** Implement list/detail phân trang, rename/version và delete; kiểm tra
     ownership trước mọi truy cập; dùng readable-document predicate để che assistant
     và citations không còn quyền trước serialization; batch kiểm tra nguồn mỗi trang.
@@ -290,7 +290,7 @@ theo cơ chế active; cập nhật cả client `/chat` nếu chưa gửi CSRF.
   - **Done:** AC-03, 05–07, 13; integration test chéo owner/admin, thu hồi grant,
     membership, nguồn mất, nhiều nguồn trong một attempt, revision và pagination.
 
-- [ ] **F019-003 — Lưu vòng đời sinh và chống gửi trùng**
+- [x] **F019-003 — Lưu vòng đời sinh và chống gửi trùng**
   - **Work:** Nhận câu hỏi/attempt nguyên tử, giữ một generation hoạt động; bổ sung
     provenance trước output; lưu delta theo nhóm và terminal state; retry/stop;
     lease expiry và attempt fencing. Chốt kích thước/thời gian buffer, lease và
@@ -301,7 +301,7 @@ theo cơ chế active; cập nhật cả client `/chat` nếu chưa gửi CSRF.
     process abandonment, stop-vs-completed và hai transaction gửi đồng thời.
     Không giữ DB transaction trong lúc đợi provider.
 
-- [ ] **F019-004 — API lịch sử và SSE có định danh**
+- [x] **F019-004 — API lịch sử và SSE có định danh**
   - **Work:** Expose contract đề xuất; thêm accepted event, endpoint retry/stop,
     error mapping, no-store và CSRF/Origin. Đăng ký router, giữ route mỏng;
     không nhận nội dung assistant/citations do client cung cấp.
@@ -310,7 +310,7 @@ theo cơ chế active; cập nhật cả client `/chat` nếu chưa gửi CSRF.
   - **Done:** HTTP/SSE contract test cho tất cả endpoint, AC-07–10; lỗi trước SSE
     và lỗi sau accepted được phân biệt; response lỗi không lộ tài nguyên người khác.
 
-- [ ] **F019-005 — Owner frontend và khôi phục hội thoại**
+- [x] **F019-005 — Owner frontend và khôi phục hội thoại**
   - **Work:** Thêm API lịch sử, ID bền vững và trạng thái hydration; mở/tải lượt cũ;
     quản lý request ID, accepted, stop server, retry và reconciliation sau lỗi;
     bảo vệ response muộn và dọn state khi account đổi.
@@ -320,7 +320,7 @@ theo cơ chế active; cập nhật cả client `/chat` nếu chưa gửi CSRF.
   - **Done:** AC-02, 04, 09–12, 14; state test tải chồng nhau, duplicate/lost accepted,
     session hết hạn, model bị gỡ và nội dung nguồn bị che không tồn tại trong UI state.
 
-- [ ] **F019-006 — Sidebar, URL và thao tác lịch sử**
+- [x] **F019-006 — Sidebar, URL và thao tác lịch sử**
   - **Work:** Render danh sách chung cho sidebar/history; selected row, tải thêm,
     rename/delete dialog và trạng thái rỗng/lỗi; tích hợp URL/Back/Forward, chat mới
     và xác nhận dừng trước khi chuyển. Hiển thị interrupted/content unavailable;
@@ -333,7 +333,7 @@ theo cơ chế active; cập nhật cả client `/chat` nếu chưa gửi CSRF.
   - **Done:** AC-03–06, 13, 16; browser test chat mới → gửi → reload → mở lại →
     gửi tiếp → đổi tên → xóa, gồm bàn phím, theme và ba ngôn ngữ.
 
-- [ ] **F019-007 — Nghiệm thu và regression**
+- [x] **F019-007 — Nghiệm thu và regression**
   - **Work:** Thêm kiểm thử tích hợp và browser còn thiếu; cập nhật test `/chat`
     hiện tại theo contract mới; kiểm tra account isolation, citations, model/proxy
     và stop/retry. Chạy bộ kiểm tra theo README/AGENTS trên DB disposable, ghi số
@@ -344,3 +344,143 @@ theo cơ chế active; cập nhật cả client `/chat` nếu chưa gửi CSRF.
   - **Done:** Đối chiếu toàn bộ AC-01–17; full backend suite, frontend tests,
     build/lint/format và browser prerequisites theo tài liệu. Skip không tính pass;
     không dùng provider thật hoặc reset DB ứng dụng. Chỉ tick task đã được kiểm chứng.
+
+
+## Implementation evidence — 2026-10-31
+
+- Schema mới: migration `0016_chat_history`; conversation, turn, attempt và nguồn
+  là các bảng quan hệ. Unique index chỉ cho một attempt generating mỗi hội thoại.
+  Provenance không bị cascade khi tài liệu mất; lần đọc sau phải kiểm tra lại nguồn.
+- `ConversationService` quản lý ownership, cursor, rename/version, cascade delete,
+  request idempotency, lease và fencing. `ChatService` giữ model/retrieval/prompt.
+  API chỉ xác thực HTTP, gọi service và encode SSE.
+- Lease là 60 giây. Adapter active dùng timeout đọc 10 giây. Buffer được commit
+  khi đạt 1024 ký tự Unicode hoặc 250 ms tại delta tiếp theo, và trước terminal event.
+  Không giữ transaction ghi chat khi chờ provider. Clear buffer trước yield để
+  disconnect không append lại đoạn đã commit.
+- Frontend giữ một owner chat/history trong feature chat. Sidebar và history dùng
+  chung danh sách; URL, request đọc chồng nhau, pending stop và disposal được fence.
+  Không lưu nội dung chat trong browser storage. Retry dùng turn server và request UUID.
+- Legacy: giữ hành vi owner filtering từ
+  `references/backend/ruvie/models/chats.py::get_chat_title_id_list_by_user_id`
+  và `get_chat_by_id_and_user_id`; không port JSON overwrite, legacy auth hoặc runtime.
+- Review độc lập đã phát hiện và kiểm tra lại các sửa lỗi: buffer trùng khi disconnect,
+  mất thông báo lỗi sau hydration, stop trước accepted, stop trả muộn và waiter treo.
+
+### Module đã triển khai
+
+| File/module | Trách nhiệm và input → output |
+| --- | --- |
+| `models/chat.py`, `models/__init__.py`, migration `0016_chat_history.py` | Đăng ký schema quan hệ; owner/request uniqueness, thứ tự, active-generation index và cascade |
+| `services/conversations.py::ConversationService` | Trusted owner + resource/request IDs → metadata, trang lượt đã lọc quyền, admission IDs hoặc lỗi an toàn; commit mutation ngắn |
+| `services/chat.py::ChatService.start`, `_durable_stream` | Câu hỏi/turn + model server → accepted, các batch đã commit và terminal SSE events; giữ prompt một lượt |
+| `contracts/chat.py`, `contracts/conversations.py` | UUID và payload có trường cho phép → request đã validate; không nhận assistant/citations/owner từ client |
+| `api/chat.py`, `api/conversations.py`, `main.py` | Session/Origin/CSRF + request contract → service result và HTTP/SSE no-store |
+| `conversation-api.ts`, `chat-api.ts`, `chat-turn.ts` | HTTP lịch sử và SSE có ID → dữ liệu public và lỗi an toàn cho owner |
+| `chat-state.svelte.ts` | Sở hữu draft, lượt, danh sách, hydration, request IDs, stop/retry; fence response/attempt và dọn account state |
+| `ConversationList.svelte` | Danh sách dùng chung, menu và dialog rename/delete với focus phục hồi |
+| `ChatPage.svelte`, `ChatConversation.svelte` | Composer/renderer hiện có + lịch sử → model/time/status, nguồn bị che và tải lượt cũ giữ vị trí đọc |
+| `AppSidebar.svelte`, `WorkspacePage.svelte` | Layout nhận snippet; page compose owner và điều phối URL/Back/Forward, stop trước chuyển, disposal |
+| Ba locale catalogs, `vite.config.ts` | Copy vi/en/ru; proxy `/conversations` tới backend trong development |
+
+### Kết quả đã đo
+
+| Kiểm tra | Kết quả thực tế | Bằng chứng |
+| --- | --- | --- |
+| Backend F019 focused | 36 pass, 0 fail/skip | `logs/f019/focused-final.log` |
+| Chat regression focused | 28 pass, 0 fail/skip | F004 contract/chat, F006 model và durable failure tests |
+| Frontend unit/component, có browser prerequisites | 130 pass, 0 fail/skip | `logs/f019/frontend-final.log` |
+| F019 browser | 3 locale pass | `node frontend/tests/f019-history-browser.mjs` |
+| Build, lint, format | Pass | Commands theo README; chạy sau sửa cuối |
+| Auth/theme/admin/renderer UX browser | 64 checks / 9 checks / 34 groups / 42 checks pass | Standalone browser scripts theo AGENTS |
+| Full backend trước sửa admin E2E request | 433 tests: 432 pass, 1 fail, 0 skip | `logs/f019/backend-suite.log` |
+| Full backend cuối, có browser prerequisites | 435 pass, 0 fail/skip | `logs/f019/backend-final.log` |
+| Workspace browser | 29 checks pass sau sửa bổ sung | `node frontend/tests/workspace-browser.mjs` |
+| LLM/i18n browser | 54 checks pass sau sửa bổ sung | Default `node frontend/tests/llm-browser.mjs`, không cờ bỏ qua locale |
+
+Request `/chat` trong `admin-e2e.mjs` gây failure full suite trước đã được bổ sung
+UUID. Lượt full suite cuối chạy sau sửa này và đã qua; không khởi chạy hai backend suite cùng lúc.
+Không coi skip hoặc failure baseline là pass.
+
+Browser F019 kiểm tra gửi → reload → gửi tiếp → Chat mới/Back/Forward → đổi tên →
+hủy xóa → xóa. Cả ba locale kiểm tra tên Unicode 120 ký tự, từ chối 121 ký tự,
+thao tác menu bằng bàn phím và focus quay lại summary sau khi hủy dialog.
+Có context dùng light và dark theo theme hệ thống.
+
+### Đối chiếu nghiệm thu hiện tại
+
+- AC-01, 05, 10–12, 17: schema/lifecycle, duplicate admission, lease, terminal race,
+  migration SQL và rollback đã có focused PostgreSQL evidence.
+- AC-03, 06–08, 13: owner/admin isolation, CSRF/Origin, pagination, cascade,
+  grant/membership revocation và source deletion đã có integration evidence.
+- AC-02, 04, 09, 14–16: durable stream/prompt tests, frontend state tests và browser
+  F019 xác minh hydration, URL, stop/retry, redaction và thao tác lịch sử.
+- State test mất accepted xác minh không tự gửi lại khi response chưa chắc chắn;
+  Retry chủ động giữ request UUID và hydrate turn đã được nhận.
+- F019-007 đã chạy và ghi kết quả các lệnh regression yêu cầu. Full backend và
+  các gate F019 đều qua. Hai browser regression baseline ngoài lịch sử hội thoại
+  đã được xử lý trong đợt sửa bổ sung bên dưới.
+
+Trong đợt triển khai ban đầu chưa migration DB ứng dụng; không dùng provider thật. Output sinh nằm trong
+ignored `logs/` và `frontend/dist/`; không commit các output này.
+
+Review độc lập đã xác nhận không còn finding correctness/security trong phạm vi
+F019 sau các sửa lỗi và kiểm thử tái hiện. `git diff --check` đạt. Không commit,
+push. Migration DB ứng dụng được áp dụng trong đợt bổ sung bên dưới.
+
+
+## Sửa bổ sung regression và áp dụng migration — hoàn tất 2026-11-01
+
+Người dùng đã phê duyệt áp dụng migration DB ứng dụng và phạm vi sửa regression.
+Alembic đã chạy upgrade `0016_chat_history`; kiểm tra sau upgrade trả
+`0016_chat_history (head)`. Không reset DB hoặc sửa migration cũ.
+
+- `ThemeSelector.svelte`: nguyên nhân focus là grid cố định ba cột khiến label
+  co còn 18px trong panel hẹp và icon chồng nhau. Grid dùng kích thước nội tại,
+  tự giảm số cột và cho text xuống dòng; không thêm breakpoint/layout mobile riêng.
+- Workspace browser hiện qua 29 checks với các assertion focus/hit-test cũ giữ nguyên.
+  Theme browser qua 9 checks, F019 history browser qua cả ba locale.
+- Frontend suite sau sửa theme: 130 pass, 0 fail/skip
+  (`logs/f019/regression-followup-tests.log`).
+- `llm-browser.mjs` chuyển các flow personal connection đã bỏ sang organization
+  verify/apply và key action. Focused current-contract run qua 31 checks.
+  Default run gồm locale qua 54 checks, không dùng cờ bỏ qua locale.
+- `i18n-browser.mjs` đã cập nhật fixture/assertion theo contract organization hiện hành:
+  ba locale, lỗi có cấu trúc, draft chat/upload, request trễ, xóa draft key và streaming citations.
+- Review bổ sung đã dẫn tới thay sleep cố định bằng tín hiệu request/response và
+  kiểm tra đúng private marker trong lỗi verify. Lượt default 54 checks chạy lại sau sửa.
+- Frontend suite cuối: 130 pass, 0 fail/skip (`logs/f019/regression-followup-final.log`).
+  Lint và format check đều pass. Build, theme 9 checks và history ba locale đã pass
+  sau sửa component; không có thay đổi backend trong đợt bổ sung này.
+
+
+## Điều chỉnh sidebar và hàng hội thoại — 2026-11-01
+
+- Người dùng duyệt phạm vi UI: `WorkspacePage.svelte`, `WorkspaceShell.svelte`,
+  `workspace.css`, `ConversationList.svelte`, catalogs và browser tests liên quan.
+- Nút Tải lại trước đây hiện với mọi conversation ID; nay chỉ hiện khi lịch sử lỗi.
+- Shell sở hữu chiều rộng sidebar trong phiên: mặc định 264px, giới hạn 220–480px
+  và chừa 320px cho nội dung. Kéo bằng pointer capture; ArrowLeft/Right đổi 16px,
+  Home/End chọn giới hạn. Không thay đổi trạng thái thu gọn hiện có.
+- Hàng hội thoại dùng chung nền hover/selected/focus và bo góc 6px cho tên/menu;
+  chưa thêm chức năng pin hay nút giả. Không thay đổi API/DB.
+- Đối chiếu `references/src/lib/components/layout/Sidebar.svelte`:
+  tái sử dụng ý tưởng delta chiều ngang và giới hạn chiều rộng; triển khai bằng
+  state của active shell, không mang theo stores, API, mobile hay runtime legacy.
+- Kiểm thử tái hiện thất bại trước sửa vì chưa có separator. Sau sửa browser F019
+  qua ba locale: kéo ra/vào, Home/End/mũi tên, nền hàng, ẩn Tải lại khi bình thường,
+  hiện khi GET lỗi và phục hồi thành công; workspace browser qua 29 checks.
+- Xác minh cuối: `npm --prefix frontend run build`, `run lint`, `run format:check`
+  đều pass; `npm --prefix frontend test`: 130 pass, 0 fail/skip
+  (`logs/f019/sidebar-ui-tests.log`). `git diff --check` pass.
+
+### Bổ sung icon pin và bỏ sáng cạnh kéo — 2026-11-01
+
+- Phạm vi được người dùng duyệt: CSS shell, ConversationList, catalogs, browser
+  test và spec. Bỏ nền/outline khi hover cạnh kéo; giữ focus-visible bàn phím.
+- ConversationList thêm SVG pin trong cùng hàng sau menu, disabled và hiển thị
+  mờ, tooltip/accessible label sắp có bằng ba ngôn ngữ. Chưa có pin API/state.
+- Browser test thất bại trước sửa tại outline solid khi giữ chuột; sau sửa qua
+  cả en-US, vi-VN, ru-RU, kiểm tra nền trong suốt/không outline khi kéo và pin
+  disabled. Workspace browser 29 checks pass. Frontend suite 130 pass, 0 fail/skip
+  (`logs/f019/pin-ui-tests.log`). Build, lint, format check pass.

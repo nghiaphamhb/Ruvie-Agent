@@ -15,9 +15,14 @@ from .access import AccessGrant
 from .audit import AuditEvent
 from .llm import OrganizationLlmSettings, UserLlmSettings
 from .embedding import OrganizationEmbeddingSettings
+from .chat import ChatConversation, ChatTurn, ChatGenerationAttempt, ChatAttemptSource
 
 __all__ = [
     "Base",
+    "ChatConversation",
+    "ChatTurn",
+    "ChatGenerationAttempt",
+    "ChatAttemptSource",
     "AuthSession",
     "User",
     "UserLlmSettings",

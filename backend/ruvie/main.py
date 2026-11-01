@@ -2,6 +2,7 @@ from contextlib import asynccontextmanager
 from fastapi import FastAPI
 
 from ruvie.adapters.blob_storage import DEFAULT_BLOB_ROOT, LocalBlobStore
+from ruvie.api.conversations import router as conversations_router
 from ruvie.api.chat import router as chat_router
 from ruvie.api.auth import router as auth_router
 from ruvie.api.admin import router as admin_router
@@ -32,6 +33,7 @@ async def lifespan(app: FastAPI):
 
 app = FastAPI(title="Ruvie Agent", lifespan=lifespan)
 app.include_router(chat_router)
+app.include_router(conversations_router)
 app.include_router(auth_router)
 app.include_router(admin_router)
 app.include_router(document_router)

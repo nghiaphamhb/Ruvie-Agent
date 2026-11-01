@@ -46,7 +46,7 @@ class ChatSseContractTests(unittest.TestCase):
         self.assertIsNotNone(importlib.util.find_spec("ruvie.contracts.chat"))
         from ruvie.contracts.chat import ChatRequest, ChatStreamEvent
 
-        request = ChatRequest(message="How do I install it?")
+        request = ChatRequest(request_id="00000000-0000-0000-0000-000000000001", message="How do I install it?")
         frame = ChatStreamEvent("delta", {"text": "Install it"}).to_sse()
 
         self.assertEqual(request.message, "How do I install it?")

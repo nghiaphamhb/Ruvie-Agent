@@ -13,7 +13,13 @@
     retryDisabled = false,
     catalog = null,
     onretry = () => {},
+    hasOlder = false,
+    olderLoading = false,
+    onolder = async () => {},
   }: {
+    hasOlder?: boolean;
+    olderLoading?: boolean;
+    onolder?: () => Promise<void>;
     turns: ChatTurn[];
     visible: boolean;
     busy?: boolean;
@@ -39,6 +45,17 @@
     readingPosition = conversation.scrollTop;
     followOutput = conversation.scrollHeight - readingPosition - conversation.clientHeight < 80;
   }
+  async function loadOlder() {
+    followOutput = false;
+    const height = conversation.scrollHeight,
+      position = conversation.scrollTop;
+    await onolder();
+    await tick();
+    if (conversation) {
+      conversation.scrollTop = position + conversation.scrollHeight - height;
+      readingPosition = conversation.scrollTop;
+    }
+  }
   function toBottom() {
     followOutput = true;
     conversation.scrollTop = conversation.scrollHeight;
@@ -61,13 +78,33 @@
 
 <div class="conversation-region">
   <div class="conversation" bind:this={conversation} onscroll={handleScroll}>
+    {#if hasOlder}<button disabled={olderLoading || busy} onclick={loadOlder}
+        >{$i18n.t('history.older')}</button
+      >{/if}
     <section bind:this={turnList} class="turn-list" aria-label={$i18n.t('chat.conversation')}>
       {#each turns as turn (turn.id)}<article class="turn">
-          <div class="user-row"><div class="user-message">{turn.question}</div></div>
+          <div class="user-row">
+            <div class="user-message">
+              {turn.question}{#if turn.createdAt}<time datetime={turn.createdAt}
+                  >{new Intl.DateTimeFormat($i18n.locale, {
+                    dateStyle: 'medium',
+                    timeStyle: 'short',
+                  }).format(new Date(turn.createdAt))}</time
+                >{/if}
+            </div>
+          </div>
           <div class="assistant-row">
             <span class="assistant-mark" aria-hidden="true">R</span>
             <div class="assistant-content">
-              <div class="assistant-name">Ruvie Agent</div>
+              <div class="assistant-name">
+                Ruvie Agent {#if turn.modelId}<small>{turn.modelId}</small>{/if}
+              </div>
+              {#if turn.contentUnavailable}<p role="status">
+                  {$i18n.t('history.unavailable')}
+                </p>{/if}
+              {#if turn.status === 'interrupted'}<p role="status">
+                  {$i18n.t('history.interrupted')}
+                </p>{/if}
               {#if turn.answer}<div class="answer">
                   <AnswerContent content={turn.answer} />
                 </div>{/if}
@@ -92,7 +129,7 @@
                 {#if turn.answer}<button type="button" onclick={() => copyText(turn.answer)}
                     >{$i18n.t('chat.copy')}</button
                   >{/if}
-                {#if ['completed', 'error', 'stopped'].includes(turn.status)}
+                {#if ['completed', 'error', 'stopped', 'interrupted'].includes(turn.status)}
                   <button
                     type="button"
                     disabled={busy || retryDisabled}
@@ -120,6 +157,12 @@
 </div>
 
 <style>
+  time {
+    display: block;
+    font-size: 12px;
+    opacity: 0.8;
+    margin-top: 8px;
+  }
   .conversation-region {
     position: relative;
     display: flex;
